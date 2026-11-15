@@ -116,13 +116,14 @@ def model_tokens(keyword):
     """영문+숫자가 한 낱말에 같이 있고 단위(5000mah)·규격(usb3) 낱말이 아닌 것."""
     units = sorted(RK["unit_tokens"], key=len, reverse=True)
     ualt = "|".join(re.escape(u) for u in units)
+    ualt2 = "|".join(re.escape(u) for u in units if len(u) >= 2)      # 한 글자 단위는 '숫자+단위'(20w)일 때만 단위로 봄(G502·M720 같은 모델명은 살림)
     out = []
     for t in re.findall(r"[A-Za-z0-9][A-Za-z0-9\-\.]*", keyword):
         t = t.strip("-.")
         if not (re.search(r"[A-Za-z]", t) and re.search(r"\d", t)) or len(t) < RK["model_min_len"]:
             continue
         low = t.lower()
-        if re.fullmatch(rf"\d+(\.\d+)?({ualt})", low) or re.fullmatch(rf"({ualt})\d+(\.\d+)?", low):
+        if re.fullmatch(rf"\d+(\.\d+)?({ualt})", low) or re.fullmatch(rf"({ualt2})\d+(\.\d+)?", low):
             continue
         out.append(t)
     return out
@@ -640,7 +641,7 @@ def stage_titles_gate(rows, led):
             else:
                 got = claude_titles(chunk)
                 for r in chunk:
-                    if got:
+                    if got and got[r["nk"]]["titles"]:
                         cache[r["nk"]] = {**got[r["nk"]], "source": "claude"}
             jsave(D / "titles_cache.json", cache)
         for r in pool:                      # 점수 순으로 관문

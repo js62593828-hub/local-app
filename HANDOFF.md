@@ -1,6 +1,6 @@
-## 진행 중 (2026-11-16) — 자동화 3단계: N데스크피커 키워드·제목 발굴(tools/keyword_pipeline.py)
-- 단계: 코드 작성 끝 → 씨앗·조회(API) → 점수·제목(claude, 상한 35) → 승인·날짜 배정 → push_plan dry-run 확인 → verify.md. 시작 커밋 66b398d('before keyword_pipeline'), 이 PC 에 git 저장소가 없어 %LOCALAPPDATA%\local-app-git 에 새로 만듦.
-- 다음 명령: python tools/keyword_pipeline.py --week 2026-11-23 (이어 받기 가능). 끝나면 preview/keyword_pipeline/verify.md, reviewer 검수. 대기열에는 안 넣음(--apply 안 씀).
+## 완료 (2026-11-16) — 자동화 3단계: N데스크피커 키워드·제목 발굴(tools/keyword_pipeline.py)
+- 결과: preview/keyword_pipeline/verify.md. 결과 폴더 pipeline/keyword_run/2026-11-23_radar_naver/ (승인 21편, 부족 0, 대기열에는 안 넣음). 되돌리기 기준은 git log 의 'keyword_pipeline' 커밋(저장소 %LOCALAPPDATA%/local-app-git, 이 PC 에서 새로 만듦).
+- 다음: 마음에 들면 python tools/push_plan.py --channel radar_naver --plan pipeline/keyword_run/2026-11-23_radar_naver/plan.json (dry-run) → --apply.
 
 ## 완료 (2026-11-15) — N데스크피커 제품 후보 재시험 + 링크 발급 도구(tools/issue_links.py)
 - 결과: preview/issue_links/verify.md. 결과 폴더 pipeline/candidates_run/20261115_radar_naver/ (approved.json 은 시험 저장분 1개, links.json 에 실제 발급 1개). 되돌리기는 git log 의 '링크 발급' 커밋.
