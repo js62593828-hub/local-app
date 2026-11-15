@@ -292,8 +292,35 @@ def stage_lookup(seeds):
         for k in ks[:RK["per_seed_pool"]]:
             cands[k] = owner[k]
         drops["씨앗별 상위 한도 밖"] += max(0, len(ks) - RK["per_seed_pool"])
+    # 모델명 후보(틀 B): 상품 수집 2차 결과에서 이미 잰 모델명의 월 검색량·문서수를 재사용한다(API 0회). 모델명 모양인 것만.
+    mfile = BASE / "pipeline" / "stage_desk_pick2_run" / "candidates2.csv"
+    mdrop = {"모델명 모양 아님": 0, "검색량·문서수 없음": 0, "이미 있는 키워드": 0}
+    nmodel = 0
+    if mfile.exists():
+        with open(mfile, encoding="utf-8-sig", newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r.get("모델명 종류") != "모델명":
+                    continue
+                kw = " ".join((r.get("모델명") or "").split())
+                try:
+                    vol, docs = int(float(r.get("검색량") or "")), int(float(r.get("문서 수") or ""))
+                except ValueError:
+                    mdrop["검색량·문서수 없음"] += 1
+                    continue
+                if not model_tokens(kw):
+                    mdrop["모델명 모양 아님"] += 1
+                    continue
+                k = nk(kw)
+                if k in cands:
+                    mdrop["이미 있는 키워드"] += 1
+                    continue
+                sd = r.get("씨앗") or kw
+                cands[k] = {"keyword": kw, "nk": k, "volume": vol, "seed": sd, "theme": theme_of(sd), "docs": docs, "src": "2차 상품 수집 모델명"}
+                nmodel += 1
+    cands = {k: c for k, c in cands.items() if c["theme"] != UNDECIDED}
+    drops["모델명 후보(2차 결과 재사용)"] = {"더함": nmodel, **mdrop}
     # 블로그 문서 수(블로그 검색 총 문서수) — 저장된 값은 다시 받지 않는다
-    todo = [c for k, c in cands.items() if k not in raw["blog_total"]]
+    todo = [c for k, c in cands.items() if c.get("docs") is None and k not in raw["blog_total"]]
     for i, c in enumerate(todo):
         if api.usage["blog"] >= A.blog_limit:
             api.save()
@@ -315,7 +342,9 @@ def stage_lookup(seeds):
     api.save()
     rs.save_raw(raw)
     for k, c in cands.items():
-        c["docs"] = raw["blog_total"].get(k)
+        if c.get("docs") is None:
+            c["docs"] = raw["blog_total"].get(k)
+            c["src"] = "연관 키워드(검색광고)"
     jsave(D / "cands_raw.json", {"cands": cands, "drops": drops})
     print(f"[lookup] 후보 {len(cands)}개 (조회 전 탈락 {drops}) / 사용량 {api.usage}")
     return cands, drops
@@ -417,8 +446,7 @@ def stage_score(cands, drops):
             continue
         hit = next((k for k in kept if overlaps(r["keyword"], k["keyword"], RK["similarity"]) or overlaps(k["keyword"], r["keyword"], RK["similarity"])), None)
         if hit:
-            r["status"] = "탈락"
-            r["reasons"].append(f"같은 주 후보 겹침({hit['keyword']})")
+            r["overlap_with"] = hit["nk"]       # 점수가 더 높은 짝이 승인되면 탈락, 보류되면 이 후보가 대신 나감(승인 관문에서 결정)
         else:
             kept.append(r)
     rows.sort(key=lambda x: (-x["score"], x["nk"]))
@@ -580,6 +608,7 @@ def stage_titles_gate(rows, led):
     approved, reserve_ok, held = [], [], []
     th_n, seed_n, ab_n = {}, {}, {"A": 0, "B": 0}
     cand = [r for r in rows if r["status"] == "후보"]
+    by_nk = {r["nk"]: r for r in cand}
     done = set()
     rounds = 0
     while (ab_n["A"] < need["A"] or ab_n["B"] < need["B"]) and rounds < 8:
@@ -589,6 +618,10 @@ def stage_titles_gate(rows, led):
         for r in cand:
             if r["nk"] in done or pcnt[r["type"]] >= want[r["type"]] or ab_n[r["type"]] >= need[r["type"]]:
                 continue
+            pn = r.get("overlap_with")
+            if pn:                                   # 겹치는 짝이 아직 결과가 안 났거나 승인됐으면 이번엔 건너뜀
+                if pn not in done or by_nk[pn]["status"] == "승인":
+                    continue
             if pth.get(r["theme"], 0) >= RK["theme_cap"] or psd.get(r["seed"], 0) >= RK["per_seed_week_max"]:
                 continue
             pool.append(r)
@@ -634,7 +667,9 @@ def stage_titles_gate(rows, led):
                 elif seed_n.get(r["seed"], 0) >= RK["per_seed_week_max"]:
                     why = f"같은 상품 종류 주 {RK['per_seed_week_max']}편 한도"
             r["title"] = title
-            if why:
+            if why and why.startswith(("A:B 비율", "갈래 주간 상한", "같은 상품 종류")):
+                r["status"], r["reserve_note"] = "예비", why          # 검사는 통과했지만 자리가 가득 참 → 예비
+            elif why:
                 r["status"], r["hold_reason"] = "보류", why
                 held.append(r)
             elif ab_n[r["type"]] < need[r["type"]]:
@@ -646,6 +681,10 @@ def stage_titles_gate(rows, led):
     for r in cand:
         if r["status"] == "후보" and r["nk"] in done:
             r["status"] = "예비"
+        pn = r.get("overlap_with")
+        if r["status"] in ("후보", "예비") and pn and by_nk[pn]["status"] == "승인":
+            r["status"] = "탈락"
+            r["reasons"].append(f"같은 주 후보 겹침({by_nk[pn]['keyword']} 승인)")
     short = {t: need[t] - ab_n[t] for t in "AB"}
     return approved, held, short, cache
 
@@ -676,22 +715,28 @@ def assign_dates(approved):
         rnd.shuffle(pad)
         return pad
     best, best_c = None, None
-    for _ in range(200):
+    for _ in range(3000):
         arr = [None] * len(slots)
         for i, r in zip(A_pos, initial(As, A_pos)):
             arr[i] = r
         for i, r in zip(B_pos, initial(Bs, B_pos)):
             arr[i] = r
         c = cost(arr)
-        for _it in range(400):
-            grp = A_pos if rnd.random() < 0.7 else B_pos
-            i, j = rnd.sample(grp, 2)
-            arr[i], arr[j] = arr[j], arr[i]
+        for _it in range(300):
+            if rnd.random() < 0.15:                   # 하루 통째로 맞바꾸기(갈래 겹침 없이 요일 순서만 바꿈)
+                d1, d2 = rnd.sample(range(7), 2)
+                sw = [(3 * d1 + k, 3 * d2 + k) for k in range(3)]
+            else:
+                grp = A_pos if rnd.random() < 0.7 else B_pos
+                sw = [tuple(rnd.sample(grp, 2))]
+            for i, j in sw:
+                arr[i], arr[j] = arr[j], arr[i]
             c2 = cost(arr)
             if c2 <= c:
                 c = c2
             else:
-                arr[i], arr[j] = arr[j], arr[i]
+                for i, j in sw:
+                    arr[i], arr[j] = arr[j], arr[i]
         if best_c is None or c < best_c:
             best, best_c = list(arr), c
         if best_c == 0:

@@ -11,6 +11,10 @@
  - --update-products : 이 도구가 넣은 항목(push_log 의 id)의 plan 칸 안 제품 링크만 바꿉니다
    (기본은 보여 주기만, --apply 일 때 씀. 승인된 항목도 바꿈. 다른 칸·다른 항목은 안 건드림. 쓰기 전 백업).
  - 카테고리·글 유형은 pipeline/final/categories_20261116.json(--categories)이 계획 값보다 우선합니다.
+ - --channel radar_naver : N데스크피커 대기열(content_queue_radar_naver.json)에 넣습니다. tools/keyword_pipeline.py 가 만든 plan.json
+   (항목마다 radar 칸: date·title·type·search_query·갈래·auto_approved·run_id)을 읽고, 그 값을 대기열 항목의 plan 칸에 그대로 적습니다.
+   되돌리기는 --undo-run-id <run_id> (그 run_id 로 넣은 항목만 뺌, 발행·글 작성된 항목은 그대로 둠). 기록은 push_log_radar_naver.json.
+   --channel 을 안 쓰면 지금까지와 똑같이 N살림노트·W싼세계 동작입니다.
 앱 코드(app.py 등)는 import 하지 않습니다.
 
 사용 예:
@@ -38,6 +42,13 @@ DEFAULT_CATEGORIES = os.path.join("pipeline", "final", "categories_20261116.json
 # main.SHOP_CATEGORIES 와 같은 값 (app 을 import 하지 않으려고 복사. 달라지면 여기만 고칩니다)
 APP_CATEGORIES = ["냉난방·계절 대비", "습기·곰팡이·해충", "세탁·의류관리", "욕실·청소", "주방 살림",
                   "수납·정리", "침구·패브릭", "공기·생활가전", "집 수리·안전", "차량 관리"]
+# 채널 지정(--channel) 때만 쓰는 값. 기본(미지정) 동작은 위 QUEUES·ARTICLES·LABEL·SOURCE·LOG_PATH 그대로.
+CHANNELS = {
+    "radar_naver": {"queues": {"naver": "content_queue_radar_naver.json"}, "articles": {"naver": "articles_radar_naver.json"},
+                    "label": {"naver": "N데스크피커(radar_naver)"}, "source": "keyword_pipeline",
+                    "log": os.path.join("pipeline", "final", "push_log_radar_naver.json")},
+}
+RADAR_KEYS = ("date", "title", "type", "search_query", "갈래", "auto_approved", "run_id")
 COUPANG = re.compile(r"coupang\.com|coupa\.ng", re.I)
 NAVER = re.compile(r"(^|[/.])naver\.(com|me)\b|naver\.me", re.I)
 
@@ -215,6 +226,11 @@ def build_items(plan, products, plan_file, cats=None):
                 "link_warnings": warns,
             },
         }
+        rad = p.get("radar")
+        if isinstance(rad, dict):  # keyword_pipeline 이 만든 계획만: 날짜·제목·유형·제품 검색어·갈래·자동 승인·run_id 를 plan 칸에 그대로 적음
+            item["planned_type"] = rad.get("type")
+            item["planned_category"] = ""
+            item["plan"].update({k: rad.get(k) for k in RADAR_KEYS})
         if isinstance(pn, dict):  # weekly_plan 이 만든 계획만: 필요 수·찾을 조건·링크 종류 (없는 계획은 plan 칸이 지금과 똑같음)
             item["plan"]["product_need"] = {"need": bool(pn.get("need")), "count": pn.get("count") or 0,
                                             "condition": pn.get("condition") or "", "link_kind": pn.get("link_kind") or ""}
@@ -253,7 +269,7 @@ def print_table(todo, skipped, warns):
         pl = it["plan"]
         n = len(pl["products"])
         print(f"| {QUEUES[pf]} | {pl['publish_date'] or '(비움)'} | {it['keyword']} | {'승인' if it['approved'] else '승인 안 함(예비)'} | {pl['final_title']} | "
-              f"{it['planned_type']}{'' if it['planned_category'] else ' (카테고리 미정)'} | {n if n else '없음'} |")
+              f"{it['planned_type']}{'' if (it['planned_category'] or pl.get('run_id')) else ' (카테고리 미정)'} | {n if n else '없음'} |")
     print(f"\n승인 {sum(1 for _, i in todo if i['approved'])}편 · 승인 안 함 {sum(1 for _, i in todo if not i['approved'])}편")
     print(f"넣을 항목 {len(todo)}편 (네이버 {sum(1 for p, _ in todo if p == 'naver')} · 싼세계 {sum(1 for p, _ in todo if p == 'wordpress')})")
     print(f"제품 링크 없음 {sum(1 for _, i in todo if not i['plan']['products'])}편")
@@ -273,6 +289,11 @@ def print_table(todo, skipped, warns):
 def cmd_push(args):
     plan = read_json(args.plan)
     products, _ = load_products(args.products)
+    if args.channel:
+        bad = [p.get("keyword") for p in scheduled(plan) if not (isinstance(p.get("radar"), dict) and p["radar"].get("run_id") and p["radar"].get("search_query") and p["radar"].get("date"))]
+        if bad:
+            print(f"--channel {args.channel}: radar 칸(날짜·search_query·run_id)이 없는 항목이 있어 멈춥니다: {bad[:5]}")
+            return 2
     pairs = build_items(plan, products, args.plan.replace("\\", "/"), load_categories(args.categories))
     warns = []
     keys = {(pf, nk(i["keyword"])) for pf, i in pairs}
@@ -292,6 +313,8 @@ def cmd_push(args):
     os.makedirs("backup", exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run = {"time": datetime.now().isoformat(timespec="seconds"), "plan": args.plan, "files": {}, "backups": {}, "undone": False}
+    if args.channel:
+        run["channel"], run["run_id"] = args.channel, plan.get("run_id")
     for pf, fname in QUEUES.items():
         mine = [i for p, i in todo if p == pf]
         if not mine:
@@ -482,6 +505,45 @@ def cmd_undo(args):
     return 0
 
 
+def cmd_undo_run(args):
+    """--undo-run-id: 그 run_id 로 넣은 항목(plan 칸 run_id 가 같은 것)만 대기열에서 뺍니다. 발행됐거나 글이 만들어진 항목은 그대로 둡니다."""
+    rid = args.undo_run_id
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    os.makedirs("backup", exist_ok=True)
+    total = 0
+    pf_of = {v: k for k, v in QUEUES.items()}
+    for fname in QUEUES.values():
+        queue = read_json(fname, [])
+        articles = read_json(ARTICLES[pf_of[fname]], {}) or {}
+        keep, removed, refused = [], [], []
+        for q in queue:
+            if (q.get("plan") or {}).get("run_id") == rid:
+                (refused if (q.get("published") or q.get("id") in articles) else removed).append(q)
+                if q in refused:
+                    keep.append(q)
+            else:
+                keep.append(q)
+        print(f"{fname}: run_id {rid} 항목 {len(removed) + len(refused)}개 중 뺄 것 {len(removed)}, 발행·작성돼서 그대로 둘 것 {len(refused)}")
+        for q in removed:
+            print(f"  - 뺌: {q['keyword']} (id {q['id']})")
+        if removed and args.apply:
+            stem, ext = os.path.splitext(fname)
+            bk = os.path.join("backup", f"{stem}.backup_before_push_undo_run_{stamp}{ext}")
+            shutil.copy2(fname, bk)
+            write_json_atomic(fname, keep)
+            print(f"  쓴 파일 {fname}: -{len(removed)}, 백업 {bk}")
+            total += len(removed)
+    if args.apply:
+        log = read_json(LOG_PATH, []) or []
+        for r in log:
+            if r.get("run_id") == rid:
+                r["undone"] = True
+        write_json_atomic(LOG_PATH, log)
+    else:
+        print("\n[dry-run] 아무것도 쓰지 않았습니다. 되돌리려면 --apply 를 함께")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--plan")
@@ -494,7 +556,15 @@ def main():
     ap.add_argument("--products-txt", metavar="PATH", help="`키워드 | 제품명 | 링크` txt 로 --products json 만들기")
     ap.add_argument("--update-products", action="store_true", help="넣은 항목의 plan 칸 제품 링크만 --products 로 바꿈(--apply 로 씀)")
     ap.add_argument("--categories", default=DEFAULT_CATEGORIES, help="카테고리·글 유형 덮어쓰기 파일(없으면 계획 값)")
+    ap.add_argument("--channel", choices=sorted(CHANNELS), help="채널 지정(지금은 radar_naver). 안 쓰면 N살림노트·W싼세계 기본 동작")
+    ap.add_argument("--undo-run-id", help="--channel 과 함께: 그 run_id 로 넣은 항목만 되돌림(기본 보여 주기만, --apply 로 씀)")
     args = ap.parse_args()
+    if args.channel:
+        global QUEUES, ARTICLES, LABEL, SOURCE, LOG_PATH
+        _c = CHANNELS[args.channel]
+        QUEUES, ARTICLES, LABEL, SOURCE, LOG_PATH = _c["queues"], _c["articles"], _c["label"], _c["source"], _c["log"]
+    if args.undo_run_id and not args.channel:
+        ap.error("--undo-run-id 는 --channel 과 함께 써야 합니다")
     os.chdir(ROOT)
     if args.categories == DEFAULT_CATEGORIES and not os.path.exists(os.path.join(ROOT, DEFAULT_CATEGORIES)):
         args.categories = None
@@ -504,6 +574,8 @@ def main():
     if args.queue_dir:
         os.chdir(args.queue_dir)
         os.makedirs(os.path.join("pipeline", "final"), exist_ok=True)
+    if args.undo_run_id:
+        return cmd_undo_run(args)
     if args.undo:
         return cmd_undo(args)
     if args.products_txt:
