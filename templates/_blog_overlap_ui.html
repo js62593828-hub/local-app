@@ -1,0 +1,126 @@
+{#- "📚 같은 블로그" 배지 공통 스타일/스크립트 (blog_overlap.py 결과). index.html이 include합니다. 필요한 변수: blog_ov ({id: {level,count,matches[],reuse[]}})
+    배지 마크업: <span class="bo-badge red|yellow|reuse" data-bo-id="ID" data-bo-kind="pair|reuse">…</span>
+    기존 🔴🟡(sim-badge)와 팝업이 따로라서 서로 영향이 없습니다. -#}
+<style>
+  .bo-badge {
+    display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+    font-weight: 600; vertical-align: middle; white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .bo-badge.red { background: #3a1616; color: #fca5a5; border: 1px solid #5c2222; }
+  .bo-badge.yellow { background: #3a300d; color: #fcd34d; border: 1px solid #5c4a14; }
+  .bo-badge.reuse { background: #0f2a35; color: #7dd3fc; border: 1px solid #1e4a5f; }
+  .bo-note { font-size: 12.5px; color: #fcd34d; background: #2a2410; border: 1px solid #5c4a14; border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; }
+  #bo-popup {
+    display: none; position: fixed; z-index: 1001; width: 480px; max-width: calc(100vw - 24px);
+    background: #1c1c1c; border: 1px solid #3a3a3a; border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.55); font-size: 12.5px; color: #ddd; line-height: 1.5;
+  }
+  #bo-popup .bo-head { color: #999; font-size: 11.5px; margin-bottom: 6px; }
+  #bo-popup .bo-item { padding: 7px 0; border-top: 1px solid #2a2a2a; }
+  #bo-popup .bo-head + .bo-item { border-top: none; }
+  #bo-popup .bo-rel { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; margin-right: 6px; }
+  #bo-popup .bo-rel.pair { background: #12301f; color: #86efac; }
+  #bo-popup .bo-rel.dup { background: #3a1616; color: #fca5a5; }
+  #bo-popup .bo-kw { font-weight: 700; color: #f5f5f5; }
+  #bo-popup .bo-title { color: #9ca3af; display: block; }
+  #bo-popup .bo-meta { color: #8fa1b3; font-size: 11.5px; }
+  #bo-popup .bo-reason { color: #777; font-size: 11px; }
+  #bo-popup a { color: #60a5fa; text-decoration: none; margin-left: 6px; }
+</style>
+<div id="bo-popup"></div>
+<script type="application/json" id="bo-data">{{ (blog_ov or {}) | tojson }}</script>
+<script>
+(function () {
+  let BO = {};
+  try { BO = JSON.parse(document.getElementById('bo-data').textContent) || {}; } catch (e) {}
+  const pop = document.getElementById('bo-popup');
+  let pinned = null, hideTimer = null;
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function addLink(parent, url) {
+    if (url && /^https?:\/\//i.test(url)) {
+      const a = el('a', null, '발행 글 열기 →');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      parent.appendChild(a);
+    }
+  }
+  function row(m, withRelation) {
+    const r = el('div', 'bo-item');
+    const top = el('div');
+    if (withRelation) top.appendChild(el('span', 'bo-rel ' + (m.relation === '짝 글' ? 'pair' : 'dup'), m.relation));
+    top.appendChild(el('span', null, m.level === 'red' ? '🔴 ' : '🟡 '));
+    top.appendChild(el('span', 'bo-kw', m.keyword));
+    addLink(top, m.url);
+    r.appendChild(top);
+    r.appendChild(el('span', 'bo-meta', m.channel_label + ' · ' + m.state + (withRelation ? ' · ' + m.hint : '')));
+    if (m.title) r.appendChild(el('span', 'bo-title', m.title));
+    r.appendChild(el('div', 'bo-reason', m.reason));
+    return r;
+  }
+
+  function render(id, kind) {
+    const info = BO[id];
+    pop.replaceChildren();
+    if (!info) return false;
+    if (kind === 'reuse') {
+      if (!info.reuse || !info.reuse.length) return false;
+      pop.appendChild(el('div', 'bo-head', '네이버 블로그에 같은/비슷한 주제의 글이 있어요 (재활용 참고)'));
+      info.reuse.forEach((m) => {
+        const r = row(m, false);
+        r.insertBefore(el('div', 'bo-meta', m.text), r.firstChild);
+        pop.appendChild(r);
+      });
+      return true;
+    }
+    if (!info.matches || !info.matches.length) return false;
+    pop.appendChild(el('div', 'bo-head', '같은 블로그의 겹치는 글 (최대 ' + info.matches.length + '개 표시 / 전체 ' + info.count + '개)'));
+    info.matches.forEach((m) => pop.appendChild(row(m, true)));
+    return true;
+  }
+
+  function place(badge) {
+    pop.style.display = 'block';
+    const r = badge.getBoundingClientRect();
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    let left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12);
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 12) top = Math.max(12, r.top - h - 6);
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  }
+  function show(b) {
+    clearTimeout(hideTimer);
+    if (render(b.getAttribute('data-bo-id'), b.getAttribute('data-bo-kind'))) place(b);
+  }
+  function hide() { pop.style.display = 'none'; pinned = null; }
+  function hideSoon() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => { if (!pinned) pop.style.display = 'none'; }, 200);
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const b = e.target.closest && e.target.closest('.bo-badge');
+    if (b && !pinned) show(b);
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.closest && e.target.closest('.bo-badge') && !pinned) hideSoon();
+  });
+  pop.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+  pop.addEventListener('mouseleave', () => { if (!pinned) hideSoon(); });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.bo-badge');
+    if (b) {
+      if (pinned === b) { hide(); return; }
+      pinned = b; show(b);
+    } else if (!pop.contains(e.target)) {
+      hide();
+    }
+  });
+  window.addEventListener('scroll', () => { if (!pinned) pop.style.display = 'none'; }, true);
+})();
+</script>

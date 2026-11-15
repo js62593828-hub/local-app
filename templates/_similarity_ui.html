@@ -1,0 +1,108 @@
+{#- 비슷한 키워드·글 배지 공통 스타일/스크립트. index.html, status.html이 </div> 앞쪽 아무 곳에서나 include합니다.
+    필요한 변수: sim  ({id: {level, count, matches[]}} — app.get_similarity() 결과)
+    배지 자리에는 {{ sim_badge(id) }} 대신 아래 마크업을 씁니다:
+      <span class="sim-badge red|yellow" data-sim-id="ID">🔴 거의 같은 글 N</span> -#}
+<style>
+  .sim-badge {
+    display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+    font-weight: 600; vertical-align: middle; white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .sim-badge.red { background: #3a1616; color: #fca5a5; border: 1px solid #5c2222; }
+  .sim-badge.yellow { background: #3a300d; color: #fcd34d; border: 1px solid #5c4a14; }
+  .sim-badge.small { margin-left: 6px; padding: 1px 6px; font-size: 10.5px; }
+  #sim-popup {
+    display: none; position: fixed; z-index: 1000; width: 460px; max-width: calc(100vw - 24px);
+    background: #1c1c1c; border: 1px solid #3a3a3a; border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.55); font-size: 12.5px; color: #ddd; line-height: 1.5;
+  }
+  #sim-popup .sim-head { color: #999; font-size: 11.5px; margin-bottom: 6px; }
+  #sim-popup .sim-item { padding: 7px 0; border-top: 1px solid #2a2a2a; }
+  #sim-popup .sim-item:first-of-type { border-top: none; }
+  #sim-popup .sim-kw { font-weight: 700; color: #f5f5f5; }
+  #sim-popup .sim-lv { margin-right: 4px; }
+  #sim-popup .sim-title { color: #9ca3af; display: block; }
+  #sim-popup .sim-meta { color: #8fa1b3; font-size: 11.5px; }
+  #sim-popup .sim-reason { color: #777; font-size: 11px; }
+  #sim-popup a { color: #60a5fa; text-decoration: none; margin-left: 6px; }
+</style>
+<div id="sim-popup"></div>
+<script type="application/json" id="sim-data">{{ (sim or {}) | tojson }}</script>
+<script>
+(function () {
+  let SIM = {};
+  try { SIM = JSON.parse(document.getElementById('sim-data').textContent) || {}; } catch (e) {}
+  const pop = document.getElementById('sim-popup');
+  let pinnedBadge = null, hideTimer = null;
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function render(id) {
+    const info = SIM[id];
+    pop.replaceChildren();
+    if (!info) return false;
+    pop.appendChild(el('div', 'sim-head', info.level === 'red'
+      ? '거의 같은 글 (가장 비슷한 순, 최대 ' + info.matches.length + '개 표시)'
+      : '같은 주제의 글 (가장 비슷한 순, 최대 ' + info.matches.length + '개 표시)'));
+    info.matches.forEach((m) => {
+      const row = el('div', 'sim-item');
+      const top = el('div');
+      top.appendChild(el('span', 'sim-lv', m.level === 'red' ? '🔴' : '🟡'));
+      top.appendChild(el('span', 'sim-kw', m.keyword));
+      const a = el('a', null, '편집기 →'); a.href = m.link; a.textContent = m.link.indexOf('/article/') === 0 ? '편집기 →' : '주간 목록에서 보기 →';
+      top.appendChild(a);
+      row.appendChild(top);
+      if (m.title) row.appendChild(el('span', 'sim-title', m.title));
+      row.appendChild(el('span', 'sim-meta', m.week + ' 주차 · ' + m.state));
+      row.appendChild(el('div', 'sim-reason', m.reason));
+      pop.appendChild(row);
+    });
+    return true;
+  }
+
+  function place(badge) {
+    pop.style.display = 'block';
+    const r = badge.getBoundingClientRect();
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    let left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12);
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 12) top = Math.max(12, r.top - h - 6);
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  }
+
+  function show(badge) {
+    clearTimeout(hideTimer);
+    if (render(badge.getAttribute('data-sim-id'))) place(badge);
+  }
+  function hide() { pop.style.display = 'none'; pinnedBadge = null; }
+  function hideSoon() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => { if (!pinnedBadge) pop.style.display = 'none'; }, 200);
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const b = e.target.closest && e.target.closest('.sim-badge');
+    if (b && !pinnedBadge) show(b);
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.closest && e.target.closest('.sim-badge') && !pinnedBadge) hideSoon();
+  });
+  pop.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+  pop.addEventListener('mouseleave', () => { if (!pinnedBadge) hideSoon(); });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.sim-badge');
+    if (b) {
+      if (pinnedBadge === b) { hide(); return; }
+      pinnedBadge = b; show(b);
+    } else if (!pop.contains(e.target)) {
+      hide();
+    }
+  });
+  window.addEventListener('scroll', () => { if (!pinnedBadge) pop.style.display = 'none'; }, true);
+})();
+</script>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>주간 기획 자료 만들기 결과</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; padding: 40px; color: #e5e5e5; }
+  .container { max-width: 860px; margin: 30px auto; background: #1e1e1e; border-radius: 10px; padding: 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+  h1 { font-size: 20px; margin-top: 0; color: #86efac; }
+  h2 { font-size: 15px; margin: 24px 0 8px; color: #93c5fd; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+  th { background: #262626; }
+  code { background: #161616; padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+  .warn { background: #3b2f10; border: 1px solid #854d0e; color: #fde68a; border-radius: 6px; padding: 8px 12px; margin: 6px 0; font-size: 13px; }
+  .sub { color: #999; font-size: 13px; }
+  .back { display: inline-block; margin-top: 24px; color: #60a5fa; text-decoration: none; font-size: 14px; }
+  .back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>✓ 주간 기획 자료를 만들었어요 — 대상 주차 {{ info.range }}</h1>
+    <p class="sub">아래 파일 2개를 Claude에 첨부하세요 (같은 이름으로 덮어썼습니다).</p>
+
+    <h2>만든 파일</h2>
+    <table>
+      <tr><th>종류</th><th>경로</th><th>크기</th></tr>
+      <tr><td>살림 기획 자료</td><td><code>{{ info.salim_path }}</code></td><td>{{ '%.1f' | format(info.salim_bytes / 1024) }} KB{% if info.post_cutoff %} (기존 글 목록은 {{ info.post_cutoff }} 이후만){% endif %}</td></tr>
+      <tr><td>롱텀 기획 자료</td><td><code>{{ info.longterm_path }}</code></td><td>{{ '%.1f' | format(info.longterm_bytes / 1024) }} KB</td></tr>
+    </table>
+
+    <h2>요약</h2>
+    <table>
+      <tr><th>항목</th><th>값</th></tr>
+      <tr><td>일반글 후보</td><td>{{ info.candidates }}개 (A 해결형 {{ info.stats.A }} · B 점검형 {{ info.stats.B }}) — 🔴 같은 주제 {{ info.stats.red_any }}개, 🟡 비슷한 주제만 {{ info.stats.yellow_only }}개</td></tr>
+      <tr><td>검색량 구간</td><td>{% for k, v in info.stats.bands.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+      <tr><td>외부 호출 수</td><td>{{ info.api_summary }} · 걸린 시간 {{ info.elapsed }}초</td></tr>
+      <tr><td>승인된 키워드 (③)</td><td>이번 주·지난주 N살림노트·W싼세계 {{ info.approved_rows }}개 (새 채널 + 옛 숍 채널)</td></tr>
+      <tr><td>숍글 후보 (③-2)</td><td>키워드 {{ info.shop_candidates }}개 · 묶음 {{ info.shop_candidate_clusters }}개 — <b>저장 없이 계산만 했습니다</b> (대기열에 넣지 않음)</td></tr>
+      <tr><td>롱텀</td><td>글 {{ info.longterm_posts }}편 · 이번 주 대기열 {{ info.longterm_queue }}개</td></tr>
+    </table>
+
+    <h2>롱텀 대기열</h2>
+    <p class="sub" style="margin:0 0 6px">N살림노트·W싼세계(와 옛 숍 채널)의 대기열은 이 버튼이 만들거나 고치지 않습니다. 롱텀만 이 주차 대기열이 없을 때 새로 만들어 저장합니다.</p>
+    <table>
+      <tr><th>채널</th><th>이번 주 항목</th><th>상태</th></tr>
+      {% for cid, q in info.queues.items() %}
+      <tr><td>{{ q.label }}</td><td>{{ q.count }}개</td><td>{{ q.status }}</td></tr>
+      {% endfor %}
+    </table>
+
+    {% if info.warnings %}
+    <h2>경고</h2>
+    {% for w in info.warnings %}<div class="warn">{{ w }}</div>{% endfor %}
+    {% endif %}
+
+    <a class="back" href="/?week={{ info.week }}">← 대시보드로 돌아가기</a>
+  </div>
+</body>
+</html>

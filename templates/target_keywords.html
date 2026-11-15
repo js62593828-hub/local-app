@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>타깃 키워드 발굴</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  h2 { font-size: 15px; margin: 26px 0 10px; color: #7dd3fc; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px; }
+  .panel { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px 18px; }
+  label.f { display: block; font-size: 12px; color: #999; margin-bottom: 5px; }
+  select, input[type=text], input[type=number], textarea {
+    width: 100%; background: #0f0f0f; color: #e5e5e5; border: 1px solid #333; border-radius: 6px;
+    padding: 8px 10px; font-size: 13px; font-family: inherit;
+  }
+  textarea { min-height: 150px; resize: vertical; line-height: 1.5; }
+  .checks label { display: inline-block; margin: 0 12px 0 0; font-size: 13px; color: #ddd; cursor: pointer; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .btn { background: #3b82f6; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .btn.secondary { background: #262626; color: #ddd; border: 1px solid #3a3a3a; }
+  .hint { color: #888; font-size: 12px; line-height: 1.6; margin-top: 6px; }
+  .notes { background: #2a2110; border: 1px solid #5a4410; color: #fbbf24; border-radius: 8px; padding: 10px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 14px; }
+  .notes.info { background: #12283f; border-color: #1e3a5f; color: #7dd3fc; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 8px 10px; text-align: left; font-size: 12.5px; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
+  th { background: #262626; color: #f5f5f5; font-size: 12px; cursor: pointer; user-select: none; }
+  th:hover { background: #303030; }
+  th .arrow { color: #7dd3fc; font-size: 10px; margin-left: 3px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; margin-right: 4px; background: #3a1414; color: #fca5a5; border: 1px solid #5a2020; }
+  .chip.used { background: #2a2110; color: #fbbf24; border-color: #5a4410; }
+  .muted { color: #777; }
+  .serpbox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; white-space: normal; max-width: 380px; }
+  .serpbox select.compete { width: auto; padding: 2px 6px; font-size: 11.5px; }
+  .serpbox input.serpnote { width: 190px; padding: 2px 6px; font-size: 11.5px; }
+  .serpbox .competehint { flex-basis: 100%; font-size: 11px; }
+  .apvdone { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 8px; font-size: 11px; background: #12301c; color: #4ade80; border: 1px solid #1f5a33; }
+  .up { color: #4ade80; } .down { color: #f87171; }
+  .low-chip { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 9px; font-size: 11px; background: #262626; color: #8a8a8a; border: 1px solid #333; }
+  .apv { border-color: #1e3a5f; }
+  .apv .row { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; }
+  .apv select, .apv input[type=date] { width: auto; }
+  .cnt { font-size: 13px; padding: 4px 12px; border-radius: 8px; background: #12283f; color: #7dd3fc; border: 1px solid #1e3a5f; }
+  .cnt.over { background: #3a300d; color: #fcd34d; border-color: #5c4a14; }
+  td.apvc { text-align: center; }
+  .explain { color: #aaa; font-size: 13px; line-height: 1.8; }
+  .explain b { color: #e5e5e5; }
+  /* 추천 배지·집계 막대 */
+  .rbadge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 700; border: 1px solid #333; background: #262626; color: #9ca3af; }
+  .rbadge.st-rec { background: #12301f; color: #86efac; border-color: #1f5a37; }
+  .rbadge.st-reserve { background: #2a2110; color: #fcd34d; border-color: #5a4410; }
+  .rbadge.st-candidate { background: #12283f; color: #7dd3fc; border-color: #1e3a5f; }
+  tr.st-excluded td { color: #6b6b6b; }
+  tr.st-excluded td a, tr.st-excluded .rbadge { opacity: .8; }
+  td.reason { white-space: normal; min-width: 200px; max-width: 260px; line-height: 1.5; font-size: 12px; color: #b5b5b5; }
+  tr.st-excluded td.reason { color: #777; }
+  .tagchip { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 9px; font-size: 11px; background: #1e2a3a; color: #93c5fd; border: 1px solid #2a4060; }
+  .chip.gray { background: #232323; color: #888; border-color: #333; }
+  .chip.info { background: #12283f; color: #7dd3fc; border-color: #1e3a5f; }
+  .ptype { width: auto; padding: 2px 4px; font-size: 11.5px; margin-left: 3px; }
+  .aggbar { position: sticky; top: 0; z-index: 30; background: #161b22; border: 1px solid #1e3a5f; border-radius: 10px; padding: 8px 14px; margin: 0 0 12px; box-shadow: 0 4px 10px rgba(0,0,0,.45); }
+  .aggbar .line { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 12.5px; margin: 3px 0; }
+  .aggbar .line b.nm { min-width: 44px; color: #f5f5f5; }
+  .aggbar .cell { padding: 1px 9px; border-radius: 8px; background: #262626; color: #9ca3af; border: 1px solid #333; }
+  .aggbar .cell.ok { background: #12301f; color: #86efac; border-color: #1f5a37; }
+  .aggbar .cell.over { background: #3a300d; color: #fcd34d; border-color: #5c4a14; }
+  .aggbar .cats { font-size: 11.5px; color: #8b95a1; margin: 2px 0 0 52px; }
+  .aggbar .cats .over { color: #fcd34d; font-weight: 700; }
+  details.opts > summary { cursor: pointer; font-size: 13.5px; color: #7dd3fc; font-weight: 700; }
+  details.copybox { margin: 0 0 12px; }
+  details.copybox > summary { cursor: pointer; font-size: 13px; color: #7dd3fc; font-weight: 700; }
+  textarea.copyta { min-height: 220px; font-family: Consolas, 'Malgun Gothic', monospace; font-size: 12px; white-space: pre; }
+  a.nlink { font-size: 11px; color: #7dd3fc; text-decoration: none; margin-left: 4px; }
+  a.nlink:hover { text-decoration: underline; }
+  .rec-row { margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container">
+    <h1>🎯 타깃 키워드 발굴 <a href="/target-keywords/history" style="font-size:13px;font-weight:400;color:#7dd3fc;margin-left:14px;text-decoration:none">🕘 서칭 이력</a></h1>
+    <p class="lead">
+      <b>사용 순서</b>: 자동기획 채팅이 준 후보 목록(<b>키워드 | 블로그 | 유형 | 카테고리</b>)을 붙여넣고 <b>조회</b> → <b>[⭐ 추천 세트 체크하기]</b> → 뺄 것만 빼고 → <b>주간 키워드로 승인</b>.<br>
+      표의 순위는 붙여넣은 순서가 아니라 <b>검색량·상승세·이미 씀·유형별 칸으로 계산한 추천 점수</b>입니다 (붙여넣은 순서는 "기획 순서" 칸에 남습니다). 조회·체크까지는 큐·글·발행에 아무것도 바꾸지 않습니다.
+    </p>
+
+    {% if not serp_ok %}
+    <div class="notes" id="serpNoKey">네이버 검색 API 키가 없어 작년 정점을 비워 두었어요(.env에 NAVER_SEARCH_… 입력 후 앱 다시 시작).</div>
+    {% endif %}
+    <form method="post" action="/target-keywords">
+      <div class="panel">
+        <label class="f"><b>① 키워드 목록 붙여넣기</b> — 한 줄에 하나. 꼬리표를 붙이면 블로그·유형·카테고리가 자동으로 읽힙니다 (뒤쪽 칸은 비워도 됨)</label>
+        <textarea name="target_text" placeholder="외풍차단 | N살림노트 | A | 냉난방·계절 대비&#10;외풍차단 | W싼세계 | 해결 | 냉난방·계절 대비&#10;온습도계&#10;(꼬리표 없이 키워드만, 또는 데이터랩 순위를 그대로 복사해도 됩니다)">{{ f.target_text }}</textarea>
+        <p class="hint" style="margin-top:4px">형식: <b>키워드 | 블로그 | 유형 | 카테고리</b> — 블로그 = N살림노트/W싼세계, 유형 = N살림노트 A·B·C / W싼세계 해결·결정.<br>
+          예) <code>외풍차단 | N살림노트 | A | 냉난방·계절 대비</code><br>
+          예) <code>외풍차단 | W싼세계 | 해결 | 냉난방·계절 대비</code> — 같은 키워드가 N살림노트·W싼세계로 두 줄 오면 한 행으로 합칩니다.</p>
+      </div>
+
+      <details class="panel opts" id="dlOpts">
+        <summary>▸ 데이터랩 쇼핑 순위 옵션(선택)</summary>
+        <p class="hint" style="margin:6px 0 12px">분야·성별·연령·기간·기기와 ② 전체 순위 칸입니다. 꼬리표 목록만 쓸 때는 열지 않아도 됩니다 (값은 그대로 저장·조회됩니다).</p>
+        <div class="grid">
+          <div>
+            <label class="f">분야 1단계</label>
+            <select name="cat1">
+              {% for cid, name in cat1_options %}
+              <option value="{{ cid }}" {{ 'selected' if f.cat1 == cid else '' }}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="f">분야 2단계 (이름, 예: 골프)</label>
+            <input type="text" name="cat2" value="{{ f.cat2 }}" placeholder="비워 두면 1단계 전체">
+          </div>
+          <div>
+            <label class="f">분야 3단계 (이름, 선택)</label>
+            <input type="text" name="cat3" value="{{ f.cat3 }}">
+          </div>
+          <div>
+            <label class="f">가장 세부 분야 코드 (cid, 선택)</label>
+            <input type="text" name="cid" value="{{ f.cid }}" placeholder="데이터랩 주소의 cid= 숫자">
+          </div>
+          <div>
+            <label class="f">성별</label>
+            <select name="gender">
+              {% for k, v in genders.items() %}<option value="{{ k }}" {{ 'selected' if f.gender == k else '' }}>{{ v }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="f">기간</label>
+            <select name="period">
+              {% for k, v in periods.items() %}<option value="{{ k }}" {{ 'selected' if f.period == k else '' }}>{{ v[0] }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="f">기기</label>
+            <select name="device">
+              {% for k, v in devices.items() %}<option value="{{ k }}" {{ 'selected' if f.device == k else '' }}>{{ v }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="f">가져올 개수 (기본 {{ default_count }}, 최대 {{ max_count }})</label>
+            <input type="number" name="count" min="1" max="{{ max_count }}" value="{{ f.count }}">
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <label class="f">연령 (복수 선택)</label>
+          <div class="checks">
+            {% for a in age_groups %}
+            <label><input type="checkbox" name="ages" value="{{ a }}" {{ 'checked' if a in f.ages else '' }}> {{ a }}대</label>
+            {% endfor %}
+          </div>
+        </div>
+        <p class="hint">
+          ※ 분야 2·3단계 목록은 데이터랩 내부 주소를 쓸 수 없어 자동으로 불러오지 못합니다. 이름은 표시용이고, <b>남성·연령 비율 조회는 "세부 분야 코드"(없으면 1단계 코드)</b>로 합니다.
+          세부 분야 코드는 데이터랩 쇼핑인사이트에서 분야를 고른 뒤 주소창의 <b>cid=</b> 뒤 숫자입니다.
+        </p>
+        <div class="panel" style="margin-top:14px">
+          <label class="f"><b>② 전체 순위</b> — 같은 분야·기간·기기에서 성별·연령을 "전체"로 둔 TOP 목록</label>
+          <textarea name="full_text" placeholder="1&#10;골프공&#10;2&#10;골프장갑 ...">{{ f.full_text }}</textarea>
+        </div>
+      </details>
+      <p class="hint" style="margin:-4px 0 14px">조회 버튼을 누를 때만 외부 조회(검색량·성별·연령·상승세)를 합니다. 같은 조건은 24시간 동안 저장된 값을 다시 씁니다. 성별·연령은 상위 {{ detail_top_n }}개만, 상승세는 붙여넣은 키워드 전체를 조회합니다.</p>
+      <button class="btn" type="submit">조회</button>
+    </form>
+
+    {% if result is not none %}
+      {% if result.notes %}
+      <div class="notes" style="margin-top:18px">{% for n in result.notes %}· {{ n }}<br>{% endfor %}</div>
+      {% endif %}
+      {% if result.rows %}
+      <h2>결과 — {{ result.rows | length }}개 {% if label %}<span class="muted" style="font-weight:400">({{ label }})</span>{% endif %}</h2>
+      {% if saved_at and not request.args.get('fresh') %}<p class="hint" style="margin:0 0 8px">🕘 {{ saved_at }}에 조회한 결과입니다 (저장된 화면 — 다시 조회하지 않았습니다). 새 데이터가 필요하면 위에서 다시 조회하세요.</p>{% endif %}
+      <p style="margin:0 0 10px"><button type="button" class="btn secondary" onclick="downloadCsv()">CSV 다운로드</button>
+        <span class="hint">열 제목을 누르면 정렬됩니다 (다시 누르면 반대 방향). {% if hid %}승인 체크·유형·경쟁·검색 확인·주차는 바꿀 때마다 자동으로 저장되어, 나중에 다시 열어도 그대로 이어서 작업할 수 있습니다 (승인은 [주간 키워드로 승인]을 눌러야 됩니다).{% endif %}</span></p>
+      <div class="rec-row">
+        <button type="button" class="btn secondary" id="sortToggle" onclick="toggleOrder()" title="표를 붙여넣은 순서(기획 순서)와 추천 점수순 사이에서 바꿉니다">↕ 기획 순서로 보기</button>
+        {% if hid %}<button type="button" class="btn" id="recSetBtn" onclick="checkRecSet()" title="⭐추천 행을 해당 블로그 체크칸에 체크하고 유형을 채웁니다. 이미 체크한 것은 건드리지 않고, 승인은 하지 않습니다">⭐ 추천 세트 체크하기</button> <span class="hint" id="recSetMsg"></span>{% endif %}
+        <span class="hint">정렬 기본값 = 추천 점수순. ⭐추천 = 이번 주 칸에 든 행 · ☆예비 = 칸이 차서(또는 예비급이라) 밀린 행 · 회색 = 제외</span>
+      </div>
+      {% if hid and copy_text %}
+      <details class="panel copybox">
+        <summary>▸ 기획 채팅용 목록 — 현재 주차 승인 + 예비</summary>
+        <p class="hint" style="margin:6px 0 8px">아래 "주차" 선택에 맞춰 바뀝니다. 승인 목록(이미 승인된 항목 전체)과 ☆예비 행을 기획 채팅에 붙여넣을 형식으로 보여 줍니다. 읽기 전용입니다.</p>
+        <textarea id="copyText" class="copyta" readonly>{{ copy_text }}</textarea>
+        <p style="margin:8px 0 0"><button type="button" class="btn secondary" onclick="copyList()">복사</button> <span class="hint" id="copyMsg"></span></p>
+      </details>
+      {% endif %}
+      {% if carry %}
+      <p class="notes info" style="margin:0 0 10px" id="carryNote">같은 주({{ carry.week_md }}) 이전 조회({{ carry.hm }})의 승인 안 한 체크 {{ carry.n }}개 중 {{ carry.m }}개를 이어받았어요.{% if carry.k %} 이번 목록에 없는 {{ carry.k }}개는 그 조회에만 있어요 <a href="/target-keywords/history/{{ carry.id }}">🕘 그 조회 열기</a>{% endif %}</p>
+      {% endif %}
+      {% if ovl_sum %}
+      <p class="hint" style="margin:0 0 8px" id="ovlSum">🔎 기존 글 표시 {{ ovl_sum.rows }}개 (🔴 {{ ovl_sum.red }} · 🟡 {{ ovl_sum.yellow }} · 🔗 {{ ovl_sum.link }}) — 단어로 찾은 비슷한 글입니다. 표시만 하고 점수·추천은 그대로예요.</p>
+      {% endif %}
+      {% if hid %}
+      <form method="post" action="/target-keywords/approve" id="approveForm">
+      <input type="hidden" name="hid" value="{{ hid }}">
+      <input type="hidden" name="week" id="weekHidden" value="{{ next_week }}">
+      <input type="hidden" name="ptypes" id="ptypesHidden" value="">
+      <input type="hidden" name="serp_notes" id="serpNotesHidden" value="">
+      <input type="hidden" name="serp_compete" id="serpCompeteHidden" value="">
+      <div class="aggbar" id="aggBar" title="체크·해제할 때 바로 바뀝니다. 막지는 않고 색으로만 알려 줍니다 (회색 = 부족 · 초록 = 적정 · 노랑 = 초과)"></div>
+      <div class="panel apv">
+        <div class="row">
+          <b>🎯 주간 키워드로 승인</b>
+          <label class="f" style="margin:0">주차
+            <select id="weekSel">
+              <option value="{{ this_week }}">이번 주 ({{ this_week }})</option>
+              <option value="{{ next_week }}" selected>다음 주 ({{ next_week }})</option>
+              <option value="custom">직접 선택…</option>
+            </select>
+          </label>
+          <input type="date" id="weekCustom" style="display:none">
+          <span class="cnt" id="cnt-naver" title="이미 승인 = N살림노트 + 옛 네이버 SHOP(OLD)에서 그 주에 승인한 수" data-approved="{{ week_info.naver.approved }}" data-target="{{ week_info.naver.target }}"></span>
+          <span class="cnt" id="cnt-ssansegae" title="이미 승인 = W싼세계 + 옛 워드프레스 SHOP(OLD)에서 그 주에 승인한 수" data-approved="{{ week_info.ssansegae.approved }}" data-target="{{ week_info.ssansegae.target }}"></span>
+        </div>
+        <p class="hint">표의 <b>[N살림노트] [W싼세계]</b> 칸을 체크하고 아래 버튼을 누르면, 그 블로그의 위 주차 키워드로 <b>승인된 상태</b>로 들어갑니다(키워드마다 새 묶음). <b>버튼을 누르기 전에는 아무것도 저장되지 않습니다.</b> 같은 주에 이미 있는 키워드는 건너뛰고, 이미 있는 글과 거의 같은(🔴) 키워드는 저장하지 않고 결과 화면에서 따로 물어봅니다. 같은 키워드를 둘 다 체크하면 W싼세계 쪽에 "{{ '네이버 발행 후, 다른 각도' }}"가 붙습니다. 숫자가 목표를 넘으면 노란색이 되지만 막지는 않습니다(기획은 목표의 150%까지 뽑아요).</p>
+        <button type="submit" class="btn" id="approveBtn">주간 키워드로 승인</button>
+        <span class="hint" id="approveMsg"></span>
+        <span class="hint" id="draftMsg" title="체크·유형·경쟁·검색 확인·주차를 바꾸면 약 1초 뒤 자동 저장됩니다 (대기열에는 아무것도 들어가지 않습니다)"></span>
+      </div>
+      {% endif %}
+      <div class="tablewrap">
+      <table id="resultTable">
+        <thead><tr>
+          {% if hid %}<th data-type="none" style="cursor:default" title="N살림노트 주간 키워드로 승인">N살림노트</th>
+          <th data-type="none" style="cursor:default" title="W싼세계 주간 키워드로 승인">W싼세계</th>{% endif %}
+          <th data-type="num" title="추천 상태 (⭐추천 / ☆예비 / 후보 / 제외) 순서">추천</th>
+          <th data-type="num" title="추천 점수: 월검색량(로그 비례) + 상승세 가점 − 감점. 검색량 {{ rec_consts.excl }} 미만은 점수 없음(제외)">점수</th>
+          <th data-type="str">키워드</th>
+          <th data-type="num" title="'<10'은 검색광고 API가 10 미만이라고 알려 준 값입니다 (합계 계산에는 5로 넣습니다)">월검색량 PC</th>
+          <th data-type="num" title="'<10'은 검색광고 API가 10 미만이라고 알려 준 값입니다 (합계 계산에는 5로 넣습니다)">월검색량 모바일</th>
+          <th data-type="num">상승세(%)</th>
+          <th data-type="num" title="작년 검색량이 가장 높았던 주(그 주 월요일)와, 올해 같은 주까지 남은 주 수">작년 정점</th>
+          <th data-type="str">추천 이유</th>
+          <th data-type="str" title="같은 블로그의 승인됐거나 원고가 있는 글 중 핵심 단어가 겹치는 글 (🔴🟡 중복 위험 / 🔗 숍↔일반 짝 글). 표시만 하고 점수·추천에는 영향이 없습니다.">기존 글<br><span style="font-weight:400;font-size:11px;color:#888">단어로 찾은 비슷한 글 — 같은 글이면 체크를 빼세요(오탐 있음)</span></th>
+          <th data-type="num" title="붙여넣은 순서 (정렬 기준이 아닙니다)">기획 순서</th>
+          <th data-type="num">전체 순위</th>
+          <th data-type="num">쏠림 지수</th>
+          <th data-type="str" title="광고경쟁도는 블로그 글 경쟁이 아니라 광고 입찰 경쟁입니다. 그래서 추천 점수에는 넣지 않았습니다 (참고용 칸).">광고 경쟁도 ⓘ</th>
+          <th data-type="num">남성 비율(%)</th>
+          <th data-type="num">선택 연령 비율(%)</th>
+          <th data-type="str">경고</th>
+        </tr></thead>
+        <tbody>
+        {% set SL = {'rec': '⭐ 추천', 'reserve': '☆ 예비', 'candidate': '후보', 'excluded': '제외'} %}
+        {% for r in rec.rows %}
+        <tr class="st-{{ r.status }}" data-kw="{{ r.keyword }}" data-plan="{{ r.plan_order }}" data-srank="{{ r.srank }}">
+          {% if hid %}{% for b, spec in blogs.items() %}
+          {% set al = r.assign | selectattr('blog', 'equalto', b) | list %}{% set asg = al[0] if al else none %}
+          <td class="apvc" data-v=""><input type="checkbox" class="apv-cb" name="{{ b }}" value="{{ r.keyword }}" data-blog="{{ b }}" data-rec="{{ '1' if b in r.recs else '' }}" data-rectype="{{ r.recs[b].type if b in r.recs else '' }}" data-cat="{{ asg.category if asg else '' }}" title="{{ spec.label }} 주간 키워드로 승인"><select class="ptype" data-blog="{{ b }}" style="display:none" title="{{ spec.label }} 계획 유형 (꼬리표 유형이 기본값, 바꿀 수 있어요)"><option value="">미정</option>{% for t in spec.types %}<option value="{{ t }}" {{ 'selected' if asg and asg.type == t else '' }}>{{ t }}</option>{% endfor %}</select><span class="apvdone" data-blog="{{ b }}" style="display:none" title="이 주차의 {{ spec.label }} 대기열에 이미 승인된 키워드입니다 (읽기만)">✓ 승인됨</span></td>
+          {% endfor %}{% endif %}
+          <td class="rec-cell" data-v="{{ r.srank }}" data-csv="{{ SL[r.status] }}"><span class="rbadge st-{{ r.status }}">{{ SL[r.status] }}</span></td>
+          <td class="num score-cell" data-v="{{ r.score if r.score is not none else '' }}">{{ r.score if r.score is not none else '-' }}</td>
+          <td data-v="{{ r.keyword }}">{{ r.keyword }}<span class="tagchip" title="{{ '붙여넣을 때 적은 블로그·유형 꼬리표' if r.assign else '꼬리표가 없어 유형 미정입니다' }}">{{ r.type_label }}</span> <a class="nlink" href="https://search.naver.com/search.naver?query={{ r.keyword | urlencode }}" target="_blank" rel="noopener noreferrer">🔍 네이버에서 보기</a>{% if hid %}<div class="serpbox" style="display:none;margin-top:4px"><select class="compete" title="네이버에서 직접 보고 고르는 경쟁 정도 (점수에는 영향 없음, 승인할 때 대기열에 같이 저장)"><option value="">경쟁 선택</option><option value="green">🟢 해볼 만함</option><option value="yellow">🟡 보통</option><option value="red">🔴 어려움</option></select> <input type="text" class="serpnote" maxlength="40" placeholder="검색 확인(선택, 40자)" title="네이버에서 직접 보고 알게 된 스마트블록 등을 적어 두세요 (승인할 때 대기열에 같이 저장)" style="width:190px"><span class="competehint" style="display:none">한 단계 좁힌 키워드를 고려해 보세요</span></div>{% endif %}</td>
+          <td class="num" data-v="{{ r.pc if r.pc is not none else '' }}">{{ r.pc_text }}</td>
+          <td class="num" data-v="{{ r.mobile if r.mobile is not none else '' }}">{{ r.mobile_text }}</td>
+          <td class="num {{ 'up' if r.rising_pct is not none and r.rising_pct > 0 else ('down' if r.rising_pct is not none and r.rising_pct < 0 else '') }}" data-v="{{ r.rising_pct if r.rising_pct is not none else '' }}">{% if r.rising_pct is not none %}{{ '+' if r.rising_pct > 0 else '' }}{{ r.rising_pct }}{% else %}-{% endif %}</td>
+          {% set sv = r.sv %}
+          <td data-v="{{ sv.weeks_left if sv.weeks_left is not none else '' }}" data-csv="{{ sv.peak_text if sv.weeks_left is not none else '' }}">{{ sv.peak_text }}</td>
+          <td class="reason" data-v="{{ r.reason }}">{{ r.reason }}</td>
+          {% set ov = ovl.get(r.keyword, []) %}
+          <td class="ovl" data-v="{% for o in ov %}{{ o.label }}: {{ o.shown | map(attribute='text') | join('; ') }}{{ ' 외 ' ~ o.more ~ '개' if o.more else '' }}{{ ' / ' if not loop.last else '' }}{% endfor %}">{% if ov %}{% for o in ov %}<div class="ovl-line">{% if ov | length > 1 %}<span class="muted">{{ o.label }}</span> {% endif %}{% for s in o.shown %}<div title="{{ s.name }} ({{ s.state }})">{{ s.text }}</div>{% endfor %}{% if o.more %}<span class="muted">외 {{ o.more }}개</span>{% endif %}</div>{% endfor %}{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td class="num" data-v="{{ r.plan_order }}">{{ r.plan_order }}</td>
+          <td class="num" data-v="{{ r.full_rank if r.full_rank is not none else '' }}">{% if r.full_rank is not none %}{{ r.full_rank }}{% elif r.full_outside %}<span class="muted">밖</span>{% else %}-{% endif %}</td>
+          <td class="num" data-v="{{ r.skew if r.skew is not none else '' }}">{% if r.skew is not none %}{{ r.skew }}{{ '↑' if r.skew_is_min else '' }}{% else %}-{% endif %}</td>
+          <td data-v="{{ r.competition }}">{{ r.competition or '-' }}</td>
+          <td class="num" data-v="{{ r.male_pct if r.male_pct is not none else '' }}">{{ r.male_pct if r.male_pct is not none else '-' }}{{ ' (목)' if r.detail_mock and r.male_pct is not none else '' }}</td>
+          <td class="num" data-v="{{ r.age_sel_pct if r.age_sel_pct is not none else '' }}">{{ r.age_sel_pct if r.age_sel_pct is not none else '-' }}{{ ' (목)' if r.detail_mock and r.age_sel_pct is not none else '' }}</td>
+          <td data-v="{{ (r.warnings + (r.used_chips | map(attribute='text') | list)) | join(' / ') }}">{% for w in r.warnings %}<span class="chip">{{ w }}</span>{% endfor %}{% for c in r.used_chips %}<span class="chip {{ 'used' if c.kind == 'used' else c.kind }}" title="{{ '같은 블로그에 실제 글이 있거나 승인·발행된 항목이 있습니다 (큰 감점)' if c.kind == 'used' else ('다른 블로그에만 있거나 승인되지 않은 자동 후보입니다 (감점 없음)' if c.kind == 'info' else '승인되지 않은 자동 후보로만 있습니다 (감점 없음)') }}">{{ c.text }}</span>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if hid %}</form>{% endif %}
+
+      <h2>표 읽는 법</h2>
+      <div class="panel explain">
+        <b>쏠림 지수</b> = <b>전체 순위 ÷ 타깃 순위</b>.<br>
+        예) 전체에서는 40위인데 타깃(예: 40~50대 남성)에서는 4위라면 40 ÷ 4 = <b>10</b>. 숫자가 클수록 "이 타깃에서 유독 많이 찾는 키워드"입니다. <b>1이면 전체와 비슷</b>, 1보다 작으면 타깃보다 일반 소비자가 더 찾는 키워드입니다.<br>
+        전체 순위표에 아예 없으면(밖) 전체 순위를 "붙여넣은 전체 순위 개수 + 1위"로 보고 계산하며, 그때는 실제 값이 이보다 <b>더 클 수 있다</b>는 뜻으로 숫자 뒤에 ↑를 붙입니다.<br>
+        <b>남성 비율 / 선택 연령 비율</b>: 공식 쇼핑인사이트 API로 그 키워드를 누른 사람 중 남성의 비율, 그리고 고른 연령대(합계)의 비율입니다. 상위 {{ detail_top_n }}개만 조회합니다. "(목)"이 붙은 값은 키가 없어 만든 가짜 값입니다.<br>
+        <b>상승세</b>: 최근 4주의 검색 관심도 합계가 그 직전 4주보다 몇 % 늘었는지입니다 (아직 끝나지 않은 이번 주는 뺍니다).<br>
+        <b>경고</b>: 타깃 성별과 반대되는 단어, 키즈/아동 키워드를 표시합니다. 표시만 하고 지우지는 않습니다.<br>
+        <b>이미 씀</b>: 같은 블로그(N살림노트 = 네이버 일반 + 옛 네이버 SHOP, W싼세계 = W싼세계 + 옛 워드프레스 SHOP)에 <b>실제 글이 있거나 승인·발행된 항목</b>이 있을 때만 큰 감점·칸 제외입니다. 옛 숍 대기열의 승인 안 된 자동 항목은 회색 "옛 자동 후보"로만 보여 주고 감점하지 않으며, 다른 블로그에만 있으면 "네이버에 있음"처럼 안내만 합니다.<br>
+        <b>작년 정점</b>: 데이터랩 작년 주간 검색 추이에서 가장 높았던 주(그 주 월요일)와, 올해 같은 주까지 남은 주 수입니다(7일 저장값 사용, 못 가져오면 "-"). 정점까지 2~6주 남으면 가점, 이미 지났으면(1~8주) 감점입니다.<br>
+        <b>경쟁·검색 확인</b>: 블로그 검색 API를 쓸 수 없어 숫자로 계산하지 않고, <b>[🔍 네이버에서 보기]로 직접 보고</b> ⭐체크한 줄에서 경쟁(🟢 해볼 만함 / 🟡 보통 / 🔴 어려움)과 메모(40자)를 적습니다. 점수에는 영향이 없고 승인할 때 대기열의 serp·serp_note 칸에 저장됩니다.<br>
+        <b>추천 점수</b>: 월검색량(PC+모바일) {{ rec_consts.excl }} 미만 = 제외 · {{ rec_consts.reserve }}~{{ '{:,}'.format(rec_consts.weak) }} = 적정(검색량이 클수록 로그 비례로 가점) · {{ '{:,}'.format(rec_consts.weak) }}~{{ '{:,}'.format(rec_consts.broad) }} = 다소 넓음(약한 감점) · {{ '{:,}'.format(rec_consts.broad) }} 초과 = 너무 넓음(감점, 예비). 여기에 상승세 가점(상한 있음)·급락 감점과 작년 정점 가감이 더해집니다. 숫자는 모두 <code>target_keyword_finder.py</code> 맨 위 상수이고, 화면을 열 때마다 새로 계산하므로 옛 이력도 같은 기준으로 매겨집니다. <b>광고 경쟁도는 점수에 넣지 않았습니다</b> (광고 입찰 경쟁이라 블로그 경쟁과 다릅니다).<br>
+        <b>추천 세트</b>: 블로그별 목표 칸(N살림노트 A·B·C / W싼세계 해결·결정)에서 이미 승인된 만큼을 먼저 빼고, 남은 칸을 점수 높은 순으로 채웁니다. 같은 카테고리·차량 관리 상한과 숍글 비율을 지키며, 못 들어간 행은 ☆예비입니다. 꼬리표가 없는 행은 유형 미정이라 칸을 배정하지 않고 "후보"로만 보입니다. [추천 세트 체크하기]는 체크만 해 줄 뿐 승인은 하지 않습니다.
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var table = document.getElementById('resultTable');
+    if (!table) return;
+    var ths = table.tHead.rows[0].cells;
+    var state = { col: -1, dir: 1 };
+    Array.prototype.forEach.call(ths, function (th, idx) {
+      th.addEventListener('click', function () {
+        if (th.dataset.type === 'none') return;
+        state.dir = (state.col === idx) ? -state.dir : 1;
+        state.col = idx;
+        var num = th.dataset.type === 'num';
+        var rows = Array.prototype.slice.call(table.tBodies[0].rows);
+        rows.sort(function (a, b) {
+          var x = a.cells[idx].dataset.v, y = b.cells[idx].dataset.v;
+          if (num) {
+            // 빈 값은 방향과 상관없이 맨 아래로
+            if (x === '' && y === '') return 0;
+            if (x === '') return 1;
+            if (y === '') return -1;
+            return (parseFloat(x) - parseFloat(y)) * state.dir;
+          }
+          return x.localeCompare(y, 'ko') * state.dir;
+        });
+        rows.forEach(function (r) { table.tBodies[0].appendChild(r); });
+        Array.prototype.forEach.call(ths, function (h) { var s = h.querySelector('.arrow'); if (s) s.remove(); });
+        var arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        arrow.textContent = state.dir === 1 ? '▲' : '▼';
+        th.appendChild(arrow);
+      });
+    });
+    window.downloadCsv = function () {
+      var esc = function (s) { s = String(s == null ? '' : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      var lines = [];
+      var head = [];
+      var skip = table.tHead.querySelectorAll('th[data-type="none"]').length;  // 맨 앞 체크 칸들(선택·N살림노트·W싼세계)은 CSV에서 뺍니다
+      Array.prototype.forEach.call(ths, function (th, i) { if (i >= skip) head.push(esc(th.childNodes[0].textContent.trim())); });
+      lines.push(head.join(','));
+      Array.prototype.forEach.call(table.tBodies[0].rows, function (r) {
+        var cells = [];
+        Array.prototype.forEach.call(r.cells, function (c, i) { if (i >= skip) cells.push(esc(c.dataset.csv != null ? c.dataset.csv : c.dataset.v)); });
+        lines.push(cells.join(','));
+      });
+      var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'target_keywords.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+  })();
+
+  // ---- 주간 키워드로 승인: 주차 선택 + 블로그별 "선택 N + 이미 승인 K / 목표 M" (화면에서만 계산, 저장 없음) ----
+  (function () {
+    var form = document.getElementById('approveForm');
+    if (!form) return;
+    var weekSel = document.getElementById('weekSel');
+    var weekCustom = document.getElementById('weekCustom');
+    var weekHidden = document.getElementById('weekHidden');
+    var names = { naver: 'N살림노트', ssansegae: 'W싼세계' };
+    var cnts = { naver: document.getElementById('cnt-naver'), ssansegae: document.getElementById('cnt-ssansegae') };
+    function selected(blog) { return form.querySelectorAll('input.apv-cb[data-blog="' + blog + '"]:checked').length; }
+    function refresh() {
+      ['naver', 'ssansegae'].forEach(function (b) {
+        var el = cnts[b], n = selected(b), k = parseInt(el.dataset.approved || '0', 10), m = parseInt(el.dataset.target || '0', 10);
+        el.textContent = names[b] + ' — 선택 ' + n + ' + 이미 승인 ' + k + ' / 목표 ' + m;
+        el.classList.toggle('over', n + k > m);
+      });
+      if (window.renderAgg) window.renderAgg();
+    }
+    window.refreshApprove = refresh;
+    function mondayOf(s) {  // 'YYYY-MM-DD' → 그 주 월요일
+      var p = s.split('-'); var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+      var back = (d.getDay() + 6) % 7; d.setDate(d.getDate() - back);
+      var z = function (x) { return (x < 10 ? '0' : '') + x; };
+      return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+    }
+    var approvedKws = {{ (approved_kws or {}) | tojson }};  // 선택된 주차에 이미 승인된 키워드 {블로그: [키워드]} (읽기만)
+    function markApproved() {  // 이미 승인된 줄에 "✓ 승인됨" 표시 (표시만, 아무것도 저장하지 않음)
+      var sets = {};
+      Object.keys(approvedKws).forEach(function (b) { sets[b] = {}; (approvedKws[b] || []).forEach(function (k) { sets[b][k] = true; }); });
+      Array.prototype.forEach.call(form.querySelectorAll('tr[data-kw]'), function (tr) {
+        Array.prototype.forEach.call(tr.querySelectorAll('.apvdone'), function (el) {
+          el.style.display = (sets[el.dataset.blog] && sets[el.dataset.blog][tr.dataset.kw]) ? '' : 'none';
+        });
+      });
+    }
+    function loadWeek(week) {
+      weekHidden.value = week;
+      // 그 주의 이미 승인 수(유형별 포함)와 추천 배지·이유를 다시 받아 옵니다 (조회 전용)
+      fetch('/target-keywords/history/{{ hid }}/rec?week=' + encodeURIComponent(week)).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) return;
+        ['naver', 'ssansegae'].forEach(function (b) { cnts[b].dataset.approved = d.info[b].approved; cnts[b].dataset.target = d.info[b].target; });
+        if (window.applyRec) window.applyRec(d);
+        if (d.approved_kws) { approvedKws = d.approved_kws; markApproved(); }
+        refresh();
+      }).catch(function () {});
+    }
+    weekSel.addEventListener('change', function () {
+      if (weekSel.value === 'custom') { weekCustom.style.display = ''; if (weekCustom.value) loadWeek(mondayOf(weekCustom.value)); return; }
+      weekCustom.style.display = 'none'; loadWeek(weekSel.value);
+    });
+    weekCustom.addEventListener('change', function () { if (weekCustom.value) loadWeek(mondayOf(weekCustom.value)); });
+    form.addEventListener('change', function (e) {
+      var c = e.target.classList;
+      if (c && c.contains('apv-cb')) {  // 체크하면 유형 고르기 칸이 나타남
+        var sel = e.target.parentNode.querySelector('select.ptype');
+        if (sel) sel.style.display = e.target.checked ? '' : 'none';
+        var tr = e.target.closest('tr'), box = tr && tr.querySelector('.serpbox');  // 승인 체크가 하나라도 있으면 "경쟁·검색 확인" 칸이 나타남
+        if (box) box.style.display = tr.querySelector('input.apv-cb:checked') ? '' : 'none';
+        refresh();
+      } else if (c && c.contains('compete')) {  // 경쟁 🔴 = 작은 안내만 (점수는 그대로)
+        var h = e.target.parentNode.querySelector('.competehint');
+        if (h) h.style.display = e.target.value === 'red' ? '' : 'none';
+      } else if (c && c.contains('ptype')) refresh();
+      scheduleDraftSave();
+    });
+    form.addEventListener('input', function (e) { if (e.target.classList && e.target.classList.contains('serpnote')) scheduleDraftSave(); });
+
+    // ---- 작업 중 자동 저장 (draft): 이 이력의 draft 칸에만 저장. 대기열·글·발행에는 쓰지 않습니다 ----
+    var draftMsg = document.getElementById('draftMsg'), draftTimer = null;
+    function collectDraft() {
+      var rows = {};
+      Array.prototype.forEach.call(form.querySelectorAll('tr[data-kw]'), function (tr) {
+        var blogs = {}, any = false;
+        Array.prototype.forEach.call(tr.querySelectorAll('input.apv-cb:checked'), function (c) {
+          var sel = c.parentNode.querySelector('select.ptype');
+          blogs[c.dataset.blog] = { on: true, type: sel ? sel.value : '' }; any = true;
+        });
+        var cs = tr.querySelector('select.compete'), inp = tr.querySelector('input.serpnote');
+        var compete = cs ? cs.value : '', note = inp ? inp.value.trim().slice(0, 40) : '';
+        if (any || compete || note) rows[tr.dataset.kw] = { blogs: blogs, compete: compete, note: note };
+      });
+      return { week: weekHidden.value, rows: rows };
+    }
+    function saveDraft(keepalive) {
+      draftTimer = null;
+      fetch('/target-keywords/history/{{ hid }}/draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collectDraft()), keepalive: !!keepalive
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        draftMsg.textContent = d.ok ? ('✓ 작업 저장됨 ' + (d.ts || '').slice(11)) : '저장 못 함';
+      }).catch(function () { draftMsg.textContent = '저장 못 함'; });
+    }
+    function scheduleDraftSave() {
+      if (draftTimer) clearTimeout(draftTimer);
+      draftMsg.textContent = '저장 중…';
+      draftTimer = setTimeout(function () { saveDraft(false); }, 1000);
+    }
+    window.scheduleDraftSave = scheduleDraftSave;
+
+    // ---- 다시 열 때 draft 복원 (체크·유형·경쟁·메모·주차) → 기존 refresh 흐름으로 집계 다시 계산 ----
+    var draft = {{ (draft or none) | tojson }};
+    if (draft && draft.rows) {
+      Array.prototype.forEach.call(form.querySelectorAll('tr[data-kw]'), function (tr) {
+        var d = draft.rows[tr.dataset.kw];
+        if (!d) return;
+        var any = false;
+        Array.prototype.forEach.call(tr.querySelectorAll('input.apv-cb'), function (c) {
+          var s = (d.blogs || {})[c.dataset.blog];
+          if (!s || !s.on) return;
+          c.checked = true; any = true;
+          var sel = c.parentNode.querySelector('select.ptype');
+          if (sel) { sel.value = s.type || ''; sel.style.display = ''; }
+        });
+        var box = tr.querySelector('.serpbox'), cs = tr.querySelector('select.compete'), inp = tr.querySelector('input.serpnote');
+        if (cs) cs.value = d.compete || '';
+        if (inp) inp.value = d.note || '';
+        if (box && any) box.style.display = '';
+        var h = tr.querySelector('.competehint'); if (h) h.style.display = (cs && cs.value === 'red') ? '' : 'none';
+      });
+      if (draft.week && draft.week !== weekHidden.value) {
+        var has = Array.prototype.some.call(weekSel.options, function (o) { return o.value === draft.week; });
+        if (has) weekSel.value = draft.week;
+        else { weekSel.value = 'custom'; weekCustom.style.display = ''; weekCustom.value = draft.week; }
+        loadWeek(draft.week);  // 그 주 기준으로 승인됨 표시·집계 기준을 다시 받아 옴 (조회 전용)
+      }
+    }
+    markApproved();
+    form.addEventListener('submit', function (e) {
+      // 고른 계획 유형을 서버에 같이 보냅니다 (서버가 다시 검증)
+      var pt = { naver: {}, ssansegae: {} };
+      Array.prototype.forEach.call(form.querySelectorAll('input.apv-cb:checked'), function (c) {
+        var sel = c.parentNode.querySelector('select.ptype');
+        pt[c.dataset.blog][c.value] = sel ? sel.value : '';
+      });
+      document.getElementById('ptypesHidden').value = JSON.stringify(pt);
+      var notes = {}, comp = {};  // "검색 확인" 메모(40자)·경쟁 선택 (체크된 행만)
+      Array.prototype.forEach.call(form.querySelectorAll('tr[data-kw]'), function (tr) {
+        if (!tr.querySelector('input.apv-cb:checked')) return;
+        var inp = tr.querySelector('input.serpnote'), cs = tr.querySelector('select.compete');
+        if (inp && inp.value.trim()) notes[tr.dataset.kw] = inp.value.trim().slice(0, 40);
+        if (cs && cs.value) comp[tr.dataset.kw] = cs.value;
+      });
+      document.getElementById('serpNotesHidden').value = JSON.stringify(notes);
+      document.getElementById('serpCompeteHidden').value = JSON.stringify(comp);
+      if (draftTimer) { clearTimeout(draftTimer); saveDraft(true); }  // 승인 화면으로 넘어가기 전에 모아 둔 변경을 먼저 저장
+      var n = selected('naver'), s = selected('ssansegae');
+      if (!n && !s) { e.preventDefault(); document.getElementById('approveMsg').textContent = 'N살림노트·W싼세계 칸에서 승인할 키워드를 먼저 체크해 주세요.'; return; }
+      if (weekSel.value === 'custom' && !weekCustom.value) { e.preventDefault(); document.getElementById('approveMsg').textContent = '직접 선택할 날짜를 골라 주세요.'; return; }
+      if (!confirm(weekHidden.value + ' 주차 키워드로 승인합니다.\n\nN살림노트 ' + n + '개 · W싼세계 ' + s + '개\n(같은 주에 이미 있는 키워드는 건너뛰고, 거의 같은 글(🔴)이 있으면 저장하지 않고 따로 물어봅니다)\n\n진행할까요?')) e.preventDefault();
+    });
+    refresh();
+  })();
+
+  {% if rec %}
+  // ---- 추천 정렬 토글 (기획 순서 ↔ 추천 점수순) ----
+  (function () {
+    var table = document.getElementById('resultTable');
+    if (!table) return;
+    var byPlan = false;
+    window.toggleOrder = function () {
+      byPlan = !byPlan;
+      var attr = byPlan ? 'plan' : 'srank';
+      var rows = Array.prototype.slice.call(table.tBodies[0].rows);
+      rows.sort(function (a, b) { return parseInt(a.dataset[attr], 10) - parseInt(b.dataset[attr], 10); });
+      rows.forEach(function (r) { table.tBodies[0].appendChild(r); });
+      Array.prototype.forEach.call(table.tHead.rows[0].cells, function (h) { var s = h.querySelector('.arrow'); if (s) s.remove(); });
+      document.getElementById('sortToggle').textContent = byPlan ? '↕ 추천 점수순으로 보기' : '↕ 기획 순서로 보기';
+    };
+    var LABEL = { rec: '⭐ 추천', reserve: '☆ 예비', candidate: '후보', excluded: '제외' };
+    // 주차를 바꾸면 서버가 다시 계산한 추천 상태·이유를 표에 반영 (점수는 주차와 무관)
+    window.applyRec = function (d) {
+      Array.prototype.forEach.call(table.tBodies[0].rows, function (tr) {
+        var x = d.rows[tr.dataset.kw];
+        if (!x) return;
+        tr.className = 'st-' + x.status;
+        tr.dataset.srank = x.srank;
+        var cell = tr.querySelector('td.rec-cell');
+        cell.dataset.v = x.srank; cell.dataset.csv = LABEL[x.status];
+        cell.innerHTML = '<span class="rbadge st-' + x.status + '">' + LABEL[x.status] + '</span>';
+        var rs = tr.querySelector('td.reason'); rs.textContent = x.reason; rs.dataset.v = x.reason;
+        Array.prototype.forEach.call(tr.querySelectorAll('input.apv-cb'), function (c) {
+          var r = x.recs[c.dataset.blog];
+          c.dataset.rec = r ? '1' : ''; c.dataset.rectype = r ? r.type : '';
+        });
+      });
+      window.CFG = d.config;
+      var ct = document.getElementById('copyText');
+      if (ct && d.copy_text != null) ct.value = d.copy_text;
+      if (window.renderAgg) window.renderAgg();
+    };
+    window.copyList = function () {
+      var ta = document.getElementById('copyText'), msg = document.getElementById('copyMsg');
+      function ok() { msg.textContent = '✓ 복사했습니다 — 기획 채팅에 붙여넣으세요'; }
+      function fallback() { ta.focus(); ta.select(); try { document.execCommand('copy') ? ok() : (msg.textContent = '복사하지 못했습니다 — 칸을 직접 선택해 복사해 주세요'); } catch (e) { msg.textContent = '복사하지 못했습니다 — 칸을 직접 선택해 복사해 주세요'; } }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(ok, fallback); else fallback();
+    };
+  })();
+  {% endif %}
+
+  {% if rec and hid %}
+  // ---- 화면 맨 위 실시간 집계 막대 + 추천 세트 체크 (화면에서만 계산, 저장 없음) ----
+  (function () {
+    var bar = document.getElementById('aggBar');
+    var form = document.getElementById('approveForm');
+    if (!bar || !form) return;
+    window.CFG = {{ rec.config | tojson }};
+    function cls(n, target) { return n > target ? 'over' : (n === target ? 'ok' : ''); }
+    function shortCat(c) { return c.split(/[·\s]/)[0]; }
+    function chosen(blog) {  // 체크된 행들의 {유형: 수, '': 미정 수}와 카테고리 수
+      var types = {}, cats = {}, total = 0, review = 0;
+      var sp = (window.CFG[blog] || {}).split;
+      Array.prototype.forEach.call(form.querySelectorAll('input.apv-cb[data-blog="' + blog + '"]:checked'), function (c) {
+        var sel = c.parentNode.querySelector('select.ptype');
+        var t = sel ? sel.value : '';
+        types[t] = (types[t] || 0) + 1; total++;
+        if (c.dataset.cat) cats[c.dataset.cat] = (cats[c.dataset.cat] || 0) + 1;
+        if (sp && t === sp.type && sp.review_words.some(function (w) { return c.value.indexOf(w) >= 0; })) review++;  // W싼세계 결정 중 리뷰 분석 글
+      });
+      return { types: types, cats: cats, total: total, review: review };
+    }
+    window.renderAgg = function () {
+      var html = '';
+      ['naver', 'ssansegae'].forEach(function (b) {
+        var cf = window.CFG[b], ch = chosen(b);
+        var line = '<div class="line"><b class="nm">' + cf.label + '</b>';
+        cf.types.forEach(function (t) {
+          var n = (cf.approved_types[t] || 0) + (ch.types[t] || 0);
+          if (cf.split && t === cf.split.type) {  // W싼세계 결정 = 제품 추천 6 + 리뷰 분석 5
+            var rv = cf.split.approved_review + ch.review, pd = cf.split.approved_product + (ch.types[t] || 0) - ch.review;
+            line += '<span class="cell ' + cls(n, cf.targets[t]) + '" title="' + cf.type_names[t] + ' = 이미 승인 ' + (cf.approved_types[t] || 0) + ' + 선택 ' + (ch.types[t] || 0) + ' / 목표 ' + cf.targets[t] + ' (키워드에 후기·단점·장단점·실사용·리뷰가 있으면 리뷰 분석)">' + t + ' ' + n + '/' + cf.targets[t] +
+              ' (<span class="' + cls(pd, cf.split.product_slots) + '">' + (cf.split.general_label || '제품 추천') + ' ' + pd + '/' + cf.split.product_slots + '</span> · <span class="' + cls(rv, cf.split.review_slots) + '">리뷰 분석 ' + rv + '/' + cf.split.review_slots + '</span>)</span>';
+            return;
+          }
+          line +='<span class="cell ' + cls(n, cf.targets[t]) + '" title="' + cf.type_names[t] + ' = 이미 승인 ' + (cf.approved_types[t] || 0) + ' + 선택 ' + (ch.types[t] || 0) + ' / 목표 ' + cf.targets[t] + '">' + t + ' ' + n + '/' + cf.targets[t] + '</span>';
+        });
+        var total = cf.approved + ch.total;
+        line += '<span class="cell ' + cls(total, cf.plan) + '" title="이미 승인 ' + cf.approved + ' + 선택 ' + ch.total + ' / 목표 ' + cf.plan + '">합계 ' + total + '/' + cf.plan + '</span>';
+        var undecided = cf.approved_undecided + (ch.types[''] || 0);
+        if (b === 'naver') {
+          var shop = (cf.approved_types[cf.shop_type] || 0) + (ch.types[cf.shop_type] || 0);
+          var pct = total ? Math.round(shop / total * 100) : 0;
+          var over = total && shop * 100 > cf.shop_warn * total;
+          line += '<span class="cell ' + (over ? 'over' : (shop ? 'ok' : '')) + '" title="숍글(C) 비율 — 목표 ' + cf.shop_target + '%, ' + cf.shop_warn + '% 넘으면 경고">숍글 예정 ' + shop + '편(' + pct + '%)' + (over ? ' ⚠ ' + cf.shop_warn + '% 초과' : ' · 목표 ' + cf.shop_target + '%') + '</span>';
+        }
+        if (b === 'naver' || undecided) line += '<span class="cell" title="이미 승인된 것 중 유형이 기록되지 않은 수 + 선택했는데 유형을 \'미정\'으로 둔 수">유형 미정 ' + undecided + '</span>';
+        line += '</div>';
+        var cats = {};
+        Object.keys(cf.approved_cats).forEach(function (k) { cats[k] = (cats[k] || 0) + cf.approved_cats[k]; });
+        Object.keys(ch.cats).forEach(function (k) { cats[k] = (cats[k] || 0) + ch.cats[k]; });
+        var parts = Object.keys(cats).sort(function (x, y) { return cats[y] - cats[x]; }).map(function (k) {
+          var cap = k === cf.car_category ? cf.cap_car : cf.cap_cat;
+          return '<span class="' + (cats[k] > cap ? 'over' : '') + '" title="' + k + ' (상한 ' + cap + '편)">' + shortCat(k) + ' ' + cats[k] + '</span>';
+        });
+        line += '<div class="cats">카테고리: ' + (parts.length ? parts.join(' · ') : '-') + ' <span class="muted">(같은 카테고리 ' + cf.cap_cat + '편 · ' + cf.car_category + ' ' + cf.cap_car + '편 넘으면 노랑)</span></div>';
+        html += line;
+      });
+      bar.innerHTML = html;
+    };
+    window.checkRecSet = function () {
+      var done = 0, kept = 0;
+      Array.prototype.forEach.call(form.querySelectorAll('input.apv-cb'), function (c) {
+        if (c.checked) { if (c.dataset.rec === '1') kept++; return; }  // 이미 체크한 건 건드리지 않음
+        if (c.dataset.rec !== '1') return;
+        c.checked = true;
+        var sel = c.parentNode.querySelector('select.ptype');
+        if (sel) { sel.value = c.dataset.rectype || ''; sel.style.display = ''; }
+        var sbox = c.closest('tr').querySelector('.serpbox'); if (sbox) sbox.style.display = '';
+        done++;
+      });
+      document.getElementById('recSetMsg').textContent = '✓ 추천 ' + done + '개를 체크했습니다 (이미 체크한 ' + kept + '개는 그대로). 승인은 아직 하지 않았어요.';
+      if (window.refreshApprove) window.refreshApprove(); else window.renderAgg();
+      if (window.scheduleDraftSave) window.scheduleDraftSave();  // 누른 결과도 자동 저장
+    };
+    window.renderAgg();
+  })();
+  {% endif %}
+</script>
+</body>
+</html>

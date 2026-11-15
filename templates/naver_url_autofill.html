@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>네이버 글 주소 자동 채우기</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  h2 { font-size: 15px; margin: 26px 0 10px; color: #7dd3fc; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #2a2a2a; vertical-align: top; word-break: break-all; }
+  th { background: #262626; font-weight: 600; color: #f5f5f5; font-size: 12px; }
+  .wait { color: #888; font-size: 12px; display: block; margin-top: 3px; }
+  .ok { color: #4ade80; } .warn { color: #fbbf24; } .fail { color: #f87171; }
+  .btn { background: #262626; color: #ddd; border: 1px solid #3a3a3a; padding: 10px 18px; border-radius: 8px; font-size: 14px; text-decoration: none; display: inline-block; }
+  .summary { background: #1e1e1e; border-radius: 8px; padding: 14px 18px; font-size: 14px; line-height: 1.9; margin-bottom: 16px; }
+  .rss-fail { background: #3b1212; color: #fca5a5; border-radius: 8px; padding: 14px 18px; font-size: 14px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container">
+    <h1>🔗 네이버 글 주소 자동 채우기{% if only %} (이 글만){% endif %}</h1>
+    <p class="lead">예약 발행 때문에 글 번호 없는 주소(블로그 첫 화면)가 저장된 글을, 공개된 뒤 네이버 RSS에서 찾아 실제 글 주소로 채웁니다. 바뀌는 값은 "발행 주소" 하나뿐이에요.</p>
+
+    {% if rss_failed %}
+    <div class="rss-fail">RSS를 읽지 못했어요 — 아무것도 바꾸지 않았어요. 잠시 뒤 다시 눌러 주세요.</div>
+    {% else %}
+    {% set filled_rows = rows | selectattr('result', 'equalto', '채움') | list %}
+    {% set missed = rows | selectattr('result', 'equalto', '못 찾음') | list %}
+    {% set waiting = rows | selectattr('result', 'equalto', '예약 중') | list %}
+    <div class="summary">
+      <span class="ok">채움 {{ filled }}개</span> / <span class="fail">못 찾음 {{ missed | length }}개</span> / <span class="warn">아직 예약 중 {{ waiting | length }}개</span>
+      {% if not rows %}<br><span class="wait">채울 대상이 없어요 (이미 올바른 주소가 있거나 발행 날짜가 없는 글이에요).</span>{% endif %}
+    </div>
+
+    {% if filled_rows %}
+    <h2>채운 글</h2>
+    <table>
+      <tr><th>채널</th><th>글</th><th>발행일</th><th>채운 주소</th></tr>
+      {% for r in filled_rows %}
+      <tr><td>{{ r.channel }}</td><td><a style="color:#60a5fa" href="/article/{{ r.id }}/edit">{{ r.title or r.keyword }}</a></td><td>{{ r.date }}</td><td>{{ r.found }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if missed %}
+    <h2>못 찾음 ({{ missed | length }}개) — 자동으로 저장하지 않았어요. 직접 주소를 넣어 주세요</h2>
+    <table>
+      <tr><th>채널</th><th>글</th><th>발행일</th><th>가장 비슷한 RSS 제목 (참고)</th></tr>
+      {% for r in missed %}
+      <tr><td>{{ r.channel }}</td><td><a style="color:#60a5fa" href="/article/{{ r.id }}/edit">{{ r.title or r.keyword }}</a></td><td>{{ r.date }}</td><td>{{ r.ref or '-' }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if waiting %}
+    <h2>아직 예약 중 ({{ waiting | length }}개) — 공개된 뒤 다시 눌러 주세요</h2>
+    <table>
+      <tr><th>채널</th><th>글</th><th>공개 예정일</th></tr>
+      {% for r in waiting %}
+      <tr><td>{{ r.channel }}</td><td>{{ r.title or r.keyword }}</td><td>{{ r.date }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+    {% endif %}
+
+    <p style="margin-top:24px;"><a class="btn" href="{{ back_url }}">← 돌아가기</a></p>
+  </div>
+  </div>
+</div>
+</body>
+</html>

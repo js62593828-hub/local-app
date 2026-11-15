@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>발행 현황</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; color: #f5f5f5; }
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+  .filter-bar select, .filter-bar input[type="text"] {
+    background: #1e1e1e; color: #e5e5e5; border: 1px solid #333; border-radius: 6px;
+    padding: 7px 10px; font-size: 13px; font-family: inherit;
+  }
+  .filter-bar input[type="text"] { flex: 1; min-width: 220px; }
+  .filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: #3b82f6; }
+  .filter-reset { font-size: 12.5px; color: #60a5fa; text-decoration: none; padding: 6px 4px; }
+  .filter-count { font-size: 12px; color: #888; margin-bottom: 14px; }
+  .seed-tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 4px; background: #17202b; color: #7dd3fc; font-size: 10.5px; vertical-align: middle; white-space: nowrap; }
+  .date-from-week { color: #666; font-size: 11px; display: block; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #2a2a2a; }
+  th { background: #262626; font-weight: 600; color: #f5f5f5; font-size: 12px; }
+  .cluster-row td { background: #17202b; color: #7dd3fc; font-weight: 700; font-size: 12px; padding: 7px 12px; }
+  .role-badge { font-size: 10px; color: #999; margin-left: 6px; }
+  .cell-empty { color: #666; }
+  .cell-generated { color: #fbbf24; }
+  .cell-published { color: #4ade80; }
+  .cell-scheduled { color: #93c5fd; }
+  .cell-date { color: #777; font-size: 11px; display: block; margin-top: 2px; }
+  .cell-title { color: #9ca3af; font-size: 11.5px; display: block; margin-top: 2px; max-width: 220px; }
+  .v4-tag { display: inline-block; margin: 3px 0 0 6px; padding: 1px 7px; border-radius: 10px; font-size: 10.5px; font-weight: 600; vertical-align: middle; white-space: nowrap; background: #17202b; color: #7dd3fc; border: 1px solid #1e3a5f; }
+  .v4-tag.est, .v4-tag.none { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .v4-tag.cat { background: #1c2a1f; color: #86efac; border-color: #25452d; }
+  .v4-tag.cat.none { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .v4-tag.cat.warn { background: #3a300d; color: #fcd34d; border-color: #5c4a14; }
+  .v4-tag.excluded { background: #2b2b2b; color: #bbb; border-color: #444; }
+  .edit-link { color: #60a5fa; text-decoration: none; font-size: 12px; }
+  .empty { margin-top: 40px; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+
+  <div class="main-content">
+  <div class="container">
+  {% include "_old_channel_notice.html" %}
+  <h1>발행 현황</h1>
+
+  {% if active_channel_id in ('naver_tips', 'shop_naver') %}
+  <form method="POST" action="/naver-url-autofill" style="margin-bottom:14px;" onsubmit="return confirm('네이버 일반·네이버 SHOP 두 채널에서, 이미 공개된 글 중 글 주소가 없는 글의 발행 주소를 네이버 RSS에서 찾아 채웁니다. 계속할까요?');">
+    <input type="hidden" name="back" value="status">
+    <button type="submit" style="background:#262626; color:#ddd; border:1px solid #3a3a3a; padding:8px 16px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:13.5px;" title="예약 발행으로 블로그 첫 화면 주소가 저장된 글을, 공개된 뒤 RSS에서 실제 글 주소를 찾아 채웁니다">🔗 네이버 글 주소 자동 채우기</button>
+    <span style="color:#888; font-size:12.5px; margin-left:8px;">예약 글은 공개된 뒤에 누르면 한 번에 채워져요 (두 네이버 채널 모두)</span>
+  </form>
+  {% endif %}
+
+  <div class="filter-bar">
+    <select id="f-month" title="발행(예약)일 기준 월 — 발행일이 없는 글은 주차 기준">
+      <option value="">월: 전체</option>
+      {% for m in all_months %}
+      <option value="{{ m }}" {{ 'selected' if m == f_month else '' }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" id="f-q" value="{{ f_q }}" placeholder="키워드·제목 검색 (공백 무시)" autocomplete="off">
+    <select id="f-status">
+      <option value="all" {{ 'selected' if f_status == 'all' else '' }}>상태: 전체</option>
+      <option value="published" {{ 'selected' if f_status == 'published' else '' }}>발행완료</option>
+      <option value="scheduled" {{ 'selected' if f_status == 'scheduled' else '' }}>예약됨</option>
+      <option value="generated" {{ 'selected' if f_status == 'generated' else '' }}>생성만 완료</option>
+      <option value="empty" {{ 'selected' if f_status == 'empty' else '' }}>미생성</option>
+    </select>
+    <select id="f-sort">
+      <option value="cluster" {{ 'selected' if f_sort == 'cluster' else '' }}>정렬: 키워드 묶음</option>
+      <option value="newest" {{ 'selected' if f_sort == 'newest' else '' }}>정렬: 발행일 최신순</option>
+      <option value="oldest" {{ 'selected' if f_sort == 'oldest' else '' }}>정렬: 발행일 오래된순</option>
+    </select>
+    <a class="filter-reset" href="/status">초기화</a>
+  </div>
+  <div class="filter-count" id="filter-count">{{ rows|length }}건{% if rows|length != total_count %} (전체 {{ total_count }}건 중){% endif %}</div>
+
+  {% set flat = f_sort != 'cluster' %}
+  {% if rows %}
+  <table id="status-table">
+    <tr>
+      <th>키워드</th>
+      <th>주차</th>
+      <th>발행(예약)일</th>
+      {% for p in platforms %}
+      <th>{{ platform_labels[p] }}</th>
+      {% endfor %}
+      <th></th>
+    </tr>
+    {% set ns = namespace(last_seed=None) %}
+    {% for row in rows %}
+      {% if not flat and row.cluster_seed != ns.last_seed %}
+      <tr class="cluster-row"><td colspan="{{ 3 + platforms|length + 1 }}">📌 {{ row.cluster_seed }}</td></tr>
+      {% set ns.last_seed = row.cluster_seed %}
+      {% endif %}
+      <tr class="data-row" data-search="{{ row.search_key }}">
+        <td>
+          {{ row.keyword }}
+          {% if row.cluster_role %}<span class="role-badge">({{ row.cluster_role }})</span>{% endif %}
+          {% if flat %}<span class="seed-tag" title="대표 키워드(cluster_seed)">{{ row.cluster_seed }}</span>{% endif %}
+          {% set s = sim.get(row.id) %}
+          {% if s %}<span class="sim-badge small {{ s.level }}" data-sim-id="{{ row.id }}" title="클릭하면 고정됩니다">{{ '🔴 거의 같은 글' if s.level == 'red' else '🟡 비슷한 주제' }} {{ s.count }}</span>{% endif %}
+          {% set any_title = row.titles.wordpress or row.titles.naver or row.titles.tistory %}
+          {% if any_title %}<span class="cell-title">{{ any_title }}</span>{% endif %}
+          {% if row.v4 %}
+          <span class="v4-tag {{ 'est' if row.v4.estimated else ('none' if not row.v4.type_key else 'typed') }}" title="메모의 '글 유형:' 줄 (조회만)">{{ row.v4.type_label }}</span>
+          <span class="v4-tag cat {{ 'warn' if row.v4.category_key == '__out__' else ('none' if row.v4.category_key == '__none__' else '') }}" title="메모의 '카테고리 제안' (조회만)">{{ row.v4.category_label }}</span>
+          {% if row.v4.excluded %}<span class="v4-tag excluded" title="기타 리뷰로 표시됨">기타 리뷰</span>{% endif %}
+          {% endif %}
+        </td>
+        <td style="color:#888;">{{ row.week }}</td>
+        <td style="color:#aaa;">
+          {% if row.date %}{{ row.date }}{% else %}<span style="color:#666;">-</span><span class="date-from-week">{{ row.month }} (주차 기준)</span>{% endif %}
+        </td>
+        {% for p in platforms %}
+        <td>
+          <span class="cell-{{ row.platforms[p].level }}">{{ row.platforms[p].status }}</span>
+          {% if row.titles[p] %}<span class="cell-title">{{ row.titles[p] }}</span>{% endif %}
+          {% if row.platforms[p].date %}<span class="cell-date">{{ row.platforms[p].date }}</span>{% endif %}
+        </td>
+        {% endfor %}
+        <td><a class="edit-link" href="/article/{{ row.id }}/edit">편집기 →</a></td>
+      </tr>
+    {% endfor %}
+  </table>
+  <div class="empty" id="no-match" style="display:none;">조건에 맞는 글이 없습니다.</div>
+  {% else %}
+  <div class="empty">{% if total_count %}조건에 맞는 글이 없습니다.{% else %}승인된 키워드가 없습니다.{% endif %}</div>
+  {% endif %}
+  </div>
+  </div>
+</div>
+{% include "_similarity_ui.html" %}
+<script>
+// 필터 상태는 주소(?month=&q=&status=&sort=)에 남깁니다 — 새로고침하거나 편집기에서 돌아와도 유지됩니다.
+// 월·상태·정렬은 바꾸면 서버가 다시 걸러서 보여주고, 검색어는 입력하는 즉시 화면에서 걸러집니다(주소도 같이 갱신).
+const normalize = (s) => (s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+function currentParams() {
+  const p = new URLSearchParams();
+  const month = document.getElementById('f-month').value;
+  const q = document.getElementById('f-q').value.trim();
+  const status = document.getElementById('f-status').value;
+  const sort = document.getElementById('f-sort').value;
+  if (month) p.set('month', month);
+  if (q) p.set('q', q);
+  if (status !== 'all') p.set('status', status);
+  if (sort !== 'cluster') p.set('sort', sort);
+  return p;
+}
+
+['f-month', 'f-status', 'f-sort'].forEach((id) => {
+  document.getElementById(id).addEventListener('change', () => {
+    const qs = currentParams().toString();
+    location.href = '/status' + (qs ? '?' + qs : '');
+  });
+});
+
+function liveFilter() {
+  const q = normalize(document.getElementById('f-q').value);
+  const rows = document.querySelectorAll('#status-table tr');
+  let visible = 0, clusterRow = null, clusterHasVisible = false;
+  const flushCluster = () => { if (clusterRow) clusterRow.style.display = clusterHasVisible ? '' : 'none'; };
+  rows.forEach((tr) => {
+    if (tr.classList.contains('cluster-row')) {
+      flushCluster(); clusterRow = tr; clusterHasVisible = false; return;
+    }
+    if (!tr.classList.contains('data-row')) return;
+    const show = !q || (tr.dataset.search || '').includes(q);
+    tr.style.display = show ? '' : 'none';
+    if (show) { visible++; clusterHasVisible = true; }
+  });
+  flushCluster();
+  const noMatch = document.getElementById('no-match');
+  if (noMatch) noMatch.style.display = visible === 0 ? '' : 'none';
+  const table = document.getElementById('status-table');
+  if (table) table.style.display = visible === 0 ? 'none' : '';
+  const total = {{ total_count }};
+  const count = document.getElementById('filter-count');
+  const monthOrStatusActive = {{ 'true' if (f_month or f_status != 'all') else 'false' }};
+  count.textContent = visible + '건' + ((q || monthOrStatusActive) ? ' (전체 ' + total + '건 중)' : '');
+  const qs = currentParams().toString();
+  history.replaceState(null, '', '/status' + (qs ? '?' + qs : ''));
+}
+document.getElementById('f-q').addEventListener('input', liveFilter);
+if (document.getElementById('f-q').value) liveFilter();
+</script>
+</body>
+</html>

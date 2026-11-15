@@ -1,0 +1,7 @@
+requests>=2.31.0
+flask>=3.0.0
+anthropic>=0.40.0
+playwright
+google-auth>=2.30.0
+Markdown>=3.5
+pillow>=10.0.0

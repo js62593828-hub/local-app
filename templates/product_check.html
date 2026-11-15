@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>제품 체크</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 80px; }
+  .container { max-width: 1300px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; color: #f5f5f5; }
+  h2 { font-size: 16px; margin: 30px 0 10px; color: #7dd3fc; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 14px; }
+  .notes { background: #12283f; border: 1px solid #1e3a5f; color: #7dd3fc; border-radius: 8px; padding: 10px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 14px; }
+  .notes.ok { background: #10301c; border-color: #1f5a35; color: #86efac; }
+  .notes.warn { background: #3a2a10; border-color: #5a4220; color: #fcd34d; }
+  .cards { display: flex; gap: 14px; flex-wrap: wrap; }
+  .pcard { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; width: 300px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .pcard.checked { border-color: #3b82f6; }
+  .pcard img { width: 100%; aspect-ratio: 1/1; object-fit: contain; background: #fff; border-radius: 8px; }
+  .noimg { width: 100%; aspect-ratio: 1/1; background: #222; color: #777; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 12px; }
+  .pname { font-size: 13.5px; line-height: 1.5; color: #f0f0f0; }
+  .pname a { color: #7dd3fc; text-decoration: none; font-size: 12px; margin-left: 4px; }
+  .meta { font-size: 12.5px; color: #bbb; line-height: 1.8; }
+  .meta b { color: #f5f5f5; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; margin-right: 4px; }
+  .b-same { background: #10301c; color: #86efac; } .b-sim { background: #3a2a10; color: #fcd34d; } .b-none { background: #3a1414; color: #fca5a5; }
+  .b-low { background: #3a2a10; color: #fcd34d; }
+  label.pick { font-size: 13.5px; color: #e5e5e5; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: #999; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; margin-top: 8px; }
+  th, td { padding: 6px 9px; text-align: left; font-size: 12.5px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+  th { background: #262626; color: #f5f5f5; white-space: nowrap; }
+  td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td a { color: #7dd3fc; text-decoration: none; }
+  .savebar { position: sticky; bottom: 0; background: #161616; border-top: 1px solid #2a2a2a; padding: 12px 0; margin-top: 24px; display: flex; gap: 14px; align-items: center; }
+  .btn { background: #3b82f6; color: #fff; border: none; padding: 10px 22px; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .linkbox { background: #111c14; border: 1px solid #1f3a28; border-radius: 8px; padding: 6px 10px; word-break: break-all; }
+  .muted { color: #888; font-size: 12.5px; }
+  select { background: #1a1a1a; color: #ddd; border: 1px solid #333; border-radius: 6px; padding: 5px 8px; font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content"><div class="container">
+    <h1>🧾 제품 체크</h1>
+    <div class="lead">도구가 모아 둔 제품 후보 중에서 글에 쓸 제품을 고릅니다. 여기서 저장해도 대기열·글 파일은 바뀌지 않고, 같은 폴더의 <code>approved.json</code> 한 파일에만 저장됩니다.</div>
+
+    {% if not data %}
+    <div class="notes warn">아직 모은 제품 후보가 없습니다. 먼저 <code>python tools/product_candidates.py --channel naver_tips --keywords "검색어1,검색어2"</code> 를 실행해 주세요.</div>
+    {% else %}
+    <form method="get" class="muted">
+      결과 폴더:
+      <select name="run" onchange="this.form.submit()">
+        {% for r in runs %}<option value="{{ r }}" {{ 'selected' if r == run }}>{{ r }}</option>{% endfor %}
+      </select>
+      · 채널 {{ data.channel_label }} · 만든 시각 {{ data.created }}
+    </form>
+    <div class="notes" style="margin-top:10px">리뷰 수·평점은 모두 <b>네이버 기준</b>입니다. 브랜드(추정)는 화면에 칸이 없어 상품명에서 추정한 값입니다. 상품 주소는 새 창으로 열립니다.</div>
+    {% if approved %}<div class="notes ok" id="savedNote">마지막 저장: {{ approved.approved_at }} (제품 {{ approved.keywords | map(attribute='picks') | map('length') | sum }}개)</div>
+    {% else %}<div class="notes ok" id="savedNote" style="display:none"></div>{% endif %}
+
+    {% set approved_urls = [] %}
+    {% if approved %}{% for ak in approved.keywords %}{% for p in ak.picks %}{% set _ = approved_urls.append(ak.keyword ~ '|' ~ p.rank) %}{% endfor %}{% endfor %}{% endif %}
+
+    {% for k in data.keywords %}
+    {% set ki = loop.index0 %}
+    <h2>검색어: {{ k.keyword }}</h2>
+    <div class="muted">전체 {{ k.total or '?' }}개 중 상위 {{ k['items'] | length }}개를 모았고, 추천 {{ k.recommended | length }}개{% if k.relaxed %} · <span class="badge b-low">기준 낮춤(평점 4.3 이상)</span>{% endif %}</div>
+    <div class="cards" style="margin-top:10px">
+      {% for r in k.recommended %}
+      {% set key = k.keyword ~ '|' ~ r.rank %}
+      {% set is_on = (key in approved_urls) if approved else true %}
+      <div class="pcard {{ 'checked' if is_on }}">
+        {% if r.image and r.image.file %}<img src="/product-check/img/{{ run }}/{{ r.image.file }}" alt="">{% else %}<div class="noimg">이미지 없음</div>{% endif %}
+        <div class="pname">{{ r.name }} <a href="{{ r.url }}" target="_blank" rel="noopener">상품 보기 ↗</a></div>
+        <div class="meta">
+          가격 <b>{{ '{:,}'.format(r.price or 0) }}원</b> · 수수료 <b>{{ r.commission }}%</b><br>
+          평점 <b>{{ r.rating }}</b> · 리뷰 <b>{{ '{:,}'.format(r.reviews or 0) }}</b>개 <span class="muted">(네이버 기준)</span><br>
+          {% if r.coupang %}
+          쿠팡:
+          <span class="badge {{ 'b-same' if r.coupang.verdict == '같음' else ('b-sim' if r.coupang.verdict == '비슷함' else 'b-none') }}">{{ r.coupang.verdict }}</span>
+          {% if r.coupang.price %}쿠팡 가격 <b>{{ '{:,}'.format(r.coupang.price) }}원</b>{% endif %}
+          <div class="muted">{{ r.coupang.why }}</div>
+          {% endif %}
+          {% if k.relaxed and r.rating < data.criteria.rating_min %}<span class="badge b-low">기준 낮춤</span>{% endif %}
+        </div>
+        {% set lk = links.get(r.url.split('?')[0].split('/')[-1]) if links else None %}
+        {% if lk %}
+        <div class="meta linkbox">
+          링크 상태: <span class="badge {{ 'b-same' if lk.status in ('발급','기존') else ('b-none' if lk.status == '실패' else 'b-sim') }}">{{ lk.status }}</span>
+          <div class="muted">{{ lk.reason }}{% if lk.issued_at %} · {{ lk.issued_at }}{% endif %}</div>
+          {% if lk.naver_link %}쇼핑커넥트: <a href="{{ lk.naver_link }}" target="_blank" rel="noopener">{{ lk.naver_link }}</a><br>{% endif %}
+          {% if lk.coupang_link %}쿠팡: <a href="{{ lk.coupang_link }}" target="_blank" rel="noopener">{{ lk.coupang_link }}</a>{% endif %}
+        </div>
+        {% endif %}
+        <label class="pick"><input type="checkbox" class="pickbox" data-kw="{{ ki }}" data-rank="{{ r.rank }}" {{ 'checked' if is_on }} onchange="this.closest('.pcard').classList.toggle('checked', this.checked)"> 이 제품 확정</label>
+      </div>
+      {% else %}
+      <div class="notes warn">조건에 맞는 추천 제품이 없습니다. 아래 30개 목록에서 직접 고를 수 있습니다.</div>
+      {% endfor %}
+    </div>
+    <details>
+      <summary>상위 {{ k['items'] | length }}개 펼쳐서 다른 제품 고르기</summary>
+      <table>
+        <tr><th>고름</th><th>순위</th><th>상품명</th><th>브랜드(추정)</th><th>가격</th><th>수수료</th><th>리뷰</th><th>평점</th><th>링크</th></tr>
+        {% set rec_ranks = k.recommended | map(attribute='rank') | list %}
+        {% for x in k['items'] %}
+        {% if x.rank not in rec_ranks %}
+        <tr>
+          <td><input type="checkbox" class="pickbox" data-kw="{{ ki }}" data-rank="{{ x.rank }}" {{ 'checked' if approved and (k.keyword ~ '|' ~ x.rank) in approved_urls }}></td>
+          <td class="num">{{ x.rank }}</td>
+          <td>{{ x.name }} <a href="{{ x.url }}" target="_blank" rel="noopener">↗</a></td>
+          <td>{{ x.brand }}</td>
+          <td class="num">{{ '{:,}'.format(x.price or 0) }}</td>
+          <td class="num">{{ x.commission }}%</td>
+          <td class="num">{{ '{:,}'.format(x.reviews or 0) }}</td>
+          <td class="num">{{ x.rating }}</td>
+          {% set lk2 = links.get(x.url.split('?')[0].split('/')[-1]) if links else None %}
+          <td>{% if lk2 %}{{ lk2.status }}{% if lk2.naver_link %} · <a href="{{ lk2.naver_link }}" target="_blank" rel="noopener">{{ lk2.naver_link }}</a>{% endif %}{% endif %}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </table>
+    </details>
+    {% endfor %}
+
+    <div class="savebar">
+      <button class="btn" onclick="saveApproved()">확정 저장</button>
+      <span class="muted" id="saveMsg">체크한 제품만 approved.json 에 저장됩니다.</span>
+    </div>
+    {% endif %}
+  </div></div>
+</div>
+{% if data %}
+<script>
+const KEYWORDS = {{ data.keywords | map(attribute='keyword') | list | tojson }};
+async function saveApproved() {
+  const picks = KEYWORDS.map((kw, i) => ({
+    keyword: kw,
+    ranks: [...document.querySelectorAll('.pickbox[data-kw="' + i + '"]:checked')].map(b => Number(b.dataset.rank)),
+  }));
+  const msg = document.getElementById('saveMsg');
+  try {
+    const r = await fetch('/product-check/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({run: {{ run | tojson }}, picks})});
+    const j = await r.json();
+    if (j.ok) {
+      msg.textContent = '저장했습니다 (' + j.saved_at + ', 제품 ' + j.count + '개)';
+      const n = document.getElementById('savedNote');
+      n.style.display = ''; n.textContent = '마지막 저장: ' + j.saved_at + ' (제품 ' + j.count + '개)';
+    } else { msg.textContent = '저장 실패: ' + (j.error || ''); }
+  } catch (e) { msg.textContent = '저장 실패: ' + e; }
+}
+</script>
+{% endif %}
+</body>
+</html>

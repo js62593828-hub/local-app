@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>{{ keyword }} — {{ platform_label }} 최종본</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; padding: 40px; color: #e5e5e5; }
+  .container { max-width: 780px; margin: 0 auto; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  a.back { color: #60a5fa; text-decoration: none; font-size: 13px; }
+  .platform-tag { display: inline-block; background: #1e1e1e; border-radius: 20px; padding: 6px 16px; font-size: 13px; color: #aaa; margin-bottom: 6px; }
+  h1.keyword { font-size: 22px; margin: 8px 0 20px; }
+
+  .pub-status-label { font-size: 12px; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+  .pub-status-label.empty { color: #888; background: #1e1e1e; }
+  .pub-status-label.generated { color: #fbbf24; background: #3a2f0d; }
+  .pub-status-label.scheduled { color: #93c5fd; background: #142a4a; }
+  .pub-status-label.published { color: #34d399; background: #0d3b2a; }
+  .pub-date-input {
+    background: #0f0f0f; color: #e5e5e5; border: 1px solid #444; border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; color-scheme: dark;
+  }
+  .pub-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.9);
+    cursor: pointer;
+  }
+  .pub-save-btn { background: #333; color: #e5e5e5; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .pub-save-btn:hover { background: #444; }
+  .pub-url-input {
+    background: #0f0f0f; color: #e5e5e5; border: 1px solid #444; border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; width: 220px;
+  }
+  .link-resolve-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #17202b; border: 1px solid #1e3a5f; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 16px; font-size: 13px; color: #7dd3fc;
+  }
+  .link-resolve-btn { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .link-resolve-btn:hover { background: #2563eb; }
+  .link-resolve-result { background: #0d3b2a; color: #34d399; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; font-size: 13px; }
+  .price-warning-bar {
+    background: #3a2a12; border: 1px solid #7c4a12; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 16px; font-size: 13px; color: #fbbf24;
+  }
+  .price-warning-bar ul { margin: 6px 0 0; padding-left: 18px; }
+  .price-warning-bar code { color: #fca5a5; font-size: 12px; }
+
+  .metadata-box {
+    background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px;
+    padding: 18px 22px; margin-bottom: 20px;
+  }
+  .metadata-box summary { cursor: pointer; font-size: 14px; color: #f5f5f5; font-weight: 600; }
+  .metadata-box textarea {
+    width: 100%; min-height: 180px; margin-top: 12px; background: #0f0f0f; color: #e5e5e5;
+    border: 1px solid #444; border-radius: 8px; padding: 12px 14px; font-size: 13px;
+    font-family: 'Malgun Gothic', sans-serif; box-sizing: border-box; resize: vertical;
+  }
+  .metadata-save-btn {
+    background: #3b82f6; color: white; border: none; padding: 8px 18px; border-radius: 6px;
+    font-size: 13px; cursor: pointer; margin-top: 10px;
+  }
+  .metadata-save-btn:hover { background: #2563eb; }
+  .metadata-saved-badge { font-size: 12px; color: #34d399; margin-left: 10px; }
+  .seo-check { font-size: 12px; margin-top: 8px; padding: 4px 10px; border-radius: 6px; display: inline-block; }
+  .seo-check.good { background: #0d3b2a; color: #34d399; }
+  .seo-check.short, .seo-check.long { background: #4a3b12; color: #fbbf24; }
+  .seo-check.none { background: #262626; color: #777; }
+  .seo-shorten-btn {
+    background: #92600a; color: white; border: none; padding: 5px 12px; border-radius: 6px;
+    font-size: 12px; cursor: pointer; margin-left: 8px;
+  }
+  .seo-shorten-btn:hover { background: #b8790f; }
+  .short-link-box {
+    background: #0f2e1f; border: 1px solid #1a4a30; border-radius: 8px; padding: 12px 18px;
+    margin: 14px 0; font-size: 13px; color: #a7f3d0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .short-link-box code { background: #06170f; padding: 3px 10px; border-radius: 5px; color: #34d399; font-size: 13px; }
+  .short-link-copy-btn {
+    background: #16a34a; color: white; border: none; padding: 4px 12px; border-radius: 6px;
+    font-size: 12px; cursor: pointer;
+  }
+  .short-link-copy-btn:hover { background: #15803d; }
+
+  .schema-box {
+    background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px;
+    padding: 18px 22px; margin-bottom: 20px;
+  }
+  .schema-box summary { cursor: pointer; font-size: 14px; color: #f5f5f5; font-weight: 600; }
+  .schema-box .hint { font-size: 12px; color: #999; margin-top: 8px; }
+  .schema-box pre {
+    background: #0f0f0f; border-radius: 8px; padding: 14px 16px; margin-top: 10px;
+    font-size: 12px; color: #ccc; white-space: pre-wrap; word-break: break-all;
+    max-height: 260px; overflow-y: auto;
+  }
+
+  .publish-box {
+    background: #17202b; border: 1px solid #1e3a5f; border-radius: 10px;
+    padding: 18px 22px; margin-bottom: 20px;
+  }
+  .publish-box h3 { margin: 0 0 12px; font-size: 14px; color: #7dd3fc; }
+  .publish-box .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .publish-box input[type="text"], .publish-box input[type="datetime-local"] {
+    background: #0f0f0f; color: #e5e5e5; border: 1px solid #444; border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; color-scheme: dark;
+  }
+  .publish-box input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.9);
+    cursor: pointer;
+  }
+  .publish-box label { font-size: 13px; color: #ccc; display: flex; align-items: center; gap: 5px; }
+  .publish-btn { background: #16a34a; color: white; border: none; padding: 9px 20px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
+  .publish-btn:hover { background: #15803d; }
+  .publish-success { background: #0d3b2a; color: #34d399; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
+  .publish-warning { background: #4a1414; color: #f87171; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
+
+  .content { background: #1e1e1e; border-radius: 10px; padding: 32px 36px; line-height: 1.9; font-size: 15px; }
+  .content h1 { font-size: 24px; color: #f5f5f5; margin-top: 0; }
+  .content h2 { color: #f5f5f5; font-size: 19px; border-left: 4px solid #3b82f6; padding-left: 12px; margin-top: 30px; }
+  .content table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .content th, .content td { border: 1px solid #333; padding: 10px 12px; font-size: 14px; }
+  .content th { background: #262626; }
+  .seo-money { color: #f87171; }
+  .seo-percent { color: #60a5fa; }
+  .seo-date { color: #34d399; }
+  .seo-body-img, .seo-cover-img { width: 100%; border-radius: 8px; margin: 18px 0; display: block; }
+  .content .wp-block-buttons { margin: 14px 0 6px; }
+  .content .wp-block-button__link { display: inline-block; padding: 12px 26px; border-radius: 10px; font-weight: 700; text-decoration: none; }
+  .content hr.wp-block-separator { border: 0; border-top: 1px solid #333; margin: 28px 0; }
+  .content figure.wp-block-image { margin: 18px 0; }
+  .content figure.wp-block-image img { max-width: 100%; height: auto; border-radius: 8px; display: block; }
+  .seo-toc { background: #151515; border-radius: 8px; padding: 16px 20px; margin: 20px 0; font-size: 14px; }
+  .seo-toc ul { margin: 8px 0 0; padding-left: 20px; }
+  .seo-toc a { color: #60a5fa; text-decoration: none; }
+  .seo-schema-box { background: #151515; border-radius: 8px; padding: 16px 20px; margin: 24px 0; font-size: 12px; }
+  .seo-schema-box pre { white-space: pre-wrap; word-break: break-all; color: #999; margin-top: 8px; max-height: 240px; overflow-y: auto; }
+  .seo-tags { background: #151515; border-radius: 8px; padding: 14px 18px; margin-top: 20px; font-size: 14px; color: #60a5fa; }
+
+  .copy-btn { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .copy-btn:hover { background: #2563eb; }
+  .copy-btn.naver { background: #03c75a; }
+  .copy-btn.naver:hover { background: #02a84c; }
+  .tags-box {
+    background: #0f2e1f; border: 1px solid #1a4a30; border-radius: 8px; padding: 12px 18px;
+    margin: 14px 0; font-size: 13px; color: #a7f3d0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .tags-box code { background: #06170f; padding: 3px 10px; border-radius: 5px; color: #34d399; font-size: 13px; }
+  .tags-box .src { font-size: 11.5px; color: #6ee7b7; opacity: 0.8; }
+  .tag-all-btn { font-size: 11px; padding: 2px 8px; opacity: 0.75; }
+  .tags-box .tag-chips { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; background: #06170f; border: 1px solid #1a4a30; border-radius: 14px; padding: 3px 4px 3px 10px; color: #34d399; font-size: 13px; }
+  .tag-chip .tc-name { overflow-wrap: anywhere; }
+  .tag-chip .tc-vol { font-size: 11px; color: #6ee7b7; }
+  .tag-chip .tc-vol small { font-size: 10px; color: #94a3b8; margin-left: 2px; }
+  .tag-chip .tc-copy { background: #1a4a30; color: #a7f3d0; border: none; border-radius: 10px; padding: 2px 9px; font-size: 11.5px; cursor: pointer; }
+  .tag-chip.faint { opacity: 0.45; }
+  .tag-chip.done { background: #1f2937; border-color: #374151; color: #9ca3af; }
+  .tag-chip.done .tc-vol { color: #9ca3af; }
+  .tag-chip.done .tc-copy { background: #374151; color: #9ca3af; }
+  .tag-err { flex-basis: 100%; font-size: 12px; color: #f87171; }
+  .tag-err:empty { display: none; }
+  .tag-related { flex-basis: 100%; }
+  .tag-related-title { font-size: 12.5px; margin-bottom: 6px; }
+  .copy-status { font-size: 12px; margin-left: 2px; }
+  .copy-status.ok { color: #34d399; }
+  .copy-status.fail { color: #f87171; }
+
+  /* 네이버 플랫폼 미리보기: 실제 발행 화면처럼 흰 배경 + 검정 글씨. (드래그해서 복사해도 어두운 배경색이 같이 딸려가지 않게 합니다.)
+     워드프레스 미리보기는 그대로 어두운 테마를 씁니다. */
+  .content.naver-preview { background: #ffffff; color: #222222; }
+  .content.naver-preview h1, .content.naver-preview h2, .content.naver-preview h3 { color: #222222; }
+  .content.naver-preview th { background: #f3f4f6; color: #222222; }
+  .content.naver-preview th, .content.naver-preview td { border-color: #dddddd; }
+  .content.naver-preview hr.wp-block-separator { border-top-color: #dddddd; }
+  .content.naver-preview .seo-money { color: #dc2626; }
+  .content.naver-preview .seo-percent { color: #2563eb; }
+  .content.naver-preview .seo-date { color: #059669; }
+  .content.naver-preview .seo-toc, .content.naver-preview .seo-schema-box, .content.naver-preview .seo-tags { background: #f5f5f5; }
+  .content.naver-preview .seo-toc a { color: #2563eb; }
+
+  /* 복사 전용 사본 — 화면엔 안 보이지만, 흰 배경 에디터에 붙여넣었을 때 글자가 보이도록
+     검은 계열 색으로 미리 스타일링해둡니다. 강조색(금액/퍼센트/날짜)은 그대로 유지됩니다. */
+  #copy-source { position: absolute; left: -9999px; top: 0; width: 780px; line-height: 1.9; font-size: 15px; }
+  #copy-source, #copy-source p, #copy-source li, #copy-source td, #copy-source th { color: #111111; }
+  #copy-source h1 { color: #111111; font-size: 24px; }
+  #copy-source h2 { color: #111111; font-size: 19px; border-left: 4px solid #3b82f6; padding-left: 12px; margin-top: 30px; }
+  #copy-source table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  #copy-source th, #copy-source td { border: 1px solid #ccc; padding: 10px 12px; font-size: 14px; }
+  #copy-source th { background: #f0f0f0; }
+  #copy-source .seo-money { color: #dc2626; }
+  #copy-source .seo-percent { color: #2563eb; }
+  #copy-source .seo-date { color: #059669; }
+  #copy-source .seo-body-img, #copy-source .seo-cover-img { width: 100%; border-radius: 8px; margin: 18px 0; display: block; }
+  #copy-source .seo-toc { background: #f5f5f5; border-radius: 8px; padding: 16px 20px; margin: 20px 0; font-size: 14px; }
+  #copy-source .seo-toc a { color: #2563eb; }
+  #copy-source .seo-schema-box { background: #f5f5f5; border-radius: 8px; padding: 16px 20px; margin: 24px 0; font-size: 12px; color: #444; }
+  #copy-source .seo-tags { background: #f5f5f5; border-radius: 8px; padding: 14px 18px; margin-top: 20px; font-size: 14px; color: #2563eb; }
+</style>
+</head>
+<body>
+<div class="container">
+  {% include "_old_channel_notice.html" %}
+  <a class="back" href="/article/{{ idx }}/edit">← 편집기로 돌아가기</a>
+
+  <div class="top-bar" style="margin-top: 14px;">
+    <div>
+      <div class="platform-tag">{{ platform_label }}</div>
+      <h1 class="keyword">{{ keyword }}</h1>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
+      <button class="copy-btn" onclick="copyContent()">전체 복사</button>
+      {% if platform == 'naver' %}
+      <button class="copy-btn naver" id="naver-copy-btn" onclick="copyNaver()" title="페이지 배경색·글씨색 없이, 저장된 최종본 HTML 그대로 복사합니다 (이미지는 안내 문단으로 대체)">📋 네이버용 복사</button>
+      <span class="copy-status" id="naver-copy-status"></span>
+      {% endif %}
+      <form method="POST" action="/article/{{ idx }}/set-published-date/{{ platform }}" style="display:flex; gap:8px; align-items:center;">
+        <input class="pub-date-input" type="date" name="published_date" value="{{ published_date }}" onclick="try{this.showPicker()}catch(e){}">
+        <input class="pub-url-input" type="text" name="published_url" placeholder="실제 발행 주소(URL)" value="{{ published_url }}">
+        <button class="pub-save-btn" type="submit">저장</button>
+        <span class="pub-status-label {{ pub_status.level }}">{{ pub_status.status }}</span>
+      </form>
+    </div>
+  </div>
+
+  {% if shop_post %}
+  <div class="shop-post-box" style="background:#1e1e1e; border:1px solid #3a3a3a; border-radius:10px; padding:12px 16px; margin:0 0 16px;">
+    <form method="POST" action="/article/{{ idx }}/set-shop-post" id="shop-post-form" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <input type="hidden" name="mode" id="shop-post-mode" value="">
+      <input type="hidden" name="confirm_unlink" id="shop-post-confirm" value="">
+      <label style="font-weight:700; font-size:15px; cursor:pointer;">
+        <input type="checkbox" id="shop-post-check" {{ 'checked' if shop_post.effective else '' }}> 🛒 숍글 (링크가 들어간 글)
+      </label>
+      <span style="font-size:12.5px; color:#9ca3af;">
+        현재 상태: <strong style="color:#e5e5e5;">{{ '숍글' if shop_post.effective else '일반글' }}</strong> ({{ shop_post.mode }}{% if shop_post.mode == '자동 판정' %} — 원고에 {{ '"링크:" 줄' if shop_post.platform == 'naver' else '쿠팡 링크·쿠팡파트너스 코드' }}가 {{ '있음' if shop_post.auto else '없음' }}{% endif %})
+      </span>
+      <button type="submit" class="pub-save-btn">저장</button>
+      {% if shop_post.manual is not none %}
+      <button type="button" class="pub-save-btn" onclick="submitShopPost('auto')" title="직접 지정한 값을 지우고 원고의 링크 유무로 자동 판정합니다">자동 판정으로 되돌리기</button>
+      {% endif %}
+    </form>
+    <div style="font-size:12.5px; color:#9ca3af; margin-top:6px;">
+      체크를 바꾸면 값만 저장돼요. <strong>편집기에서 "③ 최종본 다시 만들기"를 눌러야 대가성 문구·버튼 등이 최종본에 반영됩니다.</strong>
+      (자동 재생성·자동 발행·자동 재동기화는 하지 않습니다)
+    </div>
+    {% if shop_msg == 'saved' %}<div style="color:#34d399; font-size:13px; margin-top:6px;">✓ 저장했어요. 최종본 다시 만들기를 눌러야 반영돼요.</div>{% endif %}
+    {% if shop_msg == 'need_confirm' %}<div style="color:#fbbf24; font-size:13px; margin-top:6px;">⚠ 링크가 있는 글을 일반글로 바꾸려면 확인이 필요해서 저장하지 않았어요. 다시 [저장]을 눌러 확인창에서 "확인"을 선택하세요.</div>{% endif %}
+    {% if shop_post.link_conflict %}
+    <div class="shop-post-warning" style="color:#ff4d4d; font-weight:700; font-size:15px; margin-top:8px;">🚨 링크가 있는데 숍글이 아니면 대가성 문구가 빠집니다. (원고에 링크가 들어 있습니다)</div>
+    {% endif %}
+  </div>
+  <script>
+    function submitShopPost(mode) {
+      document.getElementById('shop-post-mode').value = mode;
+      document.getElementById('shop-post-form').submit();
+    }
+    document.getElementById('shop-post-form').addEventListener('submit', function (e) {
+      var modeEl = document.getElementById('shop-post-mode');
+      if (modeEl.value === 'auto') return;
+      var checked = document.getElementById('shop-post-check').checked;
+      modeEl.value = checked ? 'shop' : 'general';
+      if (!checked && {{ 'true' if shop_post.auto else 'false' }}) {
+        if (!confirm('원고에 링크가 들어 있는데 숍글을 해제하면 대가성 문구가 빠집니다.\n정말 일반글로 저장할까요?')) { e.preventDefault(); modeEl.value = ''; return; }
+        document.getElementById('shop-post-confirm').value = '1';
+      }
+    });
+  </script>
+  {% endif %}
+
+  {% if ext_info %}
+  <div class="ext-image-info" style="background:#1e1e1e; border:1px solid #3a3a3a; border-radius:10px; padding:10px 16px; margin:0 0 16px; font-size:13.5px;">
+    🖼 <strong>외부 이미지 {{ ext_info.included }}장 포함</strong> (추가한 {{ ext_info.total }}장 중)
+    {% if ext_info.pending %}<div style="color:#9ca3af; margin-top:4px;">{{ ext_info.pending }}장은 아직 최종본에 반영 전이에요 — 편집기에서 "플랫폼별 콘텐츠 생성"을 다시 눌러 주세요.</div>{% endif %}
+    {% for heading, n in ext_info.missing %}
+    <div class="ext-image-warning" style="color:#fbbf24; margin-top:4px;">⚠ 소제목 '{{ heading }}'을 찾지 못해 외부 이미지 {{ n }}장을 넣지 않았어요</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if active_channel_id in ('shop_wp', 'shop_naver') %}
+  <p class="shop-link-reminder" style="color:#e00000; font-weight:700; font-size:17px; margin:0 0 16px;">이미지마다 링크 삽입하기</p>
+  {% endif %}
+
+  {% if disclosure_copy %}
+  <div class="tags-box" id="disclosure-copy-box">
+    {% if disclosure_copy.already %}
+    <div style="color:#34d399; font-weight:700; margin-bottom:6px;">✅ 이미 본문에 들어가 있어요 — 따로 넣지 않아도 됩니다</div>
+    {% endif %}
+    🔗 <strong>링크를 직접 넣었다면 이 문구도 넣으세요 (본문 맨 위)</strong>
+    <div style="background:#ffffff; border-radius:6px; padding:6px 12px; margin:8px 0;">{{ disclosure_copy.html|safe }}</div>
+    {% if disclosure_copy.kind == 'naver' %}
+    <button type="button" class="short-link-copy-btn" onclick="copyDisclosure('format')">📋 문구 복사</button>
+    {% else %}
+    <button type="button" class="short-link-copy-btn" onclick="copyDisclosure('format')">📋 문구 복사(서식)</button>
+    <button type="button" class="short-link-copy-btn" onclick="copyDisclosure('code')">📋 HTML 코드 복사(사용자 정의 HTML 블록용)</button>
+    {% endif %}
+    <span class="copy-status" id="disclosure-copy-status"></span>
+    <script type="application/json" id="disclosure-copy-data">{{ {'html': disclosure_copy.html, 'plain': disclosure_copy.plain}|tojson }}</script>
+  </div>
+  {% endif %}
+
+  {% if short_link %}
+  <div class="short-link-box">
+    📎 <strong>SNS 공유용 짧은 링크</strong> (한글 주소가 길게 깨져 보이는 카드뉴스·쓰레드 캡션 등에 사용하세요 — 검색엔진용 정식 주소는 그대로 유지됩니다)
+    <code id="short-link-text">{{ short_link }}</code>
+    <button type="button" class="short-link-copy-btn" onclick="copyShortLink()">복사</button>
+  </div>
+  {% endif %}
+
+  {% if recommended_tags %}
+  <div class="tags-box">
+    🏷️ <strong>추천 태그</strong> <span class="src">({{ tags_source }} — 네이버 에디터 하단 태그 칸에 붙여넣으세요)</span>
+    <button type="button" class="short-link-copy-btn" id="tag-volume-btn" onclick="checkTagVolumes({{ idx|tojson }})">🔍 검색량 확인</button>
+    <button type="button" class="short-link-copy-btn tag-all-btn" onclick="copyRecommendedTags()">전체 복사</button>
+    <span class="copy-status" id="tags-copy-status"></span>
+    <code id="recommended-tags-text" style="display:none">{% for t in recommended_tags %}#{{ t }}{{ ' ' if not loop.last }}{% endfor %}</code>
+    <div class="tag-chips" id="tag-chips">
+      {% for t in recommended_tags %}
+      <span class="tag-chip" data-tag="{{ t }}"><span class="tc-name">#{{ t }}</span><span class="tc-vol"></span><button type="button" class="tc-copy" onclick="copyTagChip(this)">복사</button></span>
+      {% endfor %}
+    </div>
+    <div class="tag-err" id="tag-vol-err"></div>
+    <div class="tag-related" id="tag-related" style="display:none">
+      <div class="tag-related-title">추가 후보(검색량 순) <span class="src">— 자동으로 추가되지 않아요. 필요한 것만 복사하세요</span></div>
+      <div class="tag-chips" id="tag-related-chips"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if resolved is not none %}
+  <div class="link-resolve-result">✓ 내부링크 {{ resolved }}개 치환 완료{% if remaining and remaining != '0' %} · 아직 {{ remaining }}개는 형제글이 발행 전이라 남아있음{% endif %}</div>
+  {% endif %}
+
+  {% if pending_links > 0 %}
+  <div class="link-resolve-bar">
+    <span>🔗 아직 실제 링크로 안 바뀐 내부링크 자리표시자가 {{ pending_links }}개 있어요. 형제글들의 발행 주소를 위에서 먼저 저장한 다음 눌러주세요.</span>
+    <form method="POST" action="/article/{{ idx }}/resolve-links/{{ platform }}">
+      <button class="link-resolve-btn" type="submit">내부링크 자동 치환</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if bad_naver_url %}
+  <div class="price-warning-bar">⚠️ 실제 글 주소를 넣어 주세요 — 발행 주소가 글 번호 없는 블로그 첫 화면({{ bad_naver_url }})으로 저장돼 있어요. (이 글은 "같이 보면 좋은 글" 후보에서 빠집니다) 예약 글은 공개된 뒤 이 버튼을 누르면 자동으로 채워져요
+    <form method="POST" action="/article/{{ idx }}/naver-url-autofill" style="margin-top:8px;">
+      <button type="submit" style="background:#262626; color:#ddd; border:1px solid #3a3a3a; padding:6px 14px; border-radius:6px; cursor:pointer; font-family:inherit;">🔗 네이버 글 주소 자동 채우기 (이 글만)</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if cover_title_fallback %}
+  <div class="link-resolve-result" style="background:#1e293b; color:#93c5fd;">ℹ️ 표지 문구(메타데이터 메모의 "표지 1줄/2줄")가 없어서 제목으로 표지를 만들었어요. 문구를 채우고 편집 화면에서 "🎨 표지 다시 만들기"를 눌러보세요.<br>{{ memo_warn_text }}</div>
+  {% endif %}
+
+  {% if price_mentions %}
+  <div class="price-warning-bar">
+    ⚠️ 가격 표현 {{ price_mentions|length }}곳이 남아있어요 — 이제 가격 없이 링크만 쓰기로 했으니 확인해주세요. 자동으로 지우지는 않았습니다.
+    <ul>
+      {% for line in price_mentions %}<li><code>{{ line }}</code></li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if shop_results %}
+  {% set shop_missing = shop_results | rejectattr('found') | list %}
+  {% if shop_missing %}
+  <div class="price-warning-bar">
+    ⚠️ 추천 글을 먼저 발행해 주세요: {{ shop_missing | map(attribute='keyword') | join(', ') }}
+    <div style="margin-top:6px; font-size:12px; color:#bbb;">못 찾은 줄은 복사·발행되는 본문에서 통째로 빠집니다(글자로 남지 않음). 발행을 막지는 않아요. 추천 글을 발행한 뒤 최종본을 다시 만들면 연결됩니다.</div>
+  </div>
+  {% endif %}
+  <div class="price-warning-bar" style="background:#1e293b; color:#cbd5e1;">
+    🔗 내 숍 추천 글 연결 결과
+    <table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:13px;">
+      <tr style="color:#94a3b8; text-align:left;"><th style="padding:4px 8px;">키워드</th><th style="padding:4px 8px;">찾은 글 (제목 · 주소)</th><th style="padding:4px 8px;">찾은 방법</th></tr>
+      {% for r in shop_results %}
+      <tr style="border-top:1px solid #334155;">
+        <td style="padding:4px 8px;">{{ r.keyword }}</td>
+        <td style="padding:4px 8px;">{% if r.found %}{{ r.title }} · <a href="{{ r.url }}" target="_blank" style="color:#60a5fa;">{{ r.url }}</a>{% else %}<span style="color:#fca5a5;">못 찾음</span>{% endif %}</td>
+        <td style="padding:4px 8px;">{{ r.rule if r.found else '-' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  {% if cta_warnings %}
+  <div class="price-warning-bar">
+    {% if cta_warnings.empty %}
+    ⚠️ 구매 링크가 비어 있는 상품: {{ cta_warnings.empty|join(', ') }} — "링크:" 줄에 쿠팡 코드나 주소를 넣어 주세요 (지금은 기존 주황 버튼만 나가고 주소가 비어 있습니다).<br>
+    {% endif %}
+    {% if cta_warnings.unsafe %}
+    ⛔ 안전하지 않은 쿠팡 코드라 넣지 않은 상품 (쿠팡 코드만 허용):
+    <ul>{% for name, why in cta_warnings.unsafe %}<li>{{ name }} — {{ why }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if cta_warnings.banner_missing %}
+    ℹ️ 배너 주소가 아직 설정되지 않아 배너 이미지는 빠집니다 (config.py의 SHOP_WP_CTA_BANNER_URL).
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if wide_table_cols %}
+  <div class="price-warning-bar">
+    ⚠ 모바일에서 좁은 표: 4열 이하 권장(구분 열 포함) — 지금 본문에 {{ wide_table_cols }}열 표가 있습니다.
+  </div>
+  {% endif %}
+
+  {% if link_replaced %}
+  <div class="price-warning-bar" style="background:#1e293b; color:#cbd5e1;">
+    🔁 옛 링크 {{ link_replaced|length }}개를 새 주소로 바꿨어요
+    <ul>{% for c in link_replaced %}<li><code>{{ c.before }}</code> → <code>{{ c.after }}</code>{% if c.note %} <span style="color:#94a3b8;">({{ c.note }})</span>{% endif %}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div id="link-check-box" class="price-warning-bar" style="display:none;"></div>
+  <script>
+  (function () {
+    var box = document.getElementById('link-check-box');
+    fetch('/article/{{ idx }}/link-check/{{ platform }}').then(function (r) { return r.json(); }).then(function (d) {
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+      var html = '';
+      (d.replaceable || []).forEach(function (c) {
+        html += '<li>교체표에 걸리는 옛 링크: <code>' + esc(c.before) + '</code> → 새 주소 <code>' + esc(c.after) + '</code> (최종본을 다시 만들면 자동으로 바뀌어요)</li>';
+      });
+      var soft = '';
+      (d.issues || []).forEach(function (i) {
+        if (i.soft) { soft += '<div>' + esc(i.url) + ' — ' + esc(i.reason) + '</div>'; return; }
+        html += '<li><code>' + esc(i.url) + '</code> — ' + esc(i.reason) + '</li>';
+      });
+      if (soft) {
+        var g = document.createElement('div');
+        g.style.cssText = 'color:#9ca3af; font-size:12px; margin:6px 0;';
+        g.innerHTML = soft;
+        box.parentNode.insertBefore(g, box.nextSibling);
+      }
+      if (!html) return;
+      box.innerHTML = '⚠️ 글 속 링크 확인이 필요해요 (복사·발행은 막지 않아요, 검사한 링크 ' + d.checked + '개)<ul>' + html + '</ul>';
+      box.style.display = '';
+    }).catch(function () {});
+  })();
+  </script>
+
+  {% if platform == 'wordpress' and active_channel_id not in ('shop_wp', 'wp_tips') and pub_status.level in ('published', 'scheduled') and has_wordpress_post_id %}
+  <div class="link-resolve-bar">
+    <span>🔄 이미 발행된 글이에요. 그 사이 형제글이 추가로 발행돼서 내부링크가 새로 채워졌을 수 있어요 — 눌러서 최신 상태로 다시 올릴 수 있습니다.</span>
+    <form method="POST" action="/article/{{ idx }}/resync-wordpress">
+      <button class="link-resolve-btn" type="submit">내부링크 다시 확인하고 재동기화</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if platform == 'wordpress' and active_channel_id == 'longterm_wp' and pub_status.level in ('published', 'scheduled') and has_wordpress_post_id %}
+  <div class="link-resolve-bar">
+    <span>🖼 워드프레스 글 본문 맨 위에 표지가 빠져 있다면, 대표이미지로 표지만 다시 넣습니다. 이미 표지가 있으면 아무것도 하지 않고, 제목·발행일·상태·카테고리·태그·본문의 나머지는 그대로예요.</span>
+    <form method="POST" action="/article/{{ idx }}/restore-lt-cover" onsubmit="return confirm('워드프레스에 올라간 이 글의 본문 맨 위에 표지가 없으면 대표이미지로 표지를 다시 넣습니다.\n(이미 있으면 아무것도 바꾸지 않아요. 본문의 나머지는 그대로입니다.)\n\n진행할까요?');">
+      <button class="link-resolve-btn" type="submit">🖼 본문 맨 위에 표지 다시 넣기</button>
+    </form>
+    <form method="POST" action="/restore-lt-covers" onsubmit="return confirm('롱텀 발행 글 {{ lt_cover_targets }}편을 하나씩 확인해서, 본문 맨 위에 표지가 빠진 글에만 대표이미지로 표지를 다시 넣습니다.\n(이미 표지가 있는 글은 건드리지 않고, 제목·발행일·상태·카테고리·태그·본문 나머지는 바뀌지 않아요. 시간이 조금 걸릴 수 있어요.)\n\n진행할까요?');">
+      <input type="hidden" name="back" value="/article/{{ idx }}/final/wordpress">
+      <button class="link-resolve-btn" type="submit">🖼 표지 빠진 롱텀 글 전체 복구</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if retire_ok == '1' %}
+  <div class="publish-success">✓ 묶음에서 뺐습니다. 워드프레스 휴지통 이동과 301 연결은 직접 해 주세요. (글 번호·주소·발행일은 비웠고, 이전 값은 이 글의 retired 칸에 남겼습니다. json 백업은 backup 폴더에 있습니다.)</div>
+  {% elif retire_ok == '0' %}
+  <div class="publish-warn" style="background:#fef9c3; border:1px solid #facc15; color:#854d0e; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-weight:600;">⚠ 묶음에서 빼지 못했습니다: {{ retire_msg }}</div>
+  {% endif %}
+  {% if lt_retired %}
+  <div class="link-resolve-bar">
+    <span>📦 이 글은 {{ lt_retired.retired_at }}에 묶음에서 뺐습니다{% if lt_retired.merged_into %} (합칠 대표글: <a href="/article/{{ lt_retired.merged_into }}/final/wordpress">{{ lt_retired.merged_into_keyword }}</a>){% endif %}. 이전 글 번호 {{ (lt_retired.previous or {}).get('platform_post_id') or '-' }} · 발행일 {{ (lt_retired.previous or {}).get('platform_published_at') or '-' }}. 새로 발행·재동기화할 수 없습니다.</span>
+  </div>
+  {% elif lt_can_retire %}
+  <div class="link-resolve-bar">
+    <span>📦 이 세부 글을 대표글에 합칠 때 씁니다. 앱에서 이 글을 승인 해제하고 글 번호·주소·발행일을 비웁니다(이전 값은 이 글에 기록). 워드프레스 휴지통과 301은 직접 하셔야 합니다. 한 번에 한 글만 됩니다.</span>
+    <form method="POST" action="/article/{{ idx }}/retire-from-bundle" onsubmit="return confirm('이 글을 묶음에서 뺍니다.\n\n· 앱에서 승인 해제\n· 글 번호·주소·발행일을 비움(이전 값은 이 글에 기록, json 백업 자동 생성)\n· 하단 추천·표지 복구·재동기화·내부링크 채우기 대상에서 빠짐\n\n워드프레스 휴지통/301은 직접 해야 합니다. 진행할까요?');">
+      <button class="link-resolve-btn" type="submit">📦 묶음에서 빼기</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if request.args.get('cr_one') %}
+  <div class="publish-success">🖼 표지 다시 넣기 결과: {% set cr = request.args.get('cr_one') %}{% if cr == 'restored' %}복구했어요 — 본문 맨 위에 표지를 넣었습니다.{% elif cr == 'already' %}이미 본문에 표지가 있어서 아무것도 바꾸지 않았어요.{% else %}건너뜀 — {{ request.args.get('cr_reason') }}{% endif %}</div>
+  {% endif %}
+  {% if request.args.get('cr_ok') is not none %}
+  <div class="publish-success">🖼 표지 전체 복구 결과: 복구 {{ request.args.get('cr_ok') }}편 / 이미 있음 {{ request.args.get('cr_already') }}편 / 건너뜀 {{ request.args.get('cr_skip') }}편{% if request.args.get('cr_detail') %} ({{ request.args.get('cr_detail') }}){% endif %}</div>
+  {% endif %}
+
+  {% if platform == 'wordpress' and active_channel_id == 'wp_tips' and has_wp_tips_post_id %}
+  <div class="link-resolve-bar">
+    <span>🔗 이미 발행된 글의 "함께 보면 좋은 글"만 사이트 전체 최신 글 5개(이 글 제외)로 바꿉니다. 본문의 다른 부분은 건드리지 않아요.</span>
+    <form method="POST" action="/article/{{ idx }}/refresh-wp-tips-related" onsubmit="return confirm('워드프레스에 올라간 이 글의 \'함께 보면 좋은 글\'을 새로 바꿉니다. 진행할까요?');">
+      <button class="link-resolve-btn" type="submit">🔗 함께 보면 좋은 글 새로고침</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if platform == 'wordpress' and active_channel_id in ('shop_wp', 'wp_tips') and has_shop_wp_post_id %}
+  <div class="link-resolve-bar">
+    <span>🔄 발행 후 사진이나 내용을 바꿨다면, 저장된 최신 최종본으로 워드프레스 글을 덮어씁니다. 이미 올라간 이미지는 재사용하고 바뀐 것만 새로 올립니다. 발행일·공개 상태·주소·카테고리·태그는 그대로입니다.</span>
+    <form method="POST" action="/article/{{ idx }}/resync-shop-wordpress" onsubmit="return confirm('워드프레스에 올라간 이 글을 저장된 최신 최종본으로 덮어씁니다.\n\n⚠ 워드프레스 편집기에서 직접 넣은 내용(쿠팡 코드·배너·이미지 링크 등)은 저장본으로 바뀌어 사라집니다.\n\n진행할까요?');">
+      <button class="link-resolve-btn" type="submit">🔄 {{ 'W싼세계' if active_channel_id == 'wp_tips' else '워드프레스 SHOP (OLD)' }} 재동기화</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if resync_reused is not none and resync_new is not none %}
+  <div class="publish-success">✓ 재동기화 완료 — 재사용 이미지 {{ resync_reused }}장 / 새로 올린 이미지 {{ resync_new }}장 / 업데이트 완료{% if resync_rm_warn %}<br>⚠ 단, Rank Math 설명·키워드 저장은 실패했습니다(글 본문은 정상 업데이트됨). 워드프레스에서 직접 확인해 주세요.{% endif %}</div>
+  {% endif %}
+
+  {% if tips_related_refreshed %}
+  <div class="publish-success">✓ "함께 보면 좋은 글"을 사이트 전체 최신 5개로 새로 고쳤습니다.</div>
+  {% endif %}
+
+  {% if wp_published %}
+  <div class="publish-success">✓ 워드프레스에 실제로 발행됐습니다 → <a href="{{ wp_published }}" target="_blank" style="color:#34d399;">{{ wp_published }}</a> (발행일·URL도 자동으로 저장했어요)</div>
+  {% endif %}
+
+  {% if wp_featured_missing %}
+  <div class="publish-warn" style="background:#fef9c3; border:1px solid #facc15; color:#854d0e; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-weight:600;">⚠ 대표이미지가 지정되지 않았어요 — [재동기화]를 눌러 주세요</div>
+  {% endif %}
+
+  {% if platform == 'wordpress' and active_channel_id == 'longterm_wp' %}
+    {# 롱텀: REST가 기본(위, 펼침) — 브라우저 자동화는 REST가 막힐 때만 쓰는 예비라 아래에 접어 둡니다. 예약 날짜 입력칸 id는 sched-field(REST) / sched-field-browser(브라우저)로 서로 다릅니다. #}
+    <details class="metadata-box" style="margin-bottom:20px;" open>
+      <summary>🔌 REST API로 발행 (기본)</summary>
+      {% if wordpress_configured %}
+      <form method="POST" action="/article/{{ idx }}/publish-to-wordpress" style="margin-top:14px;">
+        <div class="row">
+          <label><input type="radio" name="publish_mode" value="publish" checked onclick="document.getElementById('sched-field').style.display='none'"> 즉시 발행</label>
+          <label><input type="radio" name="publish_mode" value="future" onclick="document.getElementById('sched-field').style.display='inline-block'"> 예약 발행</label>
+          <span id="sched-field" style="display:none;"><input type="datetime-local" name="scheduled_at" onclick="try{this.showPicker()}catch(e){}"></span>
+        </div>
+        <div class="row">
+          <input type="text" name="category" placeholder="카테고리 (예: 4대보험·연금)">
+          <input type="text" name="tag" placeholder="태그 (예: 실업급여)">
+        </div>
+        <button class="publish-btn" type="submit">지금 이 내용으로 발행하기</button>
+      </form>
+      {% else %}
+      <p class="hint">.env에 다음 값을 채워주세요: {{ missing_wordpress_vars | join(', ') }}</p>
+      {% endif %}
+    </details>
+
+    <details class="metadata-box" style="margin-bottom:20px;">
+      <summary>🌐 브라우저 자동화로 발행 (REST가 막힐 때만 사용)</summary>
+      {% if wordpress_browser_configured %}
+      <div class="publish-box">
+        <p class="hint" style="margin-bottom:12px;">버튼을 누르면 실제 크롬 브라우저 창이 뜨고, 로그인부터 발행까지 자동으로 진행되는 걸 눈으로 보실 수 있습니다. 다 끝날 때까지 그 창을 닫지 마세요.</p>
+        <form method="POST" action="/article/{{ idx }}/publish-to-wordpress-browser">
+          <div class="row">
+            <label><input type="radio" name="publish_mode" value="publish" checked onclick="document.getElementById('sched-field-browser').style.display='none'"> 즉시 발행</label>
+            <label><input type="radio" name="publish_mode" value="future" onclick="document.getElementById('sched-field-browser').style.display='inline-block'"> 예약 발행</label>
+            <span id="sched-field-browser" style="display:none;"><input type="datetime-local" name="scheduled_at" onclick="try{this.showPicker()}catch(e){}"></span>
+          </div>
+          <div class="row">
+            <input type="text" name="category" placeholder="카테고리 (예: 4대보험·연금)">
+            <input type="text" name="tag" placeholder="태그 (예: 실업급여)">
+          </div>
+          <button class="publish-btn" type="submit">브라우저 열어서 발행하기</button>
+        </form>
+      </div>
+      {% else %}
+      <div class="publish-warning">⚠ 브라우저 자동발행이 아직 연결 안 됐어요. .env에 다음 값을 채워주세요: {{ missing_wordpress_browser_vars | join(', ') }}</div>
+      {% endif %}
+    </details>
+  {% elif platform == 'wordpress' %}
+    {% if active_channel_id in ('shop_wp', 'wp_tips') %}
+    <p class="hint" style="margin-bottom:12px; color:#999; font-size:13px;">ℹ️ {{ '워드프레스 일반(워드프레스 SHOP과 같은 사이트)' if active_channel_id == 'wp_tips' else '워드프레스 SHOP' }}는 REST API로 발행합니다. (브라우저 자동화 발행은 롱텀 사이트로 로그인하는 방식이라 이 채널에서는 숨겼습니다.)</p>
+    {% elif wordpress_browser_configured %}
+    <div class="publish-box">
+      <h3>🌐 브라우저 자동화로 워드프레스에 발행 (REST API 차단 대응)</h3>
+      <p class="hint" style="margin-bottom:12px;">버튼을 누르면 실제 크롬 브라우저 창이 뜨고, 로그인부터 발행까지 자동으로 진행되는 걸 눈으로 보실 수 있습니다. 다 끝날 때까지 그 창을 닫지 마세요.</p>
+      <form method="POST" action="/article/{{ idx }}/publish-to-wordpress-browser">
+        <div class="row">
+          <label><input type="radio" name="publish_mode" value="publish" checked onclick="document.getElementById('sched-field-browser').style.display='none'"> 즉시 발행</label>
+          <label><input type="radio" name="publish_mode" value="future" onclick="document.getElementById('sched-field-browser').style.display='inline-block'"> 예약 발행</label>
+          <span id="sched-field-browser" style="display:none;"><input type="datetime-local" name="scheduled_at" onclick="try{this.showPicker()}catch(e){}"></span>
+        </div>
+        <div class="row">
+          <input type="text" name="category" placeholder="카테고리 (예: 4대보험·연금)">
+          <input type="text" name="tag" placeholder="태그 (예: 실업급여)">
+        </div>
+        <button class="publish-btn" type="submit">브라우저 열어서 발행하기</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="publish-warning">⚠ 브라우저 자동발행이 아직 연결 안 됐어요. .env에 다음 값을 채워주세요: {{ missing_wordpress_browser_vars | join(', ') }}</div>
+    {% endif %}
+
+    <details class="metadata-box" style="margin-bottom:20px;" {{ 'open' if active_channel_id in ('shop_wp', 'wp_tips') else '' }}>
+      <summary>🔌 REST API로 발행{% if active_channel_id not in ('shop_wp', 'wp_tips') %} (호스팅사가 차단 안 하는 경우에만 사용){% endif %}</summary>
+      {% if wordpress_configured %}
+      <form method="POST" action="/article/{{ idx }}/publish-to-wordpress" style="margin-top:14px;">
+        <div class="row">
+          <label><input type="radio" name="publish_mode" value="publish" checked onclick="document.getElementById('sched-field').style.display='none'"> 즉시 발행</label>
+          <label><input type="radio" name="publish_mode" value="future" onclick="document.getElementById('sched-field').style.display='inline-block'"> 예약 발행</label>
+          <span id="sched-field" style="display:none;"><input type="datetime-local" name="scheduled_at" onclick="try{this.showPicker()}catch(e){}"></span>
+        </div>
+        <div class="row">
+          <input type="text" name="category" placeholder="카테고리 (예: 4대보험·연금)">
+          <input type="text" name="tag" placeholder="태그 (예: 실업급여)">
+        </div>
+        <button class="publish-btn" type="submit">지금 이 내용으로 발행하기</button>
+      </form>
+      {% else %}
+      <p class="hint">.env에 다음 값을 채워주세요: {{ missing_wordpress_vars | join(', ') }}</p>
+      {% endif %}
+    </details>
+  {% endif %}
+
+  {# 2026-10-07 V4: 네이버는 수동 붙여넣기만. 자동 발행 상자·경고 숨김(코드는 보존) #}
+
+  {% if body_downloads %}
+  <div style="background:#1a1a1a; border:1px solid #2f2f2f; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:13px;">
+    <strong>🖼 본문 사진 다운로드</strong> <span style="color:#999;">— 네이버 에디터에 직접 올리세요(복사되는 본문에는 이미지 자리 안내만 들어가요)</span>
+    <div style="margin-top:8px;">
+      {% for d in body_downloads %}
+      {% if d.ok %}<a class="sc-dl" href="{{ d.path }}" download="{{ d.name }}" style="display:inline-block; background:#333; color:#e5e5e5; padding:6px 12px; border-radius:6px; text-decoration:none; margin:4px 6px 0 0;">⬇ {{ d.label }}</a>
+      {% else %}<span style="color:#f87171; margin-right:8px;">{{ d.label }}: 파일을 찾을 수 없어요</span>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if radar_downloads %}
+  <div style="background:#1a1a1a; border:1px solid #2f2f2f; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:13px;">
+    <strong>🖼 N데스크피커 이미지 다운로드</strong> <span style="color:#999;">— 네이버 에디터에 직접 올리세요(복사되는 본문에는 이미지 주소가 아니라 이미지 자체가 들어가요)</span>
+    <div style="margin-top:8px;">
+      {% for d in radar_downloads %}
+      {% if d.ok %}<a class="sc-dl" href="{{ d.path }}" download="{{ d.name }}" style="display:inline-block; background:#333; color:#e5e5e5; padding:6px 12px; border-radius:6px; text-decoration:none; margin:4px 6px 0 0;">⬇ {{ d.label }}</a>
+      {% else %}<span style="color:#f87171; margin-right:8px;">{{ d.label }}: 파일을 찾을 수 없어요</span>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="content{{ ' naver-preview' if platform == 'naver' else '' }}" id="content-area">{{ content | safe }}</div>
+  {% if platform == 'naver' %}<script type="application/json" id="raw-final">{{ outgoing_content | tojson }}</script>{% endif %}
+  <div id="copy-source">{{ outgoing_content | safe }}</div>
+
+  {# 📎 N데스크피커 출처 — 복사·발행에 쓰이는 #content-area · #copy-source · #raw-final 바깥입니다(네이버 복사에 들어가지 않음). #}
+  {% if radar_sources %}
+  <div id="radar-sources-box" style="background:#1a1a1a; border:1px solid #2f2f2f; border-radius:10px; padding:14px 18px; margin-top:24px; font-size:13px;">
+    <strong>📎 출처 (네이버 복사에 안 들어가요)</strong>
+    <span style="color:#999;"> — 본문에서 뺀 "## 출처" 목록이에요. 필요하면 아래 [출처 복사]로 따로 가져가세요.</span>
+    <ul style="margin:10px 0 10px 18px; padding:0; line-height:1.8;">
+      {% for s in radar_sources %}
+      <li>{{ s.text }}{% if s.url %} <a href="{{ s.url }}" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">↗ 열기</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    <script type="application/json" id="radar-sources-json">{{ radar_sources | tojson }}</script>
+    <button type="button" class="copy-btn" id="radar-sources-copy" onclick="copyRadarSources(this)">출처 복사</button>
+  </div>
+  <script>
+  function copyRadarSources(btn) {
+    var rows = JSON.parse(document.getElementById('radar-sources-json').textContent);
+    var text = rows.map(function (r) { return '· ' + r.text; }).join('\n');
+    var done = function () { btn.textContent = '복사했어요 ✓'; setTimeout(function () { btn.textContent = '출처 복사'; }, 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {} document.body.removeChild(ta);
+    }
+  }
+  </script>
+  {% endif %}
+
+  <details class="metadata-box" {{ 'open' if metadata_text else '' }} style="margin-top: 24px;">
+    <summary>📎 메타데이터 메모 (메타디스크립션 · 카테고리 · 태그 · alt텍스트 — 발행할 때 참고용)</summary>
+    {% if memo_warn %}<p style="color:#f87171; margin:8px 0;">{{ memo_warn }}</p>{% endif %}
+    <form method="POST" action="/article/{{ idx }}/save-metadata/{{ platform }}">
+      <textarea id="metadata-textarea-{{ platform }}" name="metadata_text" placeholder="클로드 채팅에서 준 📎 메타데이터 섹션을 여기에 통째로 붙여넣고 저장하세요. 앱을 껐다 켜도, 다른 컴퓨터에서도 그대로 남아있습니다.">{{ metadata_text }}</textarea>
+      <br>
+      <button class="metadata-save-btn" type="submit">저장</button>
+      {% if metadata_text %}<span class="metadata-saved-badge">✓ 저장됨</span>{% endif %}
+    </form>
+    <div class="seo-check {{ meta_seo.status }}">
+      📏 메타 디스크립션: {{ meta_seo.note }}
+      {% if meta_seo.status == 'long' %}
+      <button type="button" class="seo-shorten-btn" onclick="autoShortenMetaDescription('metadata-textarea-{{ platform }}')">✂️ 자동으로 줄이기</button>
+      {% endif %}
+    </div>
+  </details>
+
+  {% if schema_text %}
+  <details class="schema-box" open>
+    <summary>🏷️ 구조화 데이터(스키마) — 본문과 별도로 복사하세요</summary>
+    <div class="hint">본문(위쪽 "전체 복사")에는 이 내용이 안 들어가 있어요. 워드프레스/티스토리 글 맨 아래에 <strong>"사용자 지정 HTML" 블록</strong>을 하나 추가하고, 아래 내용을 그 블록에만 따로 붙여넣으세요.</div>
+    <pre id="schema-source">{{ schema_text }}</pre>
+    <button class="copy-btn" style="margin-top:10px;" onclick="copySchema()">스키마만 복사</button>
+  </details>
+  {% endif %}
+
+  {# 📎 출처 캡처 후보 — 복사·발행에 쓰이는 #content-area · #copy-source · #raw-final 바깥입니다. 이 칸의 이미지는 본문에 들어가지 않습니다. #}
+  {% if sc_box %}
+  <style>
+    .sc-box { background: #1a1a1a; border: 1px solid #2f2f2f; border-radius: 10px; padding: 16px 20px; margin-top: 28px; }
+    .sc-box h3 { margin: 0 0 6px; font-size: 15px; color: #f5f5f5; }
+    .sc-box .sc-hint { font-size: 12px; color: #999; margin: 4px 0 10px; line-height: 1.6; }
+    .sc-box .sc-msg { background: #14301f; color: #86efac; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+    .sc-box .sc-warn { background: #3a2f0d; color: #fbbf24; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+    .sc-box .sc-item { border-top: 1px solid #2f2f2f; padding: 14px 0; font-size: 13px; }
+    .sc-box .sc-item img { max-width: 100%; border-radius: 6px; border: 1px solid #333; background: #fff; display: block; margin: 8px 0; }
+    .sc-box .sc-badge { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 12px; margin-right: 6px; }
+    .sc-box .sc-badge.ok { background: #0d3b2a; color: #34d399; }
+    .sc-box .sc-badge.blocked { background: #3a2f0d; color: #fbbf24; }
+    .sc-box .sc-badge.failed, .sc-box .sc-badge.invalid { background: #3b1111; color: #f87171; }
+    .sc-box .sc-meta { color: #aaa; margin: 4px 0; word-break: break-all; }
+    .sc-box .sc-meta a { color: #60a5fa; }
+    .sc-box .sc-btn { background: #333; color: #e5e5e5; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; margin: 4px 6px 0 0; }
+    .sc-box .sc-btn:hover { background: #444; }
+    .sc-box .sc-btn.main { background: #3b82f6; color: #fff; }
+    .sc-box input[type=text], .sc-box select { background: #0f0f0f; color: #e5e5e5; border: 1px solid #444; border-radius: 6px; padding: 6px 8px; font-size: 13px; margin: 4px 6px 0 0; max-width: 100%; }
+  </style>
+  <div class="sc-box" id="source-capture">
+    <h3>📎 출처 캡처 후보</h3>
+    <div class="sc-hint">공공 사이트 화면을 캡처한 후보예요. <strong>본문·복사·발행에는 자동으로 들어가지 않습니다.</strong>
+      {% if sc_box.mode == 'insert' %}원하는 후보만 [이 소제목 아래 넣기]를 누르면 ②-2 외부 이미지 목록에 추가돼요.{% else %}필요한 후보만 [이미지 다운로드]로 저장해 에디터에서 직접 넣고, [캡션 복사]로 출처 문구를 붙여 넣으세요.{% endif %}</div>
+    {% if sc_msg %}<div class="sc-msg">{{ sc_msg }}</div>{% endif %}
+    {% for w in sc_box.warnings %}<div class="sc-warn">{{ w }}</div>{% endfor %}
+    {% if not sc_box.has_block %}
+      <div class="sc-warn">메모에 출처 캡처: 블록이 없어요</div>
+    {% else %}
+      <form method="POST" action="/article/{{ idx }}/source-capture/{{ platform }}/run" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='캡처 중… (최대 1~2분)';">
+        <button type="submit" class="sc-btn main">출처 캡처 만들기</button>
+        <span class="sc-meta">메모에서 {{ sc_box.memo_count }}줄을 읽어 순서대로 캡처해요. 시간이 조금 걸려요.</span>
+      </form>
+    {% endif %}
+
+    {% for it in sc_box.cands %}
+    <div class="sc-item">
+      <span class="sc-badge {{ it.status }}">{{ it.status_label }}</span>
+      {% if it.inserted %}<span class="sc-badge ok">✓ 넣음</span>{% endif %}
+      {% if it.reason %}<span style="color:#f87171;">{{ it.reason }}</span>{% endif %}
+      {% if it.retry_note %}<div class="sc-warn" style="margin-top:6px;">{{ it.retry_note }}</div>{% endif %}
+      {% if it.path and it.file_ok %}<img src="{{ it.path }}" alt="출처 캡처 후보 {{ it.index + 1 }}" loading="lazy">{% elif it.path %}<div class="sc-meta" style="color:#f87171;">이미지 파일을 찾을 수 없어요(정리 도구가 옮겼을 수 있어요). [다시 캡처]를 눌러 주세요.</div>{% endif %}
+      <div class="sc-meta">캡션: <span id="sc-cap-{{ it.index }}">{{ it.caption }}</span></div>
+      <div class="sc-meta">원래 주소: {% if it.url %}<a href="{{ it.url }}" target="_blank" rel="noopener noreferrer">{{ it.url }}</a>{% endif %}</div>
+      <div class="sc-meta">찾은 문구: {{ it.phrase }}</div>
+      <div class="sc-meta">추천 소제목: {{ it.heading if it.heading else '비어 있음 — 직접 고르기' }}</div>
+      {% if it.status == 'ok' and it.file_ok %}
+        {% if sc_box.mode == 'insert' %}
+          {% if not it.inserted %}
+          <form method="POST" action="/article/{{ idx }}/source-capture/{{ platform }}/insert">
+            <input type="hidden" name="index" value="{{ it.index }}">
+            <select name="heading">
+              <option value="">— 넣을 소제목 고르기 —</option>
+              {% for h in sc_box.headings %}<option value="{{ h }}" {{ 'selected' if h == it.recommended else '' }}>{{ h }}</option>{% endfor %}
+            </select>
+            <input type="text" name="alt" placeholder="이미지 설명(alt, 비우면 소제목)" size="26">
+            <input type="text" name="caption" value="{{ it.caption }}" placeholder="캡션" size="30">
+            <button type="submit" class="sc-btn main">이 소제목 아래 넣기</button>
+          </form>
+          {% endif %}
+        {% else %}
+          <a class="sc-btn" href="{{ it.path }}" download="출처캡처_{{ it.index + 1 }}.jpg">이미지 다운로드</a>
+          <button type="button" class="sc-btn" onclick="scCopyCaption({{ it.index }}, this)">캡션 복사</button>
+        {% endif %}
+      {% endif %}
+      {% if sc_box.has_block and it.index < sc_box.memo_count and not it.inserted %}
+      <form method="POST" action="/article/{{ idx }}/source-capture/{{ platform }}/run" style="display:inline;" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='캡처 중…';">
+        <input type="hidden" name="index" value="{{ it.index }}">
+        <button type="submit" class="sc-btn">다시 캡처</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <script>
+  function scCopyCaption(i, btn) {
+    const el = document.getElementById('sc-cap-' + i);
+    if (!el) return;
+    const text = el.textContent.trim();
+    const done = () => { const old = btn.textContent; btn.textContent = '복사됨 ✓'; setTimeout(() => { btn.textContent = old; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => { window.prompt('Ctrl+C로 복사하세요', text); });
+    } else {
+      window.prompt('Ctrl+C로 복사하세요', text);
+    }
+  }
+  </script>
+  {% endif %}
+</div>
+
+<script>
+function autoShortenMetaDescription(textareaId) {
+  const ta = document.getElementById(textareaId);
+  if (!ta) return;
+  const text = ta.value;
+  const match = text.match(/(메타\s*디스크립션|메타\s*설명)(\s*[:：]\s*)(.+)/);
+  if (!match) { alert('메타 디스크립션 줄을 찾을 수 없습니다. 형식을 확인해주세요.'); return; }
+  const limit = 155;
+  let desc = match[3].trim();
+  if (desc.length <= limit) { return; }
+  let shortened = desc.slice(0, limit);
+  const lastEnd = Math.max(shortened.lastIndexOf('.'), shortened.lastIndexOf('!'), shortened.lastIndexOf('?'));
+  if (lastEnd > limit * 0.5) {
+    shortened = shortened.slice(0, lastEnd + 1);
+  } else {
+    const lastSpace = shortened.lastIndexOf(' ');
+    if (lastSpace > 0) shortened = shortened.slice(0, lastSpace);
+    shortened = shortened.trim() + '...';
+  }
+  ta.value = text.slice(0, match.index) + match[1] + match[2] + shortened + text.slice(match.index + match[0].length);
+  alert('메타 디스크립션을 ' + shortened.length + '자로 줄였습니다. 내용을 확인하고 저장 버튼을 눌러주세요.');
+}
+
+function copyShortLink() {
+  const el = document.getElementById('short-link-text');
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    alert('짧은 링크를 복사했습니다.');
+  });
+}
+
+// 숍 채널(워드프레스 SHOP·네이버 SHOP)은 본문이 전부 인라인 스타일로 만들어져 있습니다. 이 화면은
+// 어두운 테마라서, 브라우저 기본 복사를 쓰면 바깥 요소(body)의 밝은 글자색·어두운 배경이 같이
+// 복사돼서 흰 에디터에 붙여넣으면 "검은 배경 + 흰 글씨"가 됩니다. 그래서 클립보드에 넣을 HTML을
+// 직접 만듭니다: 글자색이 따로 지정 안 된 텍스트는 검정(#111)으로 고정하고, 배경은 지정하지 않으며,
+// 원래 인라인으로 지정된 강조색(금액·퍼센트 등)과 스타일은 그대로 둡니다.
+const IS_SHOP_CHANNEL = {{ 'true' if active_channel_id in ('shop_naver', 'shop_wp', 'wp_tips') else 'false' }};
+
+function buildShopCopyHtml() {
+  const box = document.createElement('div');
+  box.innerHTML = document.getElementById('copy-source').innerHTML;
+  const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  textNodes.forEach((node) => {
+    if (!node.nodeValue.trim()) return;
+    for (let el = node.parentElement; el && el !== box; el = el.parentElement) {
+      if (el.style && el.style.color) return;  // 이미 색이 지정된 텍스트(강조색 등)는 그대로 둠
+    }
+    const span = document.createElement('span');
+    span.style.color = '#111111';
+    node.parentNode.replaceChild(span, node);
+    span.appendChild(node);
+  });
+  return '<div style="color:#111111;">' + box.innerHTML + '</div>';
+}
+
+function copyContent() {
+  const el = document.getElementById('copy-source');
+  const range = document.createRange();
+  if (IS_SHOP_CHANNEL) {
+    const html = buildShopCopyHtml();
+    const plain = el.innerText;
+    range.selectNodeContents(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.addEventListener('copy', function onCopy(e) {
+      e.clipboardData.setData('text/html', html);
+      e.clipboardData.setData('text/plain', plain);
+      e.preventDefault();
+    }, { once: true });
+    document.execCommand('copy');
+    window.getSelection().removeAllRanges();
+    alert('복사했습니다. 각 플랫폼 에디터에 붙여넣으세요.');
+    return;
+  }
+  range.selectNode(el);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+  document.execCommand('copy');
+  window.getSelection().removeAllRanges();
+  alert('복사했습니다. 각 플랫폼 에디터에 붙여넣으세요.');
+}
+
+// ── 네이버용 복사 ────────────────────────────────────────────
+// 화면(.content)을 드래그해서 복사하지 않고, 저장된 최종본(platform_final) HTML 원본을 파싱해서 클립보드에 넣습니다.
+// 파싱은 화면 밖(DOMParser)에서 하므로 이 페이지의 CSS(어두운 배경·밝은 글씨)가 전혀 섞이지 않습니다.
+// 글자색이 없는 글자에는 color를 넣지 않습니다(네이버 기본 검정으로 보임). 인라인으로 지정된 강조색은 그대로입니다.
+// <img>는 빼고 그 자리에 "여기에 사진을 올려주세요" 안내 문단(회색)을 넣습니다 — 붙여넣은 뒤 그 문단을 지우고 사진을 올리면 됩니다.
+function naverImagePlaceholder(img) {
+  let label = (img.getAttribute('alt') || '').trim();
+  if (!label) {
+    const file = (img.getAttribute('src') || '').split('?')[0].split('/').pop() || '';
+    try { label = decodeURIComponent(file); } catch (e) { label = file; }
+  }
+  const p = document.createElement('p');
+  p.setAttribute('style', 'color:#888888; font-size:13px; margin:12px 0;');
+  p.textContent = '📷 [이미지: ' + (label || '이미지') + '] 여기에 사진을 올려주세요';
+  return p;
+}
+
+function naverPlainText(root) {
+  const c = root.cloneNode(true);
+  c.querySelectorAll('br').forEach((b) => b.replaceWith('\n'));
+  c.querySelectorAll('td,th').forEach((el) => el.append('\t'));
+  c.querySelectorAll('h1,h2,h3,h4,h5,h6,p').forEach((el) => el.append('\n\n'));
+  c.querySelectorAll('div,li,tr,table,ul,ol,blockquote').forEach((el) => el.append('\n'));
+  return c.textContent.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function buildNaverCopy() {
+  const raw = JSON.parse(document.getElementById('raw-final').textContent);
+  const root = new DOMParser().parseFromString('<body>' + raw + '</body>', 'text/html').body;
+  root.querySelectorAll('script,style').forEach((el) => el.remove());
+  // 강조색이 CSS 클래스로만 지정된 곳(금액·퍼센트·날짜)은 이 페이지 CSS가 안 딸려가므로 같은 색을 인라인으로 넣어줍니다.
+  const CLASS_COLORS = { 'seo-money': '#dc2626', 'seo-percent': '#2563eb', 'seo-date': '#059669' };
+  Object.keys(CLASS_COLORS).forEach((cls) => {
+    root.querySelectorAll('.' + cls).forEach((el) => { if (!el.style.color) el.style.color = CLASS_COLORS[cls]; });
+  });
+  const onlyChild = (parent, child) =>
+    [...parent.childNodes].every((n) => n === child || (n.nodeType === 3 && !n.nodeValue.trim()));
+  const imgs = [...root.querySelectorAll('img')];
+  imgs.forEach((img) => {
+    let target = img;
+    // 이미지만 들어 있는 감싸는 요소(figure·링크·단락)는 통째로 안내 문단으로 바꿉니다.
+    while (target.parentElement && target.parentElement !== root &&
+           ['FIGURE', 'A', 'P', 'DIV', 'SPAN'].includes(target.parentElement.tagName) &&
+           onlyChild(target.parentElement, target)) {
+      target = target.parentElement;
+    }
+    target.replaceWith(naverImagePlaceholder(img));
+  });
+  return { html: root.innerHTML, plain: naverPlainText(root), images: imgs.length };
+}
+
+// 클립보드에 쓰는 방법이 두 가지인데, 기본은 "copy 이벤트에서 setData"입니다. navigator.clipboard.write(ClipboardItem)로 쓰면
+// 크롬이 HTML을 "소독"하면서 이 페이지 body의 계산된 스타일(어두운 배경·밝은 글씨)을 겉에 씌워서 내보내기 때문에,
+// 네이버에 붙여넣으면 글 전체에 검은 배경이 깔렸습니다. setData는 넣은 문자열을 그대로 클립보드에 씁니다.
+function copyNaverViaEvent(html, plain) {
+  let fired = false;
+  const handler = (e) => {
+    e.clipboardData.setData('text/html', html);
+    e.clipboardData.setData('text/plain', plain);
+    e.preventDefault();
+    fired = true;
+  };
+  const holder = document.createElement('textarea');   // copy 이벤트가 확실히 발생하도록 화면 밖 선택 영역을 만들어 둡니다
+  holder.value = plain;
+  holder.setAttribute('readonly', '');
+  holder.style.cssText = 'position:fixed; left:-9999px; top:0; opacity:0;';
+  document.body.appendChild(holder);
+  holder.select();
+  document.addEventListener('copy', handler, true);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } finally {
+    document.removeEventListener('copy', handler, true);
+    holder.remove();
+  }
+  return ok && fired;
+}
+
+async function copyNaverViaClipboardApi(html, plain) {
+  if (!navigator.clipboard || !window.ClipboardItem) throw new Error('이 브라우저는 서식 복사를 지원하지 않습니다');
+  await navigator.clipboard.write([new ClipboardItem({
+    'text/html': new Blob([html], { type: 'text/html' }),
+    'text/plain': new Blob([plain], { type: 'text/plain' }),
+  })]);
+}
+
+async function copyNaver() {
+  const status = document.getElementById('naver-copy-status');
+  const show = (msg, ok) => {
+    status.textContent = msg;
+    status.className = 'copy-status ' + (ok ? 'ok' : 'fail');
+    setTimeout(() => { status.textContent = ''; }, 5000);
+  };
+  try {
+    const { html, plain, images } = buildNaverCopy();
+    if (!copyNaverViaEvent(html, plain)) await copyNaverViaClipboardApi(html, plain);  // 이벤트 방식이 막힌 브라우저에서만 대체
+    show('✓ 복사됨' + (images ? ' (이미지 ' + images + '개는 안내 문단으로 대체)' : ''), true);
+  } catch (e) {
+    show('✗ 복사 실패: ' + (e && e.message ? e.message : e), false);
+  }
+}
+// 대가성 문구 복사 칸(네이버 일반·워드프레스 일반): 'format'은 서식(HTML)째 — 네이버용 복사와 같은 방식(copy 이벤트 setData),
+// 'code'는 HTML 코드를 글자 그대로 복사합니다(사용자 정의 HTML 블록에 붙여넣기용).
+async function copyDisclosure(mode) {
+  const status = document.getElementById('disclosure-copy-status');
+  const show = (msg, ok) => {
+    status.textContent = msg;
+    status.className = 'copy-status ' + (ok ? 'ok' : 'fail');
+    setTimeout(() => { status.textContent = ''; }, 5000);
+  };
+  try {
+    const data = JSON.parse(document.getElementById('disclosure-copy-data').textContent);
+    if (mode === 'code') {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(data.html);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = data.html; ta.style.cssText = 'position:fixed; left:-9999px; top:0;';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy'); ta.remove();
+        if (!ok) throw new Error('복사가 막혀 있습니다');
+      }
+    } else if (!copyNaverViaEvent(data.html, data.plain)) {
+      await copyNaverViaClipboardApi(data.html, data.plain);
+    }
+    show('✓ 복사됨', true);
+  } catch (e) {
+    show('✗ 복사 실패: ' + (e && e.message ? e.message : e), false);
+  }
+}
+
+function copyRecommendedTags() {
+  const text = document.getElementById('recommended-tags-text').textContent.trim();   // "#태그1 #태그2 …"
+  const status = document.getElementById('tags-copy-status');
+  const show = (msg, ok) => {
+    status.textContent = msg; status.className = 'copy-status ' + (ok ? 'ok' : 'fail');
+    setTimeout(() => { status.textContent = ''; }, 4000);
+  };
+  const fallback = () => {   // clipboard API가 막힌 경우: 화면 밖 입력칸을 선택해서 복사
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed; left:-9999px; top:0;';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); return ok;
+  };
+  (navigator.clipboard && navigator.clipboard.writeText
+    ? navigator.clipboard.writeText(text).then(() => true).catch(() => fallback())
+    : Promise.resolve(fallback())
+  ).then((ok) => show(ok ? '✓ 복사됨' : '✗ 복사 실패', ok));
+}
+
+// ---- 추천 태그 칩: 태그별 복사 / 검색량 확인 ----
+function copyTextPlain(text) {   // copyRecommendedTags와 같은 방식: clipboard API → 안 되면 textarea
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed; left:-9999px; top:0;';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); return ok;
+  };
+  return navigator.clipboard && navigator.clipboard.writeText
+    ? navigator.clipboard.writeText(text).then(() => true).catch(() => fallback())
+    : Promise.resolve(fallback());
+}
+
+function copyTagChip(btn) {
+  const chip = btn.closest('.tag-chip');
+  copyTextPlain(chip.dataset.tag).then((ok) => {
+    if (!ok) { btn.textContent = '실패'; setTimeout(() => { btn.textContent = '복사'; }, 2000); return; }
+    chip.classList.add('done'); btn.textContent = '✓';
+  });
+}
+
+function makeTagChip(tag, total) {
+  const chip = document.createElement('span');
+  chip.className = 'tag-chip'; chip.dataset.tag = tag;
+  const name = document.createElement('span'); name.className = 'tc-name'; name.textContent = '#' + tag;
+  const vol = document.createElement('span'); vol.className = 'tc-vol';
+  if (total !== undefined) vol.textContent = '월 ' + total.toLocaleString();
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'tc-copy'; btn.textContent = '복사'; btn.onclick = function () { copyTagChip(btn); };
+  chip.append(name, vol, btn);
+  return chip;
+}
+
+async function checkTagVolumes(articleId) {
+  const btn = document.getElementById('tag-volume-btn');
+  const err = document.getElementById('tag-vol-err');
+  const box = document.getElementById('tag-chips');
+  const chips = Array.from(box.querySelectorAll('.tag-chip'));
+  err.textContent = ''; btn.disabled = true; btn.textContent = '조회 중…';
+  try {
+    const res = await fetch('/article/' + encodeURIComponent(articleId) + '/tag-volumes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: chips.map((c) => c.dataset.tag) }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.tags) throw new Error(data.error || ('HTTP ' + res.status));
+    const byTag = {};
+    data.tags.forEach((t, i) => { byTag[t] = data.totals[i]; });
+    chips.forEach((chip) => {   // 칩 안의 글자는 건드리지 않고 검색량만 덧붙임(복사한 ✓ 상태 유지)
+      const total = byTag[chip.dataset.tag];
+      const vol = chip.querySelector('.tc-vol');
+      const low = total === null || total === undefined || total < 10;
+      chip.classList.toggle('faint', low);
+      vol.textContent = '';
+      if (total !== null && total !== undefined) vol.textContent = '월 ' + total.toLocaleString();
+      if (low) { const s = document.createElement('small'); s.textContent = '검색 거의 없음'; vol.appendChild(s); }
+    });
+    chips.map((c, i) => [c, i])
+      .sort((a, b) => ((byTag[b[0].dataset.tag] || 0) - (byTag[a[0].dataset.tag] || 0)) || (a[1] - b[1]))
+      .forEach(([c]) => box.appendChild(c));
+    const rel = document.getElementById('tag-related');
+    const relBox = document.getElementById('tag-related-chips');
+    relBox.textContent = '';
+    (data.related || []).forEach((r) => relBox.appendChild(makeTagChip(r.keyword, r.total)));
+    rel.style.display = (data.related || []).length ? '' : 'none';
+    if (data.error) err.textContent = data.error;
+  } catch (e) {
+    err.textContent = '검색량 조회 실패: ' + (e && e.message ? e.message : e);
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 검색량 확인';
+  }
+}
+
+function copySchema() {
+  const el = document.getElementById('schema-source');
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    alert('스키마를 복사했습니다. "사용자 지정 HTML" 블록에 붙여넣으세요.');
+  });
+}
+</script>
+</body>
+</html>

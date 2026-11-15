@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>콘텐츠 자동화 대시보드</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; color: #f5f5f5; }
+  .channel-note-banner {
+    background: #1a2332; border: 1px solid #2a3a52; border-left: 4px solid #60a5fa;
+    border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; font-size: 13px; color: #93c5fd;
+    line-height: 1.6;
+  }
+  .mode { color: #999; font-size: 13px; margin-bottom: 20px; }
+  .seed-summary { font-size: 12.5px; color: #86efac; background: #10241a; border: 1px solid #1a4a30; border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; }
+  .v4-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-size: 10.5px; font-weight: 600; vertical-align: middle; white-space: nowrap; background: #17202b; color: #7dd3fc; border: 1px solid #1e3a5f; }
+  .v4-tag.est, .v4-tag.none { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .v4-tag.cat { background: #1c2a1f; color: #86efac; border-color: #25452d; }
+  .v4-tag.cat.none { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .v4-tag.cat.warn { background: #3a300d; color: #fcd34d; border-color: #5c4a14; }
+  .v4-tag.excluded { background: #2b2b2b; color: #bbb; border-color: #444; }
+  .cat-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #26203a; color: #c4b5fd; font-size: 11px; font-weight: 600; vertical-align: middle; }
+
+  .week-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; background: #1e1e1e; border-radius: 8px; padding: 14px 18px; }
+  .week-nav { color: #60a5fa; text-decoration: none; font-size: 14px; padding: 4px 10px; }
+  .week-nav:hover { text-decoration: underline; }
+  .week-label { font-size: 15px; font-weight: 600; }
+  .week-count { color: #999; font-size: 13px; margin-left: auto; }
+  select.week-select { background: #0f0f0f; color: #e5e5e5; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+
+  .btn { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  .btn:hover { background: #2563eb; }
+  .btn.secondary { background: #262626; border: 1px solid #3a3a3a; margin-left: 8px; }
+  .btn.secondary:hover { background: #333; }
+
+  .custom-kw-form {
+    display: none; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+    padding: 16px 20px; margin: 12px 0 20px;
+  }
+  .custom-kw-form.open { display: block; }
+  .custom-kw-form form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .custom-kw-form input[type="text"] {
+    background: #0f0f0f; border: 1px solid #333; border-radius: 6px; color: #e5e5e5;
+    padding: 8px 12px; font-size: 13px; flex: 1; min-width: 180px;
+  }
+  .custom-kw-form .role-radio { font-size: 13px; color: #ccc; display: flex; align-items: center; gap: 4px; }
+  .custom-kw-hint { font-size: 12px; color: #888; margin: 10px 0 0; }
+
+  .inline-add-form {
+    display: none; margin-top: 10px; width: 100%;
+  }
+  .inline-add-form.open { display: block; }
+  .inline-add-form form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .inline-add-form input[type="text"] {
+    background: #0f0f0f; border: 1px solid #333; border-radius: 6px; color: #e5e5e5;
+    padding: 7px 10px; font-size: 13px; flex: 1; min-width: 200px;
+  }
+
+  .news-panel {
+    display: none; margin-top: 10px; width: 100%; flex-direction: column; gap: 6px;
+  }
+  .news-panel.open { display: flex; }
+  .news-panel-hint { font-size: 12px; color: #888; margin: 0; }
+  .news-item {
+    display: block; font-size: 13px; color: #93c5fd; text-decoration: none;
+    padding: 6px 10px; background: #161f2e; border-radius: 6px;
+  }
+  .news-item:hover { background: #1e2c42; }
+
+  .kw-row-highlight { animation: kwHighlightFade 3s ease-out forwards; }
+  @keyframes kwHighlightFade {
+    0% { background: #1e3a2f; }
+    100% { background: transparent; }
+  }
+  .news-badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 10px; background: #12283f; color: #7dd3fc; font-size: 11px; font-weight: 600; vertical-align: middle; white-space: nowrap; text-decoration: none; }
+  .news-badge:hover { background: #1a3a5a; }
+  .sig-line { font-size: 11px; color: #777; margin-top: 3px; white-space: nowrap; }
+  .sig-chip { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: #1c1c1c; color: #999; cursor: help; }
+  .sig-chip.up { color: #34d399; background: #0f2e1f; }
+  .sig-chip.down { color: #f87171; background: #2a1414; }
+  .sig-chip.warn { color: #fbbf24; background: #3a2f0d; }
+  .target-badge { font-size: 12px; margin-left: 6px; vertical-align: middle; cursor: default; }
+  .planned-line { margin: 0 0 12px; padding: 8px 14px; border-radius: 8px; background: #1a1a1a; border: 1px solid #333; color: #bbb; font-size: 13px; }
+  .planned-line .pl-total { font-weight: 700; padding: 2px 10px; border-radius: 8px; background: #262626; color: #9ca3af; }
+  .planned-line .pl-total.ok { background: #12301f; color: #86efac; }
+  .planned-line .pl-total.over { background: #3a300d; color: #fcd34d; }
+  .planned-badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; background: #1e2a3a; color: #93c5fd; border: 1px solid #2a4060; font-size: 11px; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+  .planned-badge.none { background: #262626; color: #777; border-color: #333; font-weight: 400; }
+  .planned-badge.review { background: #2a1f3d; color: #d8b4fe; border-color: #5b3f8c; }
+  .planned-badge.review.editable:hover { border-color: #a78bfa; }
+  .planned-line .sp { font-weight: 700; padding: 2px 8px; border-radius: 8px; background: #12301f; color: #86efac; }
+  .planned-line .sp.short { background: #262626; color: #9ca3af; }
+  .planned-line .sp.over { background: #3a300d; color: #fcd34d; }
+  .review-mark { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #2a1f3d; color: #d8b4fe; font-size: 10.5px; }
+  .planned-badge.editable { cursor: pointer; }
+  .planned-badge.editable:hover { border-color: #60a5fa; }
+  .planned-menu { position: absolute; z-index: 50; min-width: 130px; padding: 4px; border-radius: 8px; background: #1a1a1a; border: 1px solid #444; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .planned-menu button { display: block; width: 100%; text-align: left; padding: 5px 10px; border: 0; border-radius: 6px; background: transparent; color: #ddd; font-size: 12px; cursor: pointer; }
+  .planned-menu button:hover { background: #262f3f; }
+  .planned-menu button.cur { color: #93c5fd; font-weight: 700; }
+  .planned-toast { position: fixed; right: 18px; bottom: 18px; z-index: 60; padding: 8px 14px; border-radius: 8px; background: #3a1414; border: 1px solid #7f1d1d; color: #fca5a5; font-size: 13px; }
+  .angle-badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 10px; background: #0f2a35; color: #7dd3fc; border: 1px solid #1e4a5f; font-size: 11px; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+  .angle-warn { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 10px; background: #3a300d; color: #fcd34d; border: 1px solid #5c4a14; font-size: 11px; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+  .manual-badge { font-size: 11px; color: #7dd3fc; background: #1a2332; padding: 2px 6px; border-radius: 4px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #1e1e1e; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  th, td { padding: 11px 14px; text-align: left; font-size: 14px; border-bottom: 1px solid #2a2a2a; color: #e5e5e5; }
+  th { background: #262626; font-weight: 600; color: #f5f5f5; font-size: 13px; }
+  tr:hover td { background: #232323; }
+  input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; accent-color: #3b82f6; }
+  .edit-link { color: #60a5fa; text-decoration: none; font-size: 13px; }
+  .empty { margin-top: 40px; color: #888; text-align: center; }
+  .dup-badge {
+    display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 10px;
+    background: #4a3b12; color: #fbbf24; font-size: 11px; font-weight: 600; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .cluster-header td {
+    background: #17202b; color: #7dd3fc; font-weight: 700; font-size: 13px;
+    padding: 9px 14px; border-bottom: 1px solid #2a2a2a;
+  }
+  .role-badge {
+    display: inline-block; margin-right: 8px; padding: 2px 7px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; vertical-align: middle; white-space: nowrap;
+  }
+  .role-badge.head { background: #1e3a5f; color: #7dd3fc; }
+  .role-badge.child { background: #2a2a2a; color: #999; }
+  .kw-copy-btn {
+    background: none; border: none; color: #666; cursor: pointer; font-size: 12px;
+    padding: 2px 4px; vertical-align: middle;
+  }
+  .kw-copy-btn:hover { color: #60a5fa; }
+  .cluster-copy-btn {
+    background: #1a2332; color: #7dd3fc; border: 1px solid #2a3a52; padding: 3px 10px;
+    border-radius: 6px; font-size: 12px; cursor: pointer; margin-left: 10px;
+  }
+  .cluster-copy-btn:hover { background: #223349; }
+  tr.child-row td:first-child { padding-left: 26px; }
+  .platform-select {
+    background: #0f0f0f; color: #7dd3fc; border: 1px solid #2a3a4a; border-radius: 6px;
+    padding: 3px 8px; font-size: 12px; margin-left: 10px; cursor: pointer;
+  }
+  .platform-select-hint { color: #666; font-size: 11px; margin-left: 6px; }
+  .platform-badges { display: inline-flex; gap: 5px; }
+  .pf-badge {
+    display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px;
+    font-weight: 600; white-space: nowrap; border: 1px solid transparent;
+  }
+  .pf-badge.empty { background: #1a1a1a; color: #555; border-color: #2a2a2a; }
+  .pf-badge.filled { background: #4a3b12; color: #fbbf24; border-color: #6b5518; }
+  .pf-badge.published { background: #0f2e1f; color: #34d399; border-color: #1a4a30; }
+
+  .todo-banner {
+    background: #1e1e1e; border: 1px solid #3b2a12; border-left: 4px solid #fbbf24;
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;
+  }
+  .todo-banner h3 { margin: 0 0 10px; font-size: 14px; color: #fbbf24; }
+  .todo-row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #2a2a2a;
+    font-size: 13.5px;
+  }
+  .todo-row:last-child { border-bottom: none; }
+  .todo-row.overdue .todo-time { color: #f87171; font-weight: 700; }
+  .todo-time { color: #999; min-width: 110px; }
+  .todo-channel { background: #262626; padding: 2px 8px; border-radius: 5px; font-size: 12px; color: #7dd3fc; }
+  .todo-keyword { flex: 1; }
+  .todo-link { color: #60a5fa; text-decoration: none; font-size: 12.5px; }
+  .todo-done-btn {
+    background: #262626; color: #ccc; border: 1px solid #3a3a3a; padding: 4px 10px;
+    border-radius: 6px; font-size: 12px; cursor: pointer;
+  }
+  .todo-done-btn:hover { background: #34d399; color: #0a1a12; border-color: #34d399; }
+
+  .stale-banner {
+    background: #1e1e1e; border: 1px solid #1e3a5f; border-left: 4px solid #60a5fa;
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;
+  }
+  .stale-banner h3 { margin: 0 0 10px; font-size: 14px; color: #93c5fd; }
+  .stale-row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #2a2a2a;
+    font-size: 13.5px;
+  }
+  .stale-row:last-child { border-bottom: none; }
+  .stale-date { color: #999; min-width: 110px; }
+  .stale-platform { background: #262626; padding: 2px 8px; border-radius: 5px; font-size: 12px; color: #7dd3fc; }
+  .stale-keyword { flex: 1; }
+  .stale-link { color: #60a5fa; text-decoration: none; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+
+  <div class="main-content">
+  <div class="container">
+  {% include "_old_channel_notice.html" %}
+  <h1>콘텐츠 자동화 대시보드</h1>
+
+  {% if channel_note %}
+  <div class="channel-note-banner">ℹ️ {{ channel_note }}</div>
+  {% endif %}
+
+  {% if seed_summary %}
+  <div class="seed-summary">🌱 {{ seed_summary }}</div>
+  {% endif %}
+
+  {% if blog_pair_note %}
+  <div class="bo-note">📚 짝 글 있음: {{ blog_pair_note }}</div>
+  {% endif %}
+
+  {% if stale_articles %}
+  <div class="stale-banner" id="stale-banner">
+    <h3>🔄 재검토 추천 — 발행된 지 6개월 이상 지난 글 ({{ stale_articles | length }}건)</h3>
+    {% for s in stale_articles[:8] %}
+    <div class="stale-row">
+      <span class="stale-date">{{ s.published_at }}</span>
+      <span class="stale-platform">{{ s.platform_label }}</span>
+      <span class="stale-keyword">{{ s.keyword }}</span>
+      <a class="stale-link" href="/article/{{ s.article_id }}/edit">편집기로 →</a>
+    </div>
+    {% endfor %}
+    {% if stale_articles | length > 8 %}
+    <p style="color:#777; font-size:12px; margin:10px 0 0;">외 {{ stale_articles | length - 8 }}건 더 있습니다.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if 'manual_promo' not in hidden_features and todays_tasks %}
+  <div class="todo-banner" id="todo-banner">
+    <h3>📌 오늘 할 일 — 수동 홍보 작업 ({{ todays_tasks | length }}건)</h3>
+    {% for t in todays_tasks %}
+    <div class="todo-row {{ 'overdue' if t.overdue else '' }}" id="todo-row-{{ t.article_id }}-{{ t.channel }}">
+      <span class="todo-time">{{ t.scheduled_at | replace('T', ' ') }}{% if t.overdue %} (지남){% endif %}</span>
+      <span class="todo-channel">{{ t.channel_label }}</span>
+      <span class="todo-keyword">{{ t.keyword }}</span>
+      <a class="todo-link" href="/article/{{ t.article_id }}/edit#manual-promo">편집기로 →</a>
+      <button class="todo-done-btn" onclick="markPromoDone(this, '{{ t.article_id }}', '{{ t.channel }}')">완료</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="week-bar">
+    <a class="week-nav" href="/?week={{ prev_week }}">← 이전 주</a>
+    <span class="week-label">{{ current_week }} 주차</span>
+    <a class="week-nav" href="/?week={{ next_week }}">다음 주 →</a>
+    <select class="week-select" onchange="location.href='/?week=' + this.value">
+      {% for w in all_weeks %}
+      <option value="{{ w }}" {{ 'selected' if w == current_week else '' }}>{{ w }} 주차</option>
+      {% endfor %}
+    </select>
+    <span class="week-count">승인 {{ approved_count }}/{{ weekly_queue_size }}</span>
+  </div>
+  {% if planned_line %}
+  <div class="planned-line" title="이 주에 승인된 키워드 수입니다. 옛 SHOP(OLD) 채널에서 같은 블로그로 승인한 것도 합쳐 셉니다 (🎯 타깃 키워드 화면의 '이미 승인'과 같은 기준). 유형은 🎯 화면에서 승인할 때 기록한 값입니다.">
+    이 주 승인 <span class="pl-total {{ 'over' if planned_line.over else ('ok' if not planned_line.short else '') }}">{{ planned_line.approved }} / 목표 {{ planned_line.plan }}</span>
+    {% for t in planned_line.types %} · {{ t.name }} <b data-pl-type="{{ t.name }}">{{ t.count }}</b>{% endfor %} · 미정 <b data-pl-type="">{{ planned_line.undecided }}</b>{% if planned_line.split %}{% set sp = planned_line.split %}
+    <div id="ssanSplitLine" data-split-type="{{ sp.type }}" style="margin-top:6px" title="{{ 'W싼세계 11/16 주부터 해결 8칸 = 일반 3 + 리뷰 분석 5 (리뷰 분석은 쿠팡 링크 없는 해결형 일반글).' if sp.type == '해결' else 'W싼세계 11/2 주부터 결정 11칸 = 제품 추천 6 + 리뷰 분석 5.' }} 넘치면 주황, 모자라면 회색으로만 보여 주고 막지는 않습니다. 리뷰 분석 글은 리뷰를 미리 복사해 두세요(최신순 20~30 + 낮은 별점 10~15).">
+      {{ sp.type }} <b data-split="decision">{{ sp.decision }}</b> =
+      {{ sp.general_label }} <span class="sp {{ 'over' if sp.product_over else ('short' if sp.product_short else '') }}" data-split-box="product" data-slots="{{ sp.product_slots }}"><b data-split="product">{{ sp.product }}</b>/{{ sp.product_slots }}</span> ·
+      리뷰 분석 <span class="sp {{ 'over' if sp.review_over else ('short' if sp.review_short else '') }}" data-split-box="review" data-slots="{{ sp.review_slots }}"><b data-split="review">{{ sp.review }}</b>/{{ sp.review_slots }}</span>
+    </div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if is_old_channel %}
+  <span class="sub" style="margin-right:8px;">OLD버전 채널에서는 새 키워드를 불러오지 않습니다.</span>
+  {% elif active_channel_id not in ('naver_tips', 'wp_tips', 'radar_naver') %}
+  <form method="POST" action="/generate" onsubmit="return confirm('이번 주차에 승인 체크 안 된 항목만 새 키워드로 교체됩니다. 계속할까요?');" style="display:inline-block;">
+    <input type="hidden" name="week" value="{{ current_week }}">
+    <button class="btn" type="submit">이번 주 키워드 새로 불러오기</button>
+  </form>
+  {% else %}
+  {% if active_channel_id == 'radar_naver' %}
+  <span class="sub" style="margin-right:8px;">이 채널은 키워드 추천이 없어요 — 아래 "새 글 시작 — 제목 메모"로 글을 시작하세요.</span>
+  {% else %}
+  <span class="sub" style="margin-right:8px;">이 채널은 키워드 추천이 없어요 — 아래 "새 클러스터 만들기"로 직접 추가하세요.</span>
+  {% endif %}
+  {% endif %}
+  <button class="btn secondary" type="button" onclick="toggleCustomKeywordForm()">{% if active_channel_id == 'radar_naver' %}+ 새 글 시작 — 제목 메모{% else %}+ 새 클러스터(대표 키워드) 만들기{% endif %}</button>
+  {% if active_channel_id in ('naver_tips', 'wp_tips') %}
+  <form method="POST" action="/export-shop-posts" style="display:inline-block; margin-left:8px;">
+    <button class="btn secondary" type="submit" style="margin-left:0;" title="추천 글(옛 숍 글 + N살림노트·W싼세계의 숍글, 공개된 글)은 Claude outputs/shop_posts_list.md 로, N살림노트·W싼세계 글 전체(발행·예약·작성 중, 숍글 표시 포함)는 Claude outputs/tips_posts_list.md 로 저장합니다. 블로그별 목록(네이버: naver_blog_posts.md, W싼세계: ssansegae_posts.md)도 같이 만듭니다 (덮어쓰기)">📋 추천 글·일반 글 목록 내보내기</button>
+  </form>
+  {% if 'weekly_final_export' not in hidden_features %}
+  <form method="POST" action="/export-weekly-final" style="display:inline-block; margin-left:8px;">
+    <input type="hidden" name="week" value="{{ current_week }}">
+    <button class="btn secondary" type="submit" style="margin-left:0;" title="지금 보는 주차의 승인된 키워드(N살림노트·W싼세계)와 발행 시간표를 Claude outputs/weekly_final_주차.md로 저장하고 내려받아요. 자동기획 채팅에 첨부하세요.">📤 주간 확정 목록 내보내기</button>
+  </form>
+  {% endif %}
+  {% if exported is not none %}<span class="sub" style="margin-left:8px;">✓ 저장했어요 — 추천 글 {{ exported }}편: Claude outputs/shop_posts_list.md · 일반 글 {{ exported_tips or 0 }}편: Claude outputs/tips_posts_list.md</span>{% endif %}
+  {% endif %}
+  {% if active_channel_id == 'longterm_wp' %}
+  <form method="POST" action="/export-longterm-plan" style="display:inline-block; margin-left:8px;">
+    <input type="hidden" name="week" value="{{ current_week }}">
+    <button class="btn secondary" type="submit" style="margin-left:0;" title="롱텀 대기열(지금 보는 주차)·롱텀 글 전체·성과(이미 저장된 값)를 읽기만 해서 Claude outputs/longterm_plan_input.md 한 파일로 저장합니다 (덮어쓰기). 외부 연결 없음">📋 롱텀 기획 자료 내보내기</button>
+  </form>
+  {% if lt_plan_exported is not none %}<span class="sub" style="margin-left:8px;">✓ 저장했어요 — 롱텀 글 {{ lt_plan_exported }}편: Claude outputs/longterm_plan_input.md</span>{% endif %}
+  {% endif %}
+  {% if weekly_plan_range and 'plan_export' not in hidden_features %}
+  <form method="POST" action="/weekly-plan-export" style="display:inline-block; margin-left:8px;" onsubmit="if (!confirm('대상 주차 {{ weekly_plan_range }}의 기획 자료 2개(살림·롱텀)를 만듭니다.\n\n· 이 주차 롱텀 대기열이 이미 있으면 그대로 쓰고, 없으면 ‘키워드 불러오기’로 새로 만들어 저장합니다. N살림노트·W싼세계(와 옛 숍 채널)의 대기열은 만들거나 고치지 않고, 숍글 후보는 저장 없이 계산만 해서 기획 자료에 싣습니다.\n· 네이버 검색광고·데이터랩(무료)을 조회하느라 몇 분 걸릴 수 있어요. 끝날 때까지 이 창을 닫지 마세요.\n\n계속할까요?')) return false; var b = this.querySelector('button'); setTimeout(function () { b.disabled = true; b.textContent = '만드는 중… (몇 분 걸려요)'; }, 0);">
+    <input type="hidden" name="week" value="{{ current_week }}">
+    <button class="btn secondary" type="submit" style="margin-left:0;" title="승인된 키워드(이번 주·지난주) 정리 → 숍글 후보(저장 없이 계산만) → 검색량 분석 → Claude outputs/salim_plan_input.md (살림) + longterm_plan_input.md (롱텀)를 한 번에 만듭니다 (덮어쓰기). 롱텀 대기열이 없을 때만 새로 만들어 저장해요. 네이버 검색광고·데이터랩(무료) 조회가 들어가요">🗓 주간 기획 자료 만들기</button>
+  <details style="display:inline-block;margin-left:8px;vertical-align:top"><summary style="cursor:pointer;font-size:12px;color:#7dd3fc" title="선택 — 비워 두면 자료에 '이번 주 입력 없음'으로 들어갑니다. 마지막으로 붙여넣은 내용은 저장돼 다음에 미리 채워집니다">⑦ 실제 검색어 입력(선택)</summary>
+      <div style="margin-top:6px"><label style="font-size:12px;display:block">⑦-1 크리에이터 어드바이저 주제별 인기 유입 검색어 (줄마다 하나)</label><textarea name="terms_creator" rows="5" style="width:320px;font-size:12px">{{ plan_terms.creator }}</textarea></div>
+      <div style="margin-top:6px"><label style="font-size:12px;display:block">⑦-2 내 블로그 지난주 유입 검색어 (네이버 통계 → 유입분석 → 검색 유입에서 복사, 줄마다 하나, 끝의 %는 있어도 됨)</label><textarea name="terms_myblog" rows="5" style="width:320px;font-size:12px">{{ plan_terms.myblog }}</textarea></div>
+    </details>
+  </form>
+  <span class="sub" style="margin-left:6px;">대상 주차: {{ weekly_plan_range }}</span>
+  {% endif %}
+  {% if active_channel_id in ('naver_tips', 'shop_naver') %}
+  <form method="POST" action="/naver-url-autofill" style="display:inline-block; margin-left:8px;" onsubmit="return confirm('네이버 일반·네이버 SHOP 두 채널에서, 이미 공개된 글 중 글 주소가 없는 글의 발행 주소를 네이버 RSS에서 찾아 채웁니다. 계속할까요?');">
+    <button class="btn secondary" type="submit" style="margin-left:0;" title="예약 발행으로 블로그 첫 화면 주소가 저장된 글을, 공개된 뒤 RSS에서 실제 글 주소를 찾아 채웁니다">🔗 네이버 글 주소 자동 채우기</button>
+  </form>
+  <a class="btn secondary" href="/related-swap" style="text-decoration:none; display:inline-block; margin-left:8px;" title="최근 14일 안에 공개된 N살림노트 글마다, 지금 규칙으로 다시 고른 하단 추천과 최종본의 하단 추천을 견줘 달라지는 글만 보여 줍니다 (읽기 전용 — 아무것도 저장하지 않음)">🔁 하단 추천 교체 목록</a>
+  {% endif %}
+  {% if active_channel_id == 'wp_tips' %}
+  <a class="btn secondary" href="/wp-tips-related-batch" style="text-decoration:none; display:inline-block; margin-left:8px;" title="최근 14일 W싼세계 글의 '함께 보면 좋은 글'을 지금 규칙으로 다시 만들어, 바뀌는 글만 업데이트합니다. 누르면 먼저 확인 화면(바뀔 글 목록·전후 추천 제목)이 나오고, 거기서 [실행]을 눌러야 진행돼요">🔁 최근 14일 함께 보면 좋은 글 일괄 새로고침</a>
+  {% endif %}
+  {% if fill_count is not none %}
+  <a class="btn secondary" href="/fill-internal-links" style="text-decoration:none; display:inline-block;" title="이미 공개된 글에 남은 {{ '{{LINK:}}' }}를, 그 사이 공개된 형제글 주소로 채웁니다">🔗 내부링크 채우기{% if fill_count %} ({{ fill_count }}건){% endif %}</a>
+  {% endif %}
+
+  <div class="custom-kw-form" id="custom-kw-form">
+    <form method="POST" action="/add-custom-keyword">
+      <input type="hidden" name="week" value="{{ current_week }}">
+      <input type="hidden" name="role" value="대표">
+      {% if active_channel_id == 'radar_naver' %}
+      <input type="text" name="keyword" placeholder="새 글 제목 메모 (예: 11월 전기요금 단가 조정)" required autocomplete="off">
+      <button class="btn" type="submit">새 글 시작</button>
+      {% else %}
+      <input type="text" name="keyword" placeholder="새 대표 키워드 (예: 청년월세지원)" required autocomplete="off">{% if active_channel_id == 'wp_tips' %}
+      <select name="kind" title="계획 유형 (선택) — 비워 두면 유형 미정으로 들어갑니다">
+        <option value="">유형 미정</option>
+        <option value="해결">{{ '일반 해결형' if planned_line and planned_line.split and planned_line.split.type == '해결' else '해결형' }}</option>
+        <option value="결정">결정형</option>{% if planned_line and planned_line.split %}
+        <option value="review">리뷰 분석</option>{% endif %}
+      </select>{% endif %}
+      <button class="btn" type="submit">새 클러스터로 추가</button>
+      {% endif %}
+    </form>
+    {% if active_channel_id == 'radar_naver' %}
+    <p class="custom-kw-hint">제목 메모를 적고 [새 글 시작]을 누르면 바로 승인된 상태로 만들어지고 편집 화면으로 이동해요. 거기서 원고와 메모를 붙여넣으세요.</p>
+    {% else %}
+    <p class="custom-kw-hint">여기서는 완전히 새로운 대표 키워드(클러스터)만 만듭니다. 기존 클러스터 아래에 세부 키워드를 추가하려면, 그 클러스터 제목 옆의 "+ 세부 추가" 버튼을 쓰세요.</p>
+    {% endif %}
+  </div>
+
+  {% if queue %}
+  <table>
+    <thead>
+    <tr>
+      <th>키워드</th>
+      <th>점수</th>
+      <th>검색량</th>
+      <th>경쟁도</th>
+      <th>플랫폼</th>
+      <th>승인</th>
+      <th>편집</th>
+    </tr>
+    </thead>
+    {% for section in sections %}
+    <tbody class="cluster-block">
+      {% if section.seed %}
+      <tr class="cluster-header">
+        <td colspan="7">
+          📌 {{ section.seed }}
+          {% set cat = section.entries[0].category or seed_categories.get(section.seed) %}
+          {% if cat %}<span class="cat-tag">{{ cat }}</span>{% endif %}
+          <button type="button" class="cluster-copy-btn" onclick="copyClusterKeywords(this)" data-keywords="{{ section.entries | map(attribute='keyword') | join('\n') }}">📋 클러스터 키워드 전체 복사</button>
+          <button type="button" class="cluster-copy-btn" onclick="toggleInlineAddForm('{{ loop.index }}')">+ 세부 추가</button>
+          {% if is_shopping_channel %}
+          <button type="button" class="cluster-copy-btn" onclick="toggleNewsPanel('{{ loop.index }}', '{{ section.seed }}')">🔍 최신 뉴스 참고</button>
+          {% endif %}
+          <select class="platform-select" onchange="setClusterPlatform(this, '{{ current_week }}', '{{ section.seed }}')">
+            <option value="" {{ 'selected' if not section.entries[0].target_platform else '' }}>이번 주 담당 플랫폼 선택</option>
+            <option value="wordpress" {{ 'selected' if section.entries[0].target_platform == 'wordpress' else '' }}>워드프레스</option>
+            <option value="naver" {{ 'selected' if section.entries[0].target_platform == 'naver' else '' }}>네이버</option>
+          </select>
+          <span class="platform-select-hint">(계획용 표시일 뿐 — 다른 플랫폼도 편집기에서 언제든 이어서 채울 수 있어요)</span>
+          <div class="inline-add-form" id="inline-add-form-{{ loop.index }}">
+            <form method="POST" action="/add-custom-keyword">
+              <input type="hidden" name="week" value="{{ current_week }}">
+              <input type="hidden" name="cluster_seed" value="{{ section.seed }}">
+              <input type="hidden" name="role" value="세부">
+              <input type="text" name="keyword" placeholder="세부 키워드 (예: {{ section.seed }} 추천)" required autocomplete="off">
+              <button class="btn" type="submit">추가하고 바로 승인</button>
+            </form>
+          </div>
+          {% if is_shopping_channel %}
+          <div class="news-panel" id="news-panel-{{ loop.index }}"></div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+      {% for item in section.entries %}
+      <tr id="kw-row-{{ item.id }}" class="{{ 'child-row' if item.cluster_role == '세부' else '' }} {{ 'kw-row-highlight' if item.id == added_id else '' }}">
+        <td>
+          {% if item.cluster_role %}
+          <span class="role-badge {{ 'head' if item.cluster_role == '대표' else 'child' }}">{{ item.cluster_role }}</span>
+          {% endif %}
+          {{ item.keyword }}
+          <button type="button" class="kw-copy-btn" onclick="copyKeyword(this)" data-keyword="{{ item.keyword }}" title="이 키워드만 복사">📋</button>
+          {% if item.manually_added and item.source != 'target_keywords' %}
+          <span class="manual-badge" title="네이버 API가 아니라 직접 추가한 키워드입니다">✎ 직접추가</span>
+          {% endif %}
+          {% if item.source == 'target_keywords' %}
+          <span class="target-badge" title="🎯 타깃 키워드 발굴 화면에서 승인한 키워드입니다">🎯</span>
+          {% endif %}
+          {% if planned_line %}
+          {% set sp = item.serp if item.serp is mapping else {} %}
+          <span class="serp-edit" data-item-id="{{ item.id }}" style="display:inline-block;margin-left:6px;white-space:nowrap" title="경쟁(직접 고른 값)과 검색 확인 메모 — 바꾸면 바로 저장됩니다 (점수에는 영향 없음)"><select class="serp-compete" onchange="saveSerp(this)" style="font-size:11px;padding:1px 2px"><option value="">경쟁</option><option value="green" {{ 'selected' if sp.get('compete') == 'green' else '' }}>🟢 해볼 만함</option><option value="yellow" {{ 'selected' if sp.get('compete') == 'yellow' else '' }}>🟡 보통</option><option value="red" {{ 'selected' if sp.get('compete') == 'red' else '' }}>🔴 어려움</option></select> <input type="text" class="serp-note" maxlength="40" value="{{ item.serp_note or '' }}" placeholder="검색 확인(40자)" onchange="saveSerp(this)" style="width:150px;font-size:11px;padding:1px 4px"></span>
+          {% if item.planned_type and item.id in review_ids %}<span class="planned-badge review editable" data-item-id="{{ item.id }}" data-type="{{ item.planned_type }}" data-review="1" title="리뷰 준비: 최신순 20~30 + 낮은 별점 10~15 복사 (클릭해서 유형 바꾸기)" onclick="openPlannedMenu(this, event)">리뷰 분석</span>
+          {% elif item.planned_type %}<span class="planned-badge editable" data-item-id="{{ item.id }}" data-type="{{ item.planned_type }}"{% if planned_line.split and item.planned_type == planned_line.split.type %} data-review="0"{% endif %} title="클릭해서 유형 바꾸기" onclick="openPlannedMenu(this, event)">{{ item.planned_type }}{{ '형' if item.planned_type in ('해결', '결정') else '' }}</span>
+          {% else %}<span class="planned-badge none editable" data-item-id="{{ item.id }}" data-type="" title="클릭해서 유형 바꾸기" onclick="openPlannedMenu(this, event)">유형 미정</span>{% endif %}
+          {% endif %}
+          {% if item.duplicate_of_past_approval %}
+          <span class="dup-badge" title="{{ item.duplicate_of_past_approval_week }} 주차에 이미 승인했던 키워드입니다">⚠ 이전 승인 ({{ item.duplicate_of_past_approval_week }})</span>
+          {% endif %}
+          {% set s = sim.get(item.id) %}
+          {% if s %}
+          <span class="sim-badge {{ s.level }}" data-sim-id="{{ item.id }}" title="클릭하면 고정됩니다">{{ '🔴 거의 같은 글' if s.level == 'red' else '🟡 비슷한 주제' }} {{ s.count }}</span>
+          {% endif %}
+          {% set v4t = v4_tags.get(item.id) if v4_tags else None %}
+          {% if v4t %}
+          <span class="v4-tag {{ 'est' if v4t.estimated else ('none' if not v4t.type_key else 'typed') }}" title="메모의 '글 유형:' 줄 (조회만)">{{ v4t.type_label }}</span>
+          <span class="v4-tag cat {{ 'warn' if v4t.category_key == '__out__' else ('none' if v4t.category_key == '__none__' else '') }}" title="메모의 '카테고리 제안' (조회만)">{{ v4t.category_label }}</span>
+          {% if v4t.excluded %}<span class="v4-tag excluded" title="기타 리뷰로 표시됨 — 겹침 비교·같이 보면 좋은 글·V4 현황판에서 빠집니다">기타 리뷰</span>{% endif %}
+          {% endif %}
+          {% set bo = blog_ov.get(item.id) if blog_ov else None %}
+          {% if bo and bo.count %}
+          <span class="bo-badge {{ bo.level }}" data-bo-id="{{ item.id }}" data-bo-kind="pair" title="클릭하면 고정됩니다">📚 같은 블로그 {{ bo.count }}</span>
+          {% endif %}
+          {% if bo and bo.reuse %}
+          <span class="bo-badge reuse" data-bo-id="{{ item.id }}" data-bo-kind="reuse" title="클릭하면 고정됩니다">🔁 네이버 같은 주제</span>
+          {% endif %}
+          {% set pm = pair_meta.get(item.id) if pair_meta else None %}
+          {% if pm %}
+          <span class="angle-badge" title="타깃 키워드 화면에서 N살림노트와 W싼세계에 같은 키워드를 함께 승인했습니다">{{ pm.note }}</span>
+          {% if pm.naver_first %}<span class="angle-warn" title="짝이 되는 N살림노트 글이 아직 발행되지 않았습니다">⚠ N살림노트 먼저 발행하세요</span>{% endif %}
+          {% endif %}
+          {% if item.news_evidence %}
+          <a class="news-badge" href="{{ item.news_evidence.link }}" target="_blank" rel="noopener" title="최근 기사 예시: {{ item.news_evidence.title }}">📰 기사 {{ item.news_evidence.articles }}건</a>
+          {% endif %}
+          {%- if item.plan is mapping and item.plan.final_title %}
+          <div class="plan-line" style="margin-top:4px;font-size:12px;color:#9fb3c8;" title="주간 계획에서 넣은 항목 (읽기만)">📅 {% if item.plan.publish_date %}발행 예정 {{ item.plan.publish_date }}{% if item.plan.weekday %}({{ item.plan.weekday }}){% endif %}{% else %}예비 · 발행일 미정{% endif %} · 확정 제목: {{ item.plan.final_title }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {{ item.score if item.score is not none else '-' }}
+          {% if item.signals %}
+          {% set sg = item.signals %}
+          <div class="sig-line" title="점수 = 기본 점수(검색량×경쟁도×시즌) × 트렌드 × 뉴스{{ ' × 쇼핑' if sg.shop is defined else '' }}. 각 배수의 근거는 아래 줄에 마우스를 올리면 보입니다.">
+            기본 {{ item.base_score }}
+            <span class="sig-chip {{ 'up' if sg.trend.factor > 1 else ('down' if sg.trend.factor < 1 else '') }}"
+                  title="{% if sg.trend.ratio is defined %}검색어트렌드: 최근 2개월 관심도 {{ sg.trend.recent }} ÷ 앞 6개월 평균 {{ sg.trend.base }} = {{ sg.trend.ratio }}배{% else %}검색어트렌드: {{ sg.trend.note }}{% endif %}">📈×{{ sg.trend.factor }}</span>
+            <span class="sig-chip {{ 'up' if sg.news.factor > 1.05 else '' }}"
+                  title="{% if sg.news.n7 is defined %}뉴스검색: 하루 평균 {{ sg.news.per_day }}건 (최근 7일 기사 {{ sg.news.n7 }}건 기준, 하루 15건에서 포화){% else %}뉴스검색: {{ sg.news.note }}{% endif %}">📰×{{ sg.news.factor }}</span>
+            {% if sg.shop is defined %}
+            <span class="sig-chip {{ 'up' if sg.shop.factor > 1 else ('down' if sg.shop.factor < 1 else '') }}"
+                  title="{% if sg.shop.ratio is defined %}쇼핑인사이트 [{{ sg.shop.name }}] 분야: 최근 2개월 {{ sg.shop.recent }} ÷ 앞 6개월 평균 {{ sg.shop.base }} = {{ sg.shop.ratio }}배{% else %}쇼핑인사이트: {{ sg.shop.note }}{% endif %}">🛒×{{ sg.shop.factor }}</span>
+            {% endif %}
+            {% if sg.errors %}<span class="sig-chip warn" title="{{ sg.errors | join(' / ') }}">⚠ 일부 신호 조회 실패</span>{% endif %}
+          </div>
+          {% endif %}
+        </td>
+        <td>{{ item.total_search_volume if item.total_search_volume is not none else '-' }}</td>
+        <td>{{ item.competition }}</td>
+        <td>
+          <span class="platform-badges">
+            {% for p in platforms %}
+            {% set st = item.platform_status[p] %}
+            <span class="pf-badge {{ st }}" title="{{ platform_labels[p] }} — {{ '발행됨' if st == 'published' else ('작성됨' if st == 'filled' else '미작성') }}">
+              {{ platform_short_labels[p] }}{{ '✓' if st == 'published' else ('●' if st == 'filled' else '○') }}
+            </span>
+            {% endfor %}
+          </span>
+        </td>
+        <td><input type="checkbox" {{ 'checked' if item.approved else '' }} onchange="toggleApproved(this, '{{ item.id }}')"></td>
+        <td id="edit-cell-{{ item.id }}">
+          {% if item.approved %}
+          <a class="edit-link" href="/article/{{ item.id }}/edit">편집기로 →</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">이번 주차에 생성된 키워드가 없습니다. 위 버튼을 눌러 생성해보세요.</div>
+  {% endif %}
+  </div>
+  </div>
+</div>
+{% include "_similarity_ui.html" %}
+{% if blog_ov is not none %}{% include "_blog_overlap_ui.html" %}{% endif %}
+<script>
+// "+ 키워드 직접 추가" 버튼 — 폼을 열고 닫습니다. 열리면 키워드 입력칸에 바로 커서가 갑니다.
+// 키워드 하나만 복사 — 점수·검색량 같은 숫자는 안 딸려오고 텍스트만 깔끔하게 복사됩니다.
+function copyKeyword(button) {
+  const keyword = button.getAttribute('data-keyword');
+  navigator.clipboard.writeText(keyword).then(() => {
+    const original = button.textContent;
+    button.textContent = '✓';
+    setTimeout(() => { button.textContent = original; }, 1000);
+  });
+}
+
+// 클러스터(대표+세부) 키워드를 한 줄에 하나씩, 전부 한 번에 복사 — 리서치 프롬프트에 통째로
+// 붙여넣을 때 쓰기 좋습니다.
+function copyClusterKeywords(button) {
+  const keywords = button.getAttribute('data-keywords');
+  navigator.clipboard.writeText(keywords).then(() => {
+    const original = button.textContent;
+    button.textContent = '✓ 복사됨';
+    setTimeout(() => { button.textContent = original; }, 1200);
+  });
+}
+
+function toggleCustomKeywordForm() {
+  const box = document.getElementById('custom-kw-form');
+  box.classList.toggle('open');
+  if (box.classList.contains('open')) {
+    box.querySelector('input[name="keyword"]').focus();
+  }
+}
+
+// 클러스터 제목 옆 "+ 세부 추가" — 그 클러스터 전용 인라인 입력폼을 열고 닫습니다.
+function toggleInlineAddForm(idx) {
+  const box = document.getElementById('inline-add-form-' + idx);
+  box.classList.toggle('open');
+  if (box.classList.contains('open')) {
+    box.querySelector('input[name="keyword"]').focus();
+  }
+}
+
+// "🔍 최신 뉴스 참고" — 이 대표 키워드로 최근 뉴스를 가져와서 보여줍니다. 자동으로 세부
+// 키워드를 만드는 게 아니라, 사람이 읽고 판단하도록 참고자료만 보여주는 용도입니다.
+function toggleNewsPanel(idx, seed) {
+  const box = document.getElementById('news-panel-' + idx);
+  const isOpen = box.classList.toggle('open');
+  if (!isOpen || box.dataset.loaded === '1') return;
+
+  box.innerHTML = '<p class="news-panel-hint">불러오는 중...</p>';
+  fetch('/shop-news-suggestions?seed=' + encodeURIComponent(seed))
+    .then((r) => r.json())
+    .then((data) => {
+      box.dataset.loaded = '1';
+      if (!data.news || data.news.length === 0) {
+        box.innerHTML = '<p class="news-panel-hint">참고할 만한 최신 기사를 못 찾았어요.</p>';
+        return;
+      }
+      box.innerHTML = data.news
+        .map((n) => `<a href="${n.link}" target="_blank" class="news-item">📰 ${n.title}</a>`)
+        .join('');
+    })
+    .catch(() => {
+      box.innerHTML = '<p class="news-panel-hint">뉴스를 불러오지 못했어요.</p>';
+    });
+}
+
+// 방금 추가한 키워드로 화면을 열었으면(주소에 added=... 붙어서 돌아온 경우), 그 줄로
+// 자동 스크롤하고 잠깐 초록색으로 반짝여서 "여기 추가됐어요"를 알려줍니다.
+document.addEventListener('DOMContentLoaded', () => {
+  const highlighted = document.querySelector('.kw-row-highlight');
+  if (highlighted) {
+    highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+
+// 대시보드 "오늘 할 일"에서 완료 버튼을 누르면, 그 줄만 화면에서 지우고 서버에 저장합니다.
+function markPromoDone(button, articleId, channel) {
+  button.disabled = true;
+  fetch('/article/' + articleId + '/manual-promo/toggle-done/' + channel, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'fetch' },
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.done) {
+        const row = document.getElementById('todo-row-' + articleId + '-' + channel);
+        if (row) row.remove();
+      }
+    })
+    .catch(() => alert('처리에 실패했습니다. 다시 시도해주세요.'))
+    .finally(() => {
+      button.disabled = false;
+    });
+}
+
+// 체크박스를 누를 때마다 화면 전체를 새로고침하면 스크롤이 맨 위로 튀어서 불편했습니다.
+// fetch()로 서버에만 조용히 반영하고, 화면은 그 자리에서 필요한 부분만 바꿉니다.
+function toggleApproved(checkbox, articleId) {
+  checkbox.disabled = true;
+  fetch('/toggle-approved/' + articleId, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'fetch' },
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error('save failed');
+      return res.json();
+    })
+    .then((data) => {
+      const editCell = document.getElementById('edit-cell-' + articleId);
+      if (editCell) {
+        editCell.innerHTML = data.approved
+          ? '<a class="edit-link" href="/article/' + articleId + '/edit">편집기로 →</a>'
+          : '';
+      }
+      // 승인하면 그 묶음(클러스터) 전체를 표 맨 위로 올립니다. 해제할 때는 옮기지 않습니다.
+      if (data.approved) {
+        const block = checkbox.closest('tbody.cluster-block');
+        const table = block && block.closest('table');
+        if (block && table) {
+          const first = table.querySelector('tbody.cluster-block');
+          if (first !== block) {
+            table.insertBefore(block, first);
+          }
+          const row = document.getElementById('kw-row-' + articleId);
+          if (row) {
+            row.classList.remove('kw-row-highlight');
+            void row.offsetWidth; // 애니메이션을 다시 시작하기 위한 처리
+            row.classList.add('kw-row-highlight');
+          }
+          block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    })
+    .catch(() => {
+      alert('저장에 실패했습니다. 다시 시도해주세요.');
+      checkbox.checked = !checkbox.checked; // 실패 시 체크 상태를 원래대로 되돌립니다.
+    })
+    .finally(() => {
+      checkbox.disabled = false;
+    });
+}
+
+// 플랫폼 선택도 마찬가지로, 화면 새로고침 없이 조용히 서버에만 저장합니다.
+function setClusterPlatform(select, week, clusterSeed) {
+  select.disabled = true;
+  const body = new URLSearchParams({ week: week, cluster_seed: clusterSeed, platform: select.value });
+  fetch('/set-cluster-platform', {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body,
+  })
+    .catch(() => alert('저장에 실패했습니다. 다시 시도해주세요.'))
+    .finally(() => {
+      select.disabled = false;
+    });
+}
+
+// 계획 유형 배지: 눌러서 유형을 바꿉니다 (N살림노트·W싼세계). 새로고침 없이 배지와 위쪽 집계 줄만 바꿉니다.
+let SPLIT_TYPE = '';   // W싼세계 11/2 이후 주차만 값이 들어감 (리뷰 분석이 속하는 유형)
+{% if planned_line %}
+const PLANNED_OPTIONS = [{% for t in planned_line.types %}{v: {{ t.name|tojson }}, label: {{ (t.name ~ ({'A': ' 해결형', 'B': ' 점검형', 'C': ' 결정형'}.get(t.name, '형')))|tojson }}}, {% endfor %}{v: '', label: '미정'}];
+{% if planned_line.split %}
+// W싼세계 11/2 이후 주차: 리뷰 분석이 들어가는 유형(SPLIT_TYPE)을 일반(planned_review=0) / 리뷰 분석(planned_review=1)으로 나눔
+// 11/2~11/9 주: 해결형, 결정형, 리뷰 분석(결정), 미정 / 11/16 주부터: 일반 해결형, 리뷰 분석(해결), 결정형, 미정
+SPLIT_TYPE = {{ planned_line.split.type|tojson }};
+if (SPLIT_TYPE === '해결') {
+  PLANNED_OPTIONS.splice(0, 1, {v: '해결', label: '일반 해결형', review: '0'}, {v: '해결', label: '리뷰 분석', review: '1'});
+} else {
+  PLANNED_OPTIONS.splice(1, 1, {v: '결정', label: '결정형', review: '0'}, {v: '결정', label: '리뷰 분석', review: '1'});
+}
+{% endif %}
+{% else %}
+const PLANNED_OPTIONS = [];
+{% endif %}
+function plannedLabel(v) {
+  if (!v) return '유형 미정';
+  return v + ((v === '해결' || v === '결정') ? '형' : '');
+}
+function closePlannedMenu() {
+  document.querySelectorAll('.planned-menu').forEach(m => m.remove());
+}
+function plannedToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'planned-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+function openPlannedMenu(badge, ev) {
+  ev.stopPropagation();
+  const had = badge.nextElementSibling && badge.nextElementSibling.classList.contains('planned-menu');
+  closePlannedMenu();
+  if (had || !PLANNED_OPTIONS.length) return;
+  const menu = document.createElement('div');
+  menu.className = 'planned-menu';
+  const r = badge.getBoundingClientRect();
+  menu.style.left = (r.left + window.scrollX) + 'px';
+  menu.style.top = (r.bottom + window.scrollY + 4) + 'px';
+  PLANNED_OPTIONS.forEach(o => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = o.label;
+    if (o.v === (badge.dataset.type || '') && (o.review === undefined || o.review === (badge.dataset.review || '0'))) b.className = 'cur';
+    b.onclick = (e) => { e.stopPropagation(); closePlannedMenu(); setPlannedType(badge, o.v, o.review); };
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+}
+document.addEventListener('click', closePlannedMenu);
+function saveSerp(el) {
+  const box = el.closest('.serp-edit');
+  const body = new URLSearchParams({ article_id: box.dataset.itemId, compete: box.querySelector('.serp-compete').value, serp_note: box.querySelector('.serp-note').value });
+  fetch('/set-serp', { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+    .then(r => r.json().then(d => ({ ok: r.ok && d.ok, d })))
+    .then(({ ok, d }) => { if (!ok) throw new Error(d && d.error); plannedToast('경쟁·검색 확인을 저장했습니다.'); })
+    .catch(() => plannedToast('경쟁·검색 확인 저장에 실패했습니다.'));
+}
+function setPlannedType(badge, value, review) {
+  const prevType = badge.dataset.type || '';
+  if (value === prevType && (review === undefined || review === (badge.dataset.review || '0'))) return;
+  const body = new URLSearchParams({ article_id: badge.dataset.itemId, planned_type: value });
+  if (review !== undefined) body.set('planned_review', review);
+  fetch('/set-planned-type', {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body,
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok && d.ok, d })))
+    .then(({ ok, d }) => {
+      if (!ok) throw new Error(d && d.error);
+      badge.dataset.type = d.planned_type;
+      badge.textContent = d.is_review ? '리뷰 분석' : plannedLabel(d.planned_type);
+      badge.classList.toggle('none', !d.planned_type);
+      badge.classList.toggle('review', !!d.is_review);
+      if (document.getElementById('ssanSplitLine')) {  // W싼세계 11/2 이후 주차: 결정 = 제품 추천 + 리뷰 분석
+        badge.dataset.review = d.is_review ? '1' : (SPLIT_TYPE && d.planned_type === SPLIT_TYPE ? '0' : '');
+        badge.title = d.is_review ? '리뷰 준비: 최신순 20~30 + 낮은 별점 10~15 복사 (클릭해서 유형 바꾸기)' : '클릭해서 유형 바꾸기';
+        const dec = d.counts.types[SPLIT_TYPE] ?? 0, rev = d.counts.review ?? 0;
+        const vals = { decision: dec, product: dec - rev, review: rev };
+        document.querySelectorAll('#ssanSplitLine b[data-split]').forEach(b => { b.textContent = vals[b.dataset.split]; });
+        document.querySelectorAll('#ssanSplitLine [data-split-box]').forEach(s => {
+          const n = vals[s.dataset.splitBox], cap = parseInt(s.dataset.slots, 10);
+          s.classList.toggle('over', n > cap);
+          s.classList.toggle('short', n < cap);
+        });
+      }
+      document.querySelectorAll('.planned-line b[data-pl-type]').forEach(b => {
+        const k = b.dataset.plType;
+        b.textContent = k ? (d.counts.types[k] ?? 0) : d.counts.undecided;
+      });
+    })
+    .catch(() => plannedToast('유형 저장에 실패했습니다. 원래 유형을 유지합니다.'));
+}
+</script>
+</body>
+</html>

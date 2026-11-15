@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>묶음 정리 미리보기 — {{ pv.plan.name }}</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; padding: 28px 36px 60px; color: #e5e5e5; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+</style>
+{% include "_lt_cleanup_style.html" %}
+</head>
+<body>
+<div class="wrap">
+  <div class="ltc"><div class="muted">저장한 시각: {{ saved_at }} · 이 파일은 계산 결과를 저장한 것이며, 워드프레스와 앱 json은 바뀌지 않았습니다.</div></div>
+  {% include "_lt_cleanup_preview.html" %}
+</div>
+</body>
+</html>

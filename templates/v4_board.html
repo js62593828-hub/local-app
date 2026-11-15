@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>V4 현황판</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #f5f5f5; }
+  h2 { font-size: 17px; margin: 30px 0 10px; color: #f5f5f5; }
+  h3 { font-size: 14px; margin: 18px 0 8px; color: #bbb; }
+  .sub { color: #888; font-size: 13px; margin-bottom: 14px; }
+  .weekbar { display: flex; gap: 10px; align-items: center; margin: 12px 0 6px; flex-wrap: wrap; }
+  .weekbar a, .weekbar button { background: #262626; color: #ddd; border: 1px solid #3a3a3a; padding: 6px 14px; border-radius: 8px; text-decoration: none; font-family: inherit; font-size: 13px; cursor: pointer; }
+  .weekbar input[type=date] { background: #1e1e1e; color: #e5e5e5; border: 1px solid #333; border-radius: 6px; padding: 6px 8px; font-family: inherit; }
+  .weekbar .range { font-weight: 700; color: #7dd3fc; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  th, td { padding: 8px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #2a2a2a; }
+  th { background: #262626; color: #f5f5f5; font-size: 12px; font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  tr.warn td { background: #3a300d; color: #fcd34d; }
+  .kpi { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .kpi .box { background: #1e1e1e; border: 1px solid #2f2f2f; border-radius: 8px; padding: 10px 16px; min-width: 150px; }
+  .kpi .box .n { font-size: 22px; font-weight: 700; color: #f5f5f5; }
+  .kpi .box .l { font-size: 11.5px; color: #888; }
+  .kpi .box.over .n { color: #fcd34d; }
+  .warns { background: #2a2410; border: 1px solid #5c4a14; border-radius: 8px; padding: 8px 14px; margin: 8px 0; font-size: 12.5px; color: #fcd34d; }
+  .warns div + div { margin-top: 3px; }
+  .muted { color: #777; font-size: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  .review-mark { margin-left: 4px; padding: 0 6px; border-radius: 8px; background: #2a1f3d; color: #d8b4fe; font-size: 10.5px; }
+  .foot { margin-top: 30px; color: #888; font-size: 13px; border-top: 1px solid #2a2a2a; padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+
+  <div class="main-content">
+  <div class="container">
+    <h1>📊 V4 현황판</h1>
+    <div class="sub">한 주(월~일) 동안 발행·예약된 글을 블로그별로 모아 봅니다. 조회만 하는 화면이라 어떤 데이터도 바뀌지 않습니다. 기준 날짜는 각 글의 발행(예약)일입니다.</div>
+
+    <div class="weekbar">
+      <a href="/v4-board?week={{ board.prev_week }}">← 이전 주</a>
+      <span class="range">{{ board.week }} ~ {{ board.sunday }}</span>
+      <a href="/v4-board?week={{ board.next_week }}">다음 주 →</a>
+      <form method="GET" action="/v4-board" style="display:inline-flex; gap:6px; margin-left:12px;">
+        <input type="date" name="week" value="{{ board.week }}" title="날짜를 고르면 그 날짜가 속한 주(월~일)로 이동합니다">
+        <button type="submit">이동</button>
+        <a href="/v4-board">이번 주</a>
+      </form>
+    </div>
+
+    {% for b in board.blogs %}
+    <h2>{{ b.label }}</h2>
+    <div class="kpi">
+      <div class="box {{ 'over' if b.count > b.plan else '' }}"><div class="n">{{ b.count }} / {{ b.plan }}편</div><div class="l">이번 주 발행·예약 / 계획</div></div>
+      <div class="box"><div class="n">{{ b.published }}</div><div class="l">발행</div></div>
+      <div class="box"><div class="n">{{ b.scheduled }}</div><div class="l">예약</div></div>
+      <div class="box"><div class="n">{{ b.drafting }}</div><div class="l">작성 중 (원고만 있고 발행일 없음, 전체)</div></div>
+      <div class="box {{ 'over' if b.shop.over else '' }}"><div class="n">{{ b.shop.count }}편 · {{ b.shop.pct }}%</div><div class="l">숍글(링크 들어간 글) 비율 — 목표 {{ b.shop.target_pct }}%, {{ b.shop.warn_pct }}% 초과 시 경고</div></div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <h3>유형별 편수</h3>
+        <table>
+          <tr><th>유형</th><th class="num">편수</th><th class="num">비율</th>{% if b.has_target %}<th class="num">목표</th><th class="num">차이</th>{% endif %}</tr>
+          {% for t in b.types %}
+          {% if t.key or t.count %}
+          <tr class="{{ 'warn' if t.warn else '' }}">
+            <td>{{ t.label }}{% if t.estimated %} <span class="muted">(그중 추정 {{ t.estimated }})</span>{% endif %}</td>
+            <td class="num">{{ t.count }}</td>
+            <td class="num">{{ t.pct }}%</td>
+            {% if b.has_target %}
+            <td class="num">{{ (t.target_pct ~ '%') if t.target_pct is not none else '-' }}</td>
+            <td class="num">{% if t.diff is not none %}{{ '%+d' % t.diff }}%p{% else %}-{% endif %}</td>
+            {% endif %}
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </table>
+        {% if b.has_target %}<div class="muted">목표와 {{ board.type_target_warn_pp }}%p 넘게 차이 나면 노랑으로 표시합니다. 유형이 안 적힌 숍 글은 C(추정)으로 셉니다.</div>{% endif %}
+      </div>
+      <div>
+        <h3>카테고리별 편수</h3>
+        <table>
+          <tr><th>카테고리</th><th class="num">편수</th></tr>
+          {% for c in b.cats %}
+          <tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+    <h3>날짜별 목록</h3>
+    {% if b.warnings %}
+    <div class="warns">
+      {% for w in b.warnings %}<div>⚠ {{ w }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if b.rows %}
+    <table>
+      <tr><th>날짜</th><th>채널</th><th>숍글</th><th>유형</th><th>카테고리</th><th>제목</th></tr>
+      {% for r in b.rows %}
+      <tr>
+        <td>{{ r.date }}{% if r.status == '예약' %} <span class="muted">(예약)</span>{% endif %}</td>
+        <td>{{ r.channel_label }}</td>
+        <td>{{ '🛒 숍글' if r.is_shop else '' }}</td>
+        <td>{{ r.type_label }}</td>
+        <td>{{ r.category_label }}</td>
+        <td>{{ r.title }}{% if r.review %} <span class="review-mark" title="W싼세계 리뷰 분석 글">리뷰</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="muted">이 주에 발행·예약된 글이 없습니다.</div>
+    {% endif %}
+    {% endfor %}
+
+    <h2>{{ board.longterm.label }}</h2>
+    <div class="kpi">
+      <div class="box {{ 'over' if board.longterm.count > board.longterm.plan else '' }}"><div class="n">{{ board.longterm.count }} / {{ board.longterm.plan }}편</div><div class="l">이번 주 발행·예약 / 계획</div></div>
+      <div class="box"><div class="n">{{ board.longterm.published }}</div><div class="l">발행</div></div>
+      <div class="box"><div class="n">{{ board.longterm.scheduled }}</div><div class="l">예약</div></div>
+      <div class="box"><div class="n">{{ board.longterm.drafting }}</div><div class="l">작성 중 (전체)</div></div>
+    </div>
+    <div class="muted">롱텀은 편수만 보여 줍니다 (유형·카테고리 칸 없음).</div>
+
+    {% if board.schedule %}
+    <h2>📅 이번 주 발행 시간표</h2>
+    <div class="muted" style="margin-bottom:8px">{{ board.schedule_note }} 시간 뒤 글자는 권장 유형입니다(참고용 — 예약 시간은 자동으로 넣지 않습니다). 예약 N/M = 그날 이미 발행·예약된 편수 / 시간표 칸 수. 공휴일은 일요일 칸을 씁니다.</div>
+    <table>
+      <tr><th>날짜</th><th>N살림노트</th><th>W싼세계</th><th>W혜택주머니</th></tr>
+      {% for d in board.schedule %}
+      <tr>
+        <td>{{ d.date[5:] }}({{ d.weekday }}){% if d.holiday %} <span class="muted">공휴일</span>{% endif %}</td>
+        {% for key in ['naver', 'ssansegae', 'longterm'] %}
+        <td>{{ d.cells[key].text }} <span class="muted">· 예약 {{ d.cells[key].booked }}/{{ d.cells[key].total }}</span>{% if d.cells[key].review %} <span class="review-mark" title="이 날 발행·예약된 W싼세계 리뷰 분석 글 수">리뷰 {{ d.cells[key].review }}</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if radar %}
+    <h2>📡 {{ radar.label }} <span class="muted" style="font-weight:normal;">(이 주: {{ radar.week }} ~ {{ radar.sunday }} · 위 카드들과 따로 계산해요)</span></h2>
+    <div class="kpi">
+      <div class="box"><div class="n">{{ radar.count }}편</div><div class="l">이번 주 발행·예약</div></div>
+      <div class="box"><div class="n">{{ radar.published }}</div><div class="l">발행</div></div>
+      <div class="box"><div class="n">{{ radar.scheduled }}</div><div class="l">예약</div></div>
+      <div class="box"><div class="n">{{ radar.drafting }}</div><div class="l">작성 중 (원고만 있고 발행일 없음, 전체)</div></div>
+    </div>
+    {% if radar.warnings %}
+    <div class="warns">{% for w in radar.warnings %}<div>⚠ {{ w }}</div>{% endfor %}</div>
+    {% endif %}
+    <div class="grid2">
+      <div>
+        <h3>카테고리 비율 (이 주)</h3>
+        <table>
+          <tr><th>카테고리</th><th class="num">편수</th><th class="num">비율</th></tr>
+          {% for c in radar.cats %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td><td class="num">{{ c.pct }}%</td></tr>{% endfor %}
+        </table>
+      </div>
+      <div>
+        <h3>카테고리 비율 (누적 {{ radar.total_dated }}편)</h3>
+        <table>
+          <tr><th>카테고리</th><th class="num">편수</th><th class="num">비율</th></tr>
+          {% for c in radar.cats_all %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td><td class="num">{{ c.pct }}%</td></tr>{% endfor %}
+        </table>
+      </div>
+    </div>
+    {% if radar.rows %}
+    <table>
+      <tr><th>날짜</th><th>글 유형</th><th>카테고리</th><th>제목</th></tr>
+      {% for r in radar.rows %}
+      <tr><td>{{ r.date }}{% if r.status == '예약' %} <span class="muted">(예약)</span>{% endif %}</td><td>{{ r.post_type }}</td><td>{{ r.category }}</td><td>{{ r.title }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="muted">이 주에 발행·예약된 N데스크피커 글이 없습니다.</div>
+    {% endif %}
+    <div class="muted">같은 날 {{ radar.same_day_warn }}편 이상이면 경고해요. "처음 4주 요금·세금 + 지원금 60~70%" 경고는 시작일(radar_board.py의 RADAR_START_DATE)이 비어 있어 꺼져 있어요{% if radar.start_date %} (시작일 {{ radar.start_date }}){% endif %}.</div>
+    {% endif %}
+
+    <div class="foot">기타 리뷰로 표시해 집계에서 뺀 글: <strong>{{ board.excluded_total }}편</strong> (이 주만이 아니라 N살림노트·W싼세계 4개 채널 전체 합계)</div>
+  </div>
+  </div>
+</div>
+</body>
+</html>

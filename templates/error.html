@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>오류 발생</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; padding: 40px; color: #e5e5e5; }
+  .container { max-width: 700px; margin: 60px auto; background: #1e1e1e; border-radius: 10px; padding: 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+  h1 { font-size: 20px; color: #f87171; margin-top: 0; }
+  .message { font-size: 15px; line-height: 1.6; color: #e5e5e5; white-space: pre-wrap; background: #161616; border-radius: 6px; padding: 16px; border: 1px solid #333; }
+  .back { display: inline-block; margin-top: 24px; color: #60a5fa; text-decoration: none; font-size: 14px; }
+  .back:hover { text-decoration: underline; }
+  .hint { margin-top: 20px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚠ 문제가 발생했습니다</h1>
+    <div class="message">{{ message }}</div>
+    <div class="hint">문제가 반복되면 이 화면을 캡처해서 문의해주세요.</div>
+    <a class="back" href="/">← 대시보드로 돌아가기</a>
+  </div>
+</body>
+</html>

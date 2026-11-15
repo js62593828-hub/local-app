@@ -1,0 +1,24 @@
+{#- 글 편집 화면 맨 위: 글 유형·카테고리(메모에서 읽기) + "기타 리뷰로 표시 / 해제" 버튼. 필요한 변수: v4_info (None이면 — 롱텀 등 — 아무것도 안 보임), idx (글 id) -#}
+{% if v4_info %}
+<style>
+  .v4-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #1e1e1e; border: 1px solid #2f2f2f; border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 13px; }
+  .v4-info .v4-tag { padding: 2px 9px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #17202b; color: #7dd3fc; border: 1px solid #1e3a5f; }
+  .v4-info .v4-tag.est, .v4-info .v4-tag.none { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .v4-info .v4-tag.cat { background: #1c2a1f; color: #86efac; border-color: #25452d; }
+  .v4-info .v4-tag.cat.none { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .v4-info .v4-tag.cat.warn { background: #3a300d; color: #fcd34d; border-color: #5c4a14; }
+  .v4-info .v4-tag.excluded { background: #2b2b2b; color: #bbb; border-color: #444; }
+  .v4-info .v4-hint { color: #777; font-size: 11.5px; }
+  .v4-info form { margin-left: auto; }
+  .v4-info button { background: #262626; color: #ddd; border: 1px solid #3a3a3a; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 12.5px; }
+</style>
+<div class="v4-info">
+  <span class="v4-tag {{ 'est' if v4_info.estimated else ('none' if not v4_info.type_key else 'typed') }}" title="메모의 '글 유형:' 줄">{{ v4_info.type_label }}</span>
+  <span class="v4-tag cat {{ 'warn' if v4_info.category_key == '__out__' else ('none' if v4_info.category_key == '__none__' else '') }}" title="메모의 '카테고리 제안'">{{ v4_info.category_label }}</span>
+  {% if v4_info.excluded %}<span class="v4-tag excluded">기타 리뷰</span>{% endif %}
+  <span class="v4-hint">메모에서 읽은 값입니다 (조회만)</span>
+  <form method="POST" action="/article/{{ idx }}/toggle-excluded" onsubmit="return confirm('{{ '기타 리뷰 표시를 해제할까요?' if v4_info.excluded else '이 글을 기타 리뷰로 표시할까요? 겹침 비교·같이 보면 좋은 글 후보·V4 현황판에서 빠집니다. (이미 발행된 글에는 아무 요청도 보내지 않습니다)' }}');">
+    <button type="submit">{{ '기타 리뷰 해제' if v4_info.excluded else '기타 리뷰로 표시' }}</button>
+  </form>
+</div>
+{% endif %}

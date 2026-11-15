@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>타깃 키워드 서칭 이력</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+  th { background: #262626; color: #f5f5f5; font-size: 12px; }
+  a.open { color: #7dd3fc; text-decoration: none; font-weight: 600; }
+  .muted { color: #888; font-size: 12px; }
+  button.mini { background: #262626; color: #ddd; border: 1px solid #3a3a3a; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 12px; }
+  button.star { background: none; border: none; font-size: 18px; cursor: pointer; color: #666; }
+  button.star.on { color: #fbbf24; }
+  .back { display: inline-block; margin-bottom: 14px; color: #7dd3fc; text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container">
+    <a class="back" href="/target-keywords">← 타깃 키워드 발굴로</a>
+    <h1>🕘 서칭 이력</h1>
+    <p class="lead">조회 버튼을 누를 때마다 자동으로 남습니다. 제목을 누르면 그때 화면(조건·표)이 그대로 열리고, 다시 외부 조회를 하지 않습니다. ★을 누른 이력은 자동으로 지워지지 않고, 나머지는 최근 50개만 남습니다.</p>
+    {% if items %}
+    <table>
+      <tr><th style="width:44px">★</th><th style="width:140px">언제</th><th>조건</th><th>키워드</th><th style="width:90px">선택 저장</th><th style="width:70px"></th></tr>
+      {% for it in items %}
+      <tr>
+        <td><form method="post" action="/target-keywords/history/{{ it.id }}/star"><button class="star {{ 'on' if it.starred else '' }}" title="별표">{{ '★' if it.starred else '☆' }}</button></form></td>
+        <td>{{ it.ts }}</td>
+        <td><a class="open" href="/target-keywords/history/{{ it.id }}">{{ it.label }}</a></td>
+        <td>{{ it.count }}개 <span class="muted">{{ it.first | join(', ') }}{{ ' …' if it.count > 3 else '' }}</span></td>
+        <td>{{ it.picked }}개</td>
+        <td><form method="post" action="/target-keywords/history/{{ it.id }}/delete" onsubmit="return confirm('이 이력을 삭제할까요?')"><button class="mini">삭제</button></form></td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="muted">아직 이력이 없습니다. 조회를 한 번 하면 여기에 쌓입니다.</p>
+    {% endif %}
+  </div>
+  </div>
+</div>
+</body>
+</html>

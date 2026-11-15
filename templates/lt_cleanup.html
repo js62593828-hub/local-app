@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>🧹 묶음 정리</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px; }
+  .btn { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .btn.secondary { background: #262626; color: #ddd; border: 1px solid #3a3a3a; }
+  .btn.danger { background: #b91c1c; }
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 11.5px; }
+  .badge.wait { background: #262626; color: #bbb; }
+  .badge.done { background: #10241a; color: #86efac; border: 1px solid #1a4a30; }
+  .badge.error { background: #2a1515; color: #fca5a5; border: 1px solid #6b2222; }
+  .chips span { display: inline-block; margin-right: 14px; font-size: 14px; }
+  details.bundle { background: #181818; border: 1px solid #2a2a2a; border-radius: 10px; margin: 10px 0; }
+  details.bundle > summary { cursor: pointer; padding: 12px 16px; font-size: 14px; color: #f5f5f5; list-style: none; }
+  details.bundle > summary::-webkit-details-marker { display: none; }
+  details.bundle .inner { padding: 4px 16px 16px; }
+  select { background: #222; color: #e5e5e5; border: 1px solid #3a3a3a; border-radius: 6px; padding: 5px 8px; font-family: inherit; font-size: 12.5px; max-width: 360px; }
+  .rowerr { color: #f87171; font-size: 12px; display: block; margin-top: 3px; }
+  .flash { background: #2a2310; border: 1px solid #6b5a22; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 13px; }
+</style>
+{% include "_lt_cleanup_style.html" %}
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container ltc">
+    <h1>🧹 묶음 정리</h1>
+    <p class="lead">
+      5편 묶음을 3편으로 줄입니다. 빼는 글은 [묶음에서 빼기] 처리 → 워드프레스 <b>휴지통</b>(영구 삭제 아님) → <b>301</b>로 남는 글에 연결합니다.<br>
+      묶음은 <b>한 번에 하나씩</b>만 [실행]할 수 있고, 어느 단계든 실패하면 그 자리에서 멈춥니다. 먼저 [미리보기]로 바뀔 내용을 확인하세요.
+    </p>
+
+    {# 진행 표 #}
+    <div class="chips" style="margin:6px 0 10px;">
+      <span>✅ 완료 <b>{{ summary.done }}</b></span><span>⏳ 대기 <b>{{ summary.wait }}</b></span><span>⚠ 오류 <b>{{ summary.error }}</b></span>
+      <span>전체 남은 편수 <b>{{ summary.remaining }}</b> / {{ summary.total }}편</span>
+    </div>
+    <table>
+      <tr><th>묶음</th><th>상태</th><th>뺀 편수</th><th>남는 편수</th><th>마지막 실행</th></tr>
+      {% for b in bundles %}
+      <tr>
+        <td><a href="#b-{{ loop.index }}" style="color:#60a5fa; text-decoration:none;">{{ b.name }}</a></td>
+        <td>{% if b.status == 'done' %}<span class="badge done">✅ 완료</span>{% elif b.status == 'error' %}<span class="badge error">⚠ 오류</span>{% else %}<span class="badge wait">⏳ 대기</span>{% endif %}</td>
+        <td>{{ b.done }} / {{ b.total }}</td>
+        <td>{{ b.total - b.done }}편 남음</td>
+        <td class="muted">{% if b.last %}{{ b.last.ts }} — {{ '성공' if b.last.ok else (b.last.stage ~ ' 단계에서 멈춤') }}{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+
+    {# 묶음별 #}
+    {% for b in bundles %}
+    {% set plan = b.plan %}
+    <details class="bundle" id="b-{{ loop.index }}" {{ 'open' if open_name == b.name else '' }}>
+      <summary>
+        <b>{{ b.name }}</b>
+        {% if b.status == 'done' %}<span class="badge done">✅ 완료</span>{% elif b.status == 'error' %}<span class="badge error">⚠ 오류</span>{% else %}<span class="badge wait">⏳ 대기</span>{% endif %}
+        <span class="muted">· 지금 공개 {{ plan.options | length }}편 → {{ plan.options | length - (plan.rows | selectattr('checked') | rejectattr('done') | list | length) }}편으로</span>
+      </summary>
+      <div class="inner">
+        <form method="POST" id="f-{{ loop.index }}">
+          <input type="hidden" name="bundle" value="{{ b.name }}">
+          <input type="hidden" name="confirmed" value="">
+          <table>
+            <tr><th style="width:44px;">빼기</th><th>글 (대표가 아닌 발행 글)</th><th>클릭 / 노출<br><span class="muted">미리보기 후 표시</span></th><th>합칠 글 (같은 묶음 글만)</th><th>상태</th></tr>
+            {% for r in plan.rows %}
+            {% set lock = r.done or plan.locked %}
+            <tr>
+              <td><input type="hidden" name="row_{{ r.src_pid }}" value="1"><input type="checkbox" name="use_{{ r.src_pid }}" value="1" {{ 'checked' if r.checked else '' }} {{ 'disabled' if lock else '' }}>{% if lock and r.checked %}<input type="hidden" name="use_{{ r.src_pid }}" value="1">{% endif %}</td>
+              <td>{{ r.src_pid }}번{% if r.src %} · {{ r.src.title }} <span class="muted">({{ r.src.role or '-' }})</span>{% endif %}</td>
+              <td>{% if r.src and r.src.clicks is defined and r.src.clicks is not none %}{{ r.src.clicks }} / {{ r.src.impressions }}{% if r.swap_hint %} <span class="warn">⚠ 바꾸기 권장</span>{% endif %}{% endif %}</td>
+              <td>
+                <select name="to_{{ r.src_pid }}" {{ 'disabled' if lock else '' }}>
+                  {% for o in plan.options %}{% if o.pid != r.src_pid %}
+                  <option value="{{ o.pid }}" {{ 'selected' if o.pid == r.dst_pid else '' }}>{{ o.pid }}번 · {{ o.title }} ({{ o.role or '-' }})</option>
+                  {% endif %}{% endfor %}
+                </select>
+                {% if lock and r.dst %}<input type="hidden" name="to_{{ r.src_pid }}" value="{{ r.dst_pid }}">{% endif %}
+              </td>
+              <td>{% if r.done %}<span class="ok">이미 뺌</span>{% elif plan.locked %}<span class="muted">잠금(완료된 묶음)</span>{% else %}<span class="muted">{{ '정리표' if r.in_table else '선택 가능' }}</span>{% endif %}
+                {% for e in r.errors %}<span class="rowerr">⚠ {{ e }}</span>{% endfor %}</td>
+            </tr>
+            {% endfor %}
+          </table>
+          {% for e in plan.errors %}<div class="rowerr">⚠ {{ e }}</div>{% endfor %}
+          {% if plan.extra_redirects %}<div class="muted" style="margin-top:6px;">추가 301(앱 기록에 없는 글): {% for x in plan.extra_redirects %}<code>{{ x.source_path }}</code> → {{ x.target_pid }}번 글 주소{% endfor %} — 이 묶음 [실행] 때 함께 만듭니다.</div>{% endif %}
+          <div style="margin-top:12px; display:flex; gap:10px;">
+            <button class="btn secondary" type="submit" formaction="/lt-cleanup/preview">👀 미리보기</button>
+            <button class="btn danger" type="submit" formaction="/lt-cleanup/run"
+              onclick="var n=this.form.querySelectorAll('input[type=checkbox]:checked').length; if(!confirm('「{{ b.name }}」 묶음을 지금 실행할까요?\n\n① 남는 글 본문 정리·워드프레스 반영\n② 뺄 글 {{ plan.rows | length }}줄 중 체크된 {n}편을 묶음에서 빼기\n③ 워드프레스 휴지통으로\n④ 301 만들기  ⑤ 확인\n\n실제 워드프레스 글이 바뀝니다. 중간에 실패하면 그 자리에서 멈춥니다.'.replace('{n}', n))) { return false; } this.form.confirmed.value='1'; this.form.action='/lt-cleanup/run'; this.disabled=true; this.textContent='실행 중… 창을 닫지 마세요'; this.form.submit(); return false;">▶ 실행</button>
+          </div>
+        </form>
+
+        {% if preview and preview.plan.name == b.name %}
+          {% set pv = preview %}
+          <div class="box info ltc" style="margin-top:14px;">미리보기를 <code>{{ preview_file }}</code> 에도 저장했습니다.</div>
+          {% include "_lt_cleanup_preview.html" %}
+        {% endif %}
+
+        {% if run and run.bundle == b.name %}
+        <div class="ltc">
+          <h2>실행 결과 — {{ b.name }}</h2>
+          {% if run.ok %}<div class="box good">✅ {{ run.message }}</div>
+          {% else %}
+          <div class="box err"><b>⚠ {{ run.stage }} 단계에서 멈췄습니다.</b><br>{{ run.message }}
+            <br><b>어디까지 됐나:</b> {% set okc = run.steps | selectattr('ok') | list | length %}{{ okc }}개 단계 성공{% if run.steps %}, 마지막 시도 {{ run.steps[-1].step }}{% endif %}
+            <br><b>되돌리는 법 / 이어서 하는 법:</b> {{ run.undo }}
+          </div>
+          {% endif %}
+          {% if run.steps %}
+          <table>
+            <tr><th>단계</th><th>글 번호</th><th>결과</th><th>내용</th></tr>
+            {% for s in run.steps %}<tr><td>{{ s.step }}</td><td>{{ s.pid or '-' }}</td><td>{{ '✅' if s.ok else '❌' }}</td><td>{{ s.detail }}</td></tr>{% endfor %}
+          </table>
+          {% endif %}
+          {% if run.backups %}<div class="muted" style="margin-top:6px;">실행 전 자동 백업: {{ run.backups | join(', ') }}</div>{% endif %}
+          {% if not run.ok and run.manual %}
+          <h3>손으로 넣을 301 목록 (Redirection: 도구 &gt; Redirection &gt; 새 리디렉션 추가, 301)</h3>
+          <table>
+            <tr><th>원본 경로</th><th>대상 주소</th></tr>
+            {% for x in run.manual %}<tr><td><code>{{ x.source_path }}</code></td><td><code>{{ x.target_url | lt_unquote }}</code></td></tr>{% endfor %}
+          </table>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  </div>
+</div>
+</body>
+</html>

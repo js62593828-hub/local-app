@@ -1,0 +1,36 @@
+{#- 글 편집 화면 맨 위: 이 글 키워드 기준 같은 블로그 겹침 목록. 필요한 변수: blog_box ({matches[], reuse[]} 또는 None). 둘 다 비어 있으면 아무것도 안 보입니다. -#}
+{% if blog_box and (blog_box.matches or blog_box.reuse) %}
+<style>
+  .bo-box { background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; font-size: 13px; }
+  .bo-box h3 { margin: 0 0 8px; font-size: 14px; color: #fcd34d; }
+  .bo-box .bo-row { padding: 7px 0; border-top: 1px solid #2a2a2a; }
+  .bo-box h3 + .bo-row { border-top: none; }
+  .bo-box .bo-rel { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; margin-right: 6px; }
+  .bo-box .bo-rel.pair { background: #12301f; color: #86efac; }
+  .bo-box .bo-rel.dup { background: #3a1616; color: #fca5a5; }
+  .bo-box .bo-kw { font-weight: 700; color: #f5f5f5; }
+  .bo-box .bo-sub { color: #8fa1b3; font-size: 12px; display: block; }
+  .bo-box .bo-title { color: #9ca3af; font-size: 12.5px; display: block; }
+  .bo-box .bo-reason { color: #777; font-size: 11.5px; }
+  .bo-box a { color: #60a5fa; text-decoration: none; margin-left: 6px; }
+  .bo-box .bo-reuse { color: #7dd3fc; margin-top: 8px; }
+</style>
+<div class="bo-box">
+  {% if blog_box.matches %}
+  <h3>📚 같은 블로그에 겹치는 글 {{ blog_box.matches | length }}개</h3>
+  {% for m in blog_box.matches %}
+  <div class="bo-row">
+    <span class="bo-rel {{ 'pair' if m.relation == '짝 글' else 'dup' }}">{{ m.relation }}</span>
+    {{ '🔴' if m.level == 'red' else '🟡' }} <span class="bo-kw">{{ m.keyword }}</span>
+    {% if m.url and (m.url.startswith('http://') or m.url.startswith('https://')) %}<a href="{{ m.url }}" target="_blank" rel="noopener">발행 글 열기 →</a>{% endif %}
+    <span class="bo-sub">{{ m.channel_label }} · {{ m.state }} · {{ m.hint }}</span>
+    {% if m.title %}<span class="bo-title">{{ m.title }}</span>{% endif %}
+    <span class="bo-reason">{{ m.reason }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% for r in blog_box.reuse %}
+  <div class="bo-reuse">{{ r.text }} — <strong>{{ r.keyword }}</strong>{% if r.url and (r.url.startswith('http://') or r.url.startswith('https://')) %}<a href="{{ r.url }}" target="_blank" rel="noopener">네이버 글 열기 →</a>{% endif %}</div>
+  {% endfor %}
+</div>
+{% endif %}

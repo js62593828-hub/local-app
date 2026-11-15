@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>성과 (서치콘솔)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  h2 { font-size: 15px; margin: 28px 0 10px; color: #7dd3fc; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 14px; }
+  .mockbar { background: #7f1d1d; border: 2px solid #ef4444; color: #fff; border-radius: 10px; padding: 16px 20px; font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 16px; }
+  .mockbar small { display: block; font-size: 13px; font-weight: 400; color: #fecaca; margin-top: 4px; }
+  .notes { background: #12283f; border: 1px solid #1e3a5f; color: #7dd3fc; border-radius: 8px; padding: 10px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 14px; }
+  .notes.bad { background: #3a1414; border-color: #5a2020; color: #fca5a5; }
+  .notes.ok { background: #10301c; border-color: #1f5a35; color: #86efac; }
+  .tabs { display: flex; gap: 6px; margin: 14px 0; }
+  .tabs a { padding: 8px 18px; border-radius: 8px; background: #1a1a1a; color: #999; text-decoration: none; font-size: 13.5px; border: 1px solid #2a2a2a; }
+  .tabs a.active { background: #1e3a5f; color: #7dd3fc; font-weight: 600; border-color: #1e3a5f; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .btn { background: #3b82f6; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13.5px; cursor: pointer; font-family: inherit; }
+  .btn.secondary { background: #262626; color: #ddd; border: 1px solid #3a3a3a; }
+  .muted { color: #777; font-size: 12.5px; }
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 10px 16px; min-width: 120px; }
+  .card .k { font-size: 11.5px; color: #888; } .card .v { font-size: 18px; color: #f5f5f5; font-weight: 600; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 8px 10px; text-align: left; font-size: 12.5px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+  th { background: #262626; color: #f5f5f5; font-size: 12px; cursor: pointer; user-select: none; white-space: nowrap; }
+  th:hover { background: #303030; }
+  th .arrow { color: #7dd3fc; font-size: 10px; margin-left: 3px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.title { min-width: 280px; max-width: 420px; }
+  td.title a { color: #e5e5e5; text-decoration: none; } td.title a:hover { color: #7dd3fc; }
+  .up { color: #4ade80; } .down { color: #f87171; } .flat { color: #888; }
+  .chg { font-size: 11.5px; line-height: 1.5; white-space: nowrap; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; margin: 0 4px 3px 0; background: #262626; border: 1px solid #3a3a3a; white-space: nowrap; }
+  .tag.t-new { color: #94a3b8; } .tag.t-title { color: #fca5a5; border-color: #5a2020; background: #3a1414; }
+  .tag.t-body { color: #fbbf24; border-color: #5a4410; background: #2a2110; }
+  .tag.t-dead { color: #a78bfa; border-color: #3b2a6a; background: #20183a; }
+  .tag.t-star { color: #fde047; border-color: #5a5010; background: #2a2710; }
+  .queries { font-size: 11.5px; color: #aaa; line-height: 1.5; }
+  details { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 14px; margin-bottom: 8px; }
+  summary { cursor: pointer; font-size: 13px; color: #ddd; }
+  .legend { color: #999; font-size: 12px; line-height: 1.8; }
+  .legend b { color: #ddd; }
+  .idx { font-size: 12px; line-height: 1.5; white-space: nowrap; }
+  .idx .sub { display: block; font-size: 11px; color: #777; }
+  .idx .warn { display: block; font-size: 11.5px; color: #fbbf24; }
+  .urlbox { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; font-size: 11px; color: #888; }
+  .cbtn { background: #262626; color: #ddd; border: 1px solid #3a3a3a; border-radius: 6px; padding: 1px 8px; font-size: 11px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .cbtn:hover { background: #303030; }
+  .cbtn.on { background: #10301c; border-color: #1f5a35; color: #86efac; }
+  .cbtn.retry { border-color: #5a4410; color: #fbbf24; }
+  .cbtn.big { padding: 4px 12px; font-size: 12.5px; }
+  .copyfb { display: block; margin-top: 4px; font-size: 11.5px; color: #fbbf24; white-space: normal; }
+  .copyfb textarea { display: block; width: 100%; min-width: 280px; background: #0f0f0f; color: #e5e5e5; border: 1px solid #3a3a3a; border-radius: 6px; font-size: 11.5px; padding: 4px 6px; }
+  tr.reqdone td { opacity: .5; }
+  tr.reqdone td.act { opacity: 1; }
+  .needsite { margin-bottom: 10px; }
+  .idxcounts { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12.5px; color: #ccc; }
+  .idxcounts span { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 2px 10px; }
+  code { background: #0f0f0f; padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+{% macro fnum(n) %}{{ '{:,}'.format(n|int) }}{% endmacro %}
+{% macro pct(x) %}{{ '%.1f'|format((x or 0) * 100) }}%{% endmacro %}
+{% macro tagcls(t) %}{{ 't-new' if t.startswith('🆕') else 't-title' if t.startswith('🔤') else 't-body' if t.startswith('🔧') else 't-dead' if t.startswith('💤') else 't-star' }}{% endmacro %}
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container">
+    <h1>📈 성과 — 구글 서치콘솔</h1>
+    <p class="lead">
+      글별 노출·클릭·CTR·평균순위를 <b>최근 28일 vs 그 전 28일</b>로 비교하고, 손봐야 할 글에 진단 태그를 붙여 줍니다.
+      <b>읽기 전용</b>이라 서치콘솔·워드프레스·글 데이터에는 아무것도 쓰지 않습니다(저장하는 파일은 <code>perf_cache.json</code>, <code>perf_history.json</code>, <code>perf_index.json</code>뿐).
+      숫자는 아래 <b>"지금 가져오기"</b>를 눌렀을 때만 새로 가져옵니다.
+    </p>
+
+    {% if mode == 'mock' %}
+    <div class="mockbar">⚠ 가짜 데이터(목업) — 아래 숫자는 실제 서치콘솔 숫자가 아닙니다
+      <small>{% if force_mock %}목업 보기를 켠 상태입니다.{% elif not key_found %}키 파일(gsc_key.json)이 없어서 목업으로 보여 줍니다.{% else %}연결에 실패해서 목업으로 보여 줍니다.{% endif %} 글 제목·주소는 실제이고, 숫자만 가짜입니다.</small>
+    </div>
+    {% endif %}
+
+    {% if flash %}<div class="notes {{ 'ok' if flash.ok else 'bad' }}">{{ flash.text }}</div>{% endif %}
+
+    <div class="bar">
+      <form method="post" action="/performance/fetch"><input type="hidden" name="tab" value="{{ tab }}"><button class="btn" type="submit" {{ 'disabled' if not key_found }}>🔄 지금 가져오기</button></form>
+      <form method="post" action="/performance/test"><input type="hidden" name="tab" value="{{ tab }}"><button class="btn secondary" type="submit">🔌 연결 테스트</button></form>
+      <form method="post" action="/performance/index-check" onsubmit="return confirm('서치콘솔에 글마다 1번씩 색인 상태를 물어봅니다(조회만, 최대 120개, 1~2분 걸릴 수 있어요). 진행할까요?');"><input type="hidden" name="tab" value="{{ tab }}"><button class="btn secondary" type="submit" {{ 'disabled' if not key_found }}>🔍 색인 상태 확인</button></form>
+      {% if force_mock %}<a class="btn secondary" style="text-decoration:none" href="/performance?tab={{ tab }}">실제 데이터 보기</a>
+      {% else %}<a class="btn secondary" style="text-decoration:none" href="/performance?tab={{ tab }}&mock=1">목업으로 보기</a>{% endif %}
+      {% if cache and cache.mode == 'real' and mode == 'real' %}<span class="muted">마지막 가져온 시각 {{ cache.fetched_at.replace('T', ' ') }} · 기간 {{ cache.ranges.cur[0] }} ~ {{ cache.ranges.cur[1] }} (비교 {{ cache.ranges.prev[0] }} ~ {{ cache.ranges.prev[1] }})</span>{% endif %}
+    </div>
+
+    {% if test_result %}
+    <div class="notes {{ 'bad' if test_result.error else 'ok' }}">
+      <b>연결 테스트 결과</b><br>
+      {% if test_result.error %}❌ {{ test_result.error }}{% else %}✅ 키 파일 인증 성공{% endif %}
+      {% for s in test_result.sites %}
+      <div style="margin-top:8px;">
+        <b>{{ s.label }}</b> — 설정값 <code>{{ s.configured or '(비어 있음)' }}</code>
+        {% if s.format_ok %}✅ 형식 맞음{% elif s.suggest %}⚠ {{ s.note }}{% else %}❌ {{ s.note }}{% endif %}
+        {% if s.pages is not none %}<br>· 서치콘솔 페이지 수 <b>{{ s.pages }}</b> / 앱 글과 연결된 수 <b>{{ s.linked }}</b> / 연결 안 된 주소 <b>{{ s.unlinked }}</b>
+        {% if s.unlinked_examples %}<br>· 연결 안 된 주소 예시 (앱 밖 페이지):
+        <ul style="margin:4px 0 0 18px; padding:0;">{% for u in s.unlinked_examples %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="tabs">
+      {% for ch, label in tabs %}<a class="{{ 'active' if ch == tab else '' }}" href="/performance?tab={{ ch }}{{ '&mock=1' if force_mock else '' }}">{{ label }}</a>{% endfor %}
+    </div>
+
+    {% if mode == 'empty' %}
+    <div class="notes">아직 서치콘솔에서 숫자를 가져온 적이 없어요. 위의 <b>"지금 가져오기"</b>를 눌러 주세요. (먼저 "연결 테스트"로 사이트 주소 형식을 확인할 수 있어요.)</div>
+    {% else %}
+    {% set cv = view.channels[tab] %}
+    {% set sm = cv.summary %}
+    <div class="summary">
+      <div class="card"><div class="k">글 수 (주소 있는 글)</div><div class="v">{{ sm.articles }}</div></div>
+      <div class="card"><div class="k">노출 합계</div><div class="v">{{ fnum(sm.impressions) }}</div></div>
+      <div class="card"><div class="k">클릭 합계</div><div class="v">{{ fnum(sm.clicks) }}</div></div>
+      <div class="card"><div class="k">채널 평균 CTR</div><div class="v">{{ pct(sm.ctr) }}</div></div>
+      <div class="card"><div class="k">평균 순위(노출 가중)</div><div class="v">{{ '%.1f'|format(sm.position) }}</div></div>
+      <div class="card" title="이미 공개된 글 {{ sm.index_eligible }}개 중 확인한 글"><div class="k">색인 (확인한 글 기준)</div><div class="v">색인됨 {{ sm.index_ok }} / 확인한 글 {{ sm.index_checked }}</div></div>
+    </div>
+    <div class="idxcounts">
+      <b>색인 상태</b>
+      {% for k, icon in T.IDX_ICONS.items() %}<span title="{{ T.IDX_LABELS[k] }}">{{ icon }} {{ T.IDX_LABELS[k] }} {{ sm.index_counts[k] }}</span>{% endfor %}
+      {% if sm.index_canon_diff %}<span>⚠ 대표 주소 다름 {{ sm.index_canon_diff }}</span>{% endif %}
+      {% if not sm.index_checked %}<span class="muted" style="border:none;background:none;">아직 확인한 글이 없어요 — 위의 "색인 상태 확인"을 눌러 주세요</span>{% endif %}
+    </div>
+
+    {% macro md(d) %}{{ d[5:7]|int }}/{{ d[8:10]|int }}{% endmacro %}
+    {% for skey in ['longterm', 'ssansegae'] %}
+    {% set sg = view.index_sites[skey] %}
+    {% if sg.total %}
+    <details class="needs needsite" id="needs-{{ skey }}" {{ 'open' if skey == channel_site[tab] else '' }}>
+      <summary>📮 <b>색인 요청 필요 {{ sg.total }}편</b> — {{ site_labels[skey] }}
+        <span class="muted">(아직 요청 안 함 {{ sg.pending }} · ◻ 확인 전 {{ sg.unchecked }} · 🆕 판단 보류(새 글) {{ sg.new }})</span></summary>
+      <p class="legend" style="margin:8px 0;">서치콘솔 맨 위 검색창에 주소 1개씩 붙여넣기 → <b>색인 생성 요청</b> (사이트당 하루 10개 정도).
+        이 앱은 요청을 보내지 않아요 — 요청은 직접 해 주세요.
+        {% if skey == 'ssansegae' %}<br><b>W싼세계 구글 계정으로 로그인해서 요청하세요.</b> W싼세계와 워드프레스 SHOP (OLD)는 같은 사이트라 한도를 같이 써요.{% endif %}
+        <br>대상: 이미 공개된 글 중 ✅ 색인됨이 아닌 글 (❓ · ⏳ · 🔍 · ⚠ · ◻ 확인 전, 새 글 포함).
+        요청한 글은 아래로 내려가고, 요청 후 {{ T.INDEX_RETRY_DAYS }}일이 지나도 ✅가 아니면 "다시 요청해 볼 만함"으로 다시 올라와요. 다음 "색인 상태 확인"에서 ✅가 되면 목록에서 빠져요.</p>
+      {% if view.can_copy %}
+      <p style="margin:6px 0;"><button type="button" class="cbtn big copybtn" data-copy="{{ sg.copy_batch }}" {{ 'disabled' if not sg.copy_batch_n }}>📋 아직 요청 안 한 주소 {{ sg.copy_batch_n }}개 복사</button> <span class="muted">(줄바꿈으로 구분)</span></p>
+      {% endif %}
+      <div class="tablewrap"><table><tbody>
+        {% for n in sg.rows %}
+        <tr class="{{ 'reqdone' if n.state == 'done' else '' }}">
+          <td class="title">{{ n.icon }} {{ n.title }}{% if n.is_new %} <span class="muted">🆕</span>{% endif %}</td>
+          <td class="muted" style="white-space:nowrap;">{{ n.label }}<br>{{ n.channel }}</td>
+          <td class="muted" style="white-space:nowrap;">{{ n.published_at or '-' }}</td>
+          <td><span class="urlbox" title="{{ n.show_url }}">{{ n.show_url }}</span>{% if view.can_copy %} <button type="button" class="cbtn copybtn" data-copy="{{ n.copy_url }}">📋 주소 복사</button>{% endif %}</td>
+          {% if view.can_copy %}
+          <td class="act" style="white-space:nowrap;">
+            {% if n.state == 'done' %}<button type="button" class="cbtn on reqbtn" data-key="{{ n.key }}" data-on="0" title="누르면 요청함 표시를 취소해요">요청함 ✓</button> <span class="muted">{{ md(n.req_at) }} 요청함</span>
+            {% elif n.state == 'retry' %}<button type="button" class="cbtn retry reqbtn" data-key="{{ n.key }}" data-on="1">요청함 ✓</button> <span class="muted" style="color:#fbbf24;">{{ md(n.req_at) }} 요청 · 다시 요청해 볼 만함</span>
+            {% else %}<button type="button" class="cbtn reqbtn" data-key="{{ n.key }}" data-on="1">요청함 ✓</button>{% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody></table></div>
+    </details>
+    {% endif %}
+    {% endfor %}
+
+    <div class="tablewrap">
+    <table class="sortable" id="perf-table">
+      <thead><tr>
+        <th data-t="s">제목</th><th data-t="s">발행일</th><th data-t="s" title="서치콘솔 URL 검사 결과 (확인 버튼을 누른 글만)">색인</th><th data-t="n">노출</th><th data-t="n">클릭</th>
+        <th data-t="n">CTR</th><th data-t="n">평균순위</th><th data-t="n" title="최근 28일 vs 그 전 28일 · 순위 ▲는 좋아짐(숫자 작아짐)">지난 28일 대비 변화</th>
+        <th data-t="s">상위 검색어 3개</th><th data-t="s">진단</th>
+      </tr></thead>
+      <tbody>
+      {% for r in cv.rows %}
+      <tr>
+        <td class="title" data-v="{{ r.title }}"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.title }}</a>{% if not r.has_data %} <span class="muted">(서치콘솔 기록 없음)</span>{% endif %}</td>
+        <td data-v="{{ r.published_at or '' }}" class="num">{{ r.published_at or '-' }}</td>
+        {% set ix = r.index %}
+        <td class="idx" data-v="{{ ix.kind if ix else ('~' if r.index_eligible else '~~') }}">
+          {% if ix %}{{ ix.icon }} {{ ix.label }}
+            {% if ix.robots_blocked %}<span class="warn">⚠ robots 차단</span>{% endif %}
+            {% if ix.canonical_diff %}<span class="warn" title="구글 대표: {{ ix.google_canonical }} / 내 지정: {{ ix.user_canonical }}">⚠ 대표 주소 다름</span>{% endif %}
+            <span class="sub">마지막 크롤링 {{ ix.last_crawl or '-' }}{% if ix.checked_at %} · 확인 {{ ix.checked_at[5:] }}{% endif %}</span>
+          {% elif r.index_eligible %}◻ 확인 전
+          {% else %}<span class="muted">- ({{ '아직 공개 전' if r.published_at else '발행일 없음' }})</span>{% endif %}
+          {% if r.need %}
+            <span class="sub"><span class="urlbox" title="{{ r.show_url }}">{{ r.show_url }}</span>{% if view.can_copy %} <button type="button" class="cbtn copybtn" data-copy="{{ r.copy_url }}">📋 주소 복사</button>{% endif %}</span>
+            {% if r.req_at %}<span class="sub">{{ md(r.req_at) }} 요청함{% if r.req_state == 'retry' %} · 다시 요청해 볼 만함{% endif %}</span>{% endif %}
+          {% endif %}
+        </td>
+        <td class="num" data-v="{{ r.impressions }}">{{ fnum(r.impressions) }}</td>
+        <td class="num" data-v="{{ r.clicks }}">{{ fnum(r.clicks) }}</td>
+        <td class="num" data-v="{{ r.ctr }}">{{ pct(r.ctr) }}</td>
+        <td class="num" data-v="{{ r.position or 999 }}">{{ '%.1f'|format(r.position) if r.position else '-' }}</td>
+        {% set c = r.change %}
+        <td data-v="{{ c.impressions_pct if c.impressions_pct is not none else (1000 if r.impressions else -1000) }}"><div class="chg">
+          노출 {% if c.impressions_pct is none %}{% if r.impressions %}<span class="up">신규</span>{% else %}<span class="flat">-</span>{% endif %}
+          {% elif c.impressions_pct >= 0 %}<span class="up">▲{{ '%.0f'|format(c.impressions_pct) }}%</span>{% else %}<span class="down">▼{{ '%.0f'|format(-c.impressions_pct) }}%</span>{% endif %}<br>
+          클릭 {% if c.clicks_diff > 0 %}<span class="up">▲{{ c.clicks_diff }}</span>{% elif c.clicks_diff < 0 %}<span class="down">▼{{ -c.clicks_diff }}</span>{% else %}<span class="flat">-</span>{% endif %}<br>
+          순위 {% if c.position_gain is none %}<span class="flat">-</span>{% elif c.position_gain > 0.05 %}<span class="up">▲{{ '%.1f'|format(c.position_gain) }}</span>{% elif c.position_gain < -0.05 %}<span class="down">▼{{ '%.1f'|format(-c.position_gain) }}</span>{% else %}<span class="flat">-</span>{% endif %}
+        </div></td>
+        <td class="queries" data-v="{{ r.queries[0].query if r.queries else '' }}">{% for q in r.queries[:3] %}{{ q.query }} <span class="muted">({{ q.impressions }})</span>{% if not loop.last %}<br>{% endif %}{% else %}<span class="muted">-</span>{% endfor %}</td>
+        <td data-v="{{ r.tags|length }}">{% for t in r.tags %}<span class="tag {{ tagcls(t) }}" title="{{ tag_hints[t] }}">{{ t }}</span>{% endfor %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="muted">이 채널에 워드프레스 주소가 저장된 글이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="legend" style="margin-top:10px;">
+      <b>진단 태그 기준</b> (바꾸려면 <code>perf_tracker.py</code> 맨 위 숫자 수정):
+      {% for t, hint in tag_hints.items() %}<br><span class="tag {{ tagcls(t) }}">{{ t }}</span> {{ hint }}{% endfor %}<br>
+      채널 평균 CTR = 그 채널 글들의 전체 클릭 ÷ 전체 노출. 표 머리글을 누르면 정렬됩니다.
+    </p>
+
+    <h2>제목 틀별 평균 CTR ({{ tabs|selectattr(0, 'equalto', tab)|first|last }})</h2>
+    <div class="tablewrap"><table style="max-width:640px;">
+      <thead><tr><th>제목 틀</th><th>글 수</th><th>평균 CTR</th><th>평균 순위</th></tr></thead>
+      <tbody>
+      {% for p in cv.patterns %}
+      <tr><td>{{ p.name }}</td><td class="num">{{ p.count }}</td>
+        <td class="num">{{ pct(p.ctr) if p.ctr is not none else '-' }}</td>
+        <td class="num">{{ '%.1f'|format(p.position) if p.position is not none else '-' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="legend">한 제목이 여러 틀에 해당하면 각 틀에 모두 셉니다. 노출이 없는 글은 글 수에만 포함하고, 평균 CTR은 클릭÷노출(노출 가중), 평균 순위는 노출 가중 평균입니다.
+      분류: 쉼표형=<code>키워드, ~</code> / 질문형=물음표·"~까요/일까/나요/어떻게/왜" / 숫자 포함 / 그 외.</p>
+
+    {% if cv.clusters %}
+    <h2>묶음(cluster_seed)별 합계</h2>
+    {% for g in cv.clusters %}
+    <details>
+      <summary><b>{{ g.seed }}</b> · 글 {{ g.rows|length }}개 · 노출 {{ fnum(g.impressions) }} · 클릭 {{ fnum(g.clicks) }} · CTR {{ pct(g.ctr) }}</summary>
+      <table style="margin-top:8px;"><tbody>
+        {% for r in g.rows %}<tr><td class="title"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.title }}</a></td><td class="num">노출 {{ fnum(r.impressions) }}</td><td class="num">클릭 {{ fnum(r.clicks) }}</td><td class="num">{{ pct(r.ctr) }}</td></tr>{% endfor %}
+      </tbody></table>
+    </details>
+    {% endfor %}
+    {% endif %}
+
+    {% set off = view.off_app[channel_site[tab]] %}
+    <h2>앱 밖 페이지 — {{ site_labels[channel_site[tab]] }} ({{ off|length }}개)</h2>
+    <p class="legend">서치콘솔에는 있지만 앱 글 주소와 연결되지 않은 페이지입니다(홈, 옛 티스토리 주소, 앱에 주소가 저장되지 않은 글 등).{% if channel_site[tab] == 'ssansegae' %} W싼세계와 워드프레스 SHOP (OLD)는 같은 사이트라 양쪽 탭에 같은 목록이 보입니다.{% endif %}</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>주소</th><th>노출</th><th>클릭</th><th>CTR</th><th>평균순위</th></tr></thead>
+      <tbody>
+      {% for p in off[:50] %}
+      <tr><td>{{ p.url }}</td><td class="num">{{ fnum(p.impressions) }}</td><td class="num">{{ fnum(p.clicks) }}</td><td class="num">{{ pct(p.ctr) }}</td><td class="num">{{ '%.1f'|format(p.position) }}</td></tr>
+      {% else %}<tr><td colspan="5" class="muted">없음</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+    {% if off|length > 50 %}<p class="muted">노출 많은 순으로 50개만 보여 줍니다.</p>{% endif %}
+    {% endif %}
+  </div>
+  </div>
+</div>
+<script>
+  // 📋 주소 복사: navigator.clipboard → 숨긴 textarea + execCommand('copy') → 안 되면 주소를 선택된 상태로 보여 주고 안내
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+    document.body.appendChild(ta); ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function manualCopy(btn, text) {
+    var old = btn.parentNode.querySelector('.copyfb');
+    if (old) old.remove();
+    var box = document.createElement('span');
+    box.className = 'copyfb';
+    box.textContent = 'Ctrl+C로 복사하세요 ↓';
+    var ta = document.createElement('textarea');
+    ta.readOnly = true; ta.rows = Math.min(10, text.split('\n').length); ta.value = text;
+    box.appendChild(ta);
+    btn.parentNode.appendChild(box);
+    ta.focus(); ta.select();
+  }
+  function copyText(text, btn) {
+    var orig = btn.dataset.orig || (btn.dataset.orig = btn.textContent);
+    function done() {
+      btn.textContent = '✓ 복사됨';
+      clearTimeout(btn._t);
+      btn._t = setTimeout(function () { btn.textContent = orig; }, 1500);
+    }
+    function fallback() { if (legacyCopy(text)) done(); else manualCopy(btn, text); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else { fallback(); }
+  }
+  document.addEventListener('click', function (ev) {
+    var cb = ev.target.closest('.copybtn');
+    if (cb && !cb.disabled) { copyText(cb.getAttribute('data-copy') || '', cb); return; }
+    var rb = ev.target.closest('.reqbtn');
+    if (rb) {
+      rb.disabled = true;
+      fetch('/performance/index-request', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key: rb.dataset.key, on: rb.dataset.on === '1'})})
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j.ok) { alert(j.error || '저장하지 못했어요'); rb.disabled = false; return; }
+          try {  // 새로고침해도 열어 둔 목록은 그대로 열어 둡니다
+            var open = []; document.querySelectorAll('details.needs[open]').forEach(function (d) { open.push(d.id); });
+            sessionStorage.setItem('perfNeedsOpen', JSON.stringify(open));
+          } catch (e) {}
+          location.reload();
+        }).catch(function () { alert('저장하지 못했어요'); rb.disabled = false; });
+    }
+  });
+  try {
+    var saved = JSON.parse(sessionStorage.getItem('perfNeedsOpen') || 'null');
+    if (saved) {
+      document.querySelectorAll('details.needs').forEach(function (d) { d.open = saved.indexOf(d.id) >= 0; });
+      sessionStorage.removeItem('perfNeedsOpen');
+    }
+  } catch (e) {}
+  // 표 머리글을 누르면 그 칸 기준으로 정렬 (숫자 칸은 숫자, 나머지는 글자 기준). 한 번 더 누르면 반대 방향.
+  document.querySelectorAll('table.sortable').forEach(function (table) {
+    var dir = {};
+    table.querySelectorAll('thead th').forEach(function (th, idx) {
+      th.addEventListener('click', function () {
+        var numeric = th.dataset.t === 'n';
+        dir[idx] = dir[idx] === 'asc' ? 'desc' : 'asc';
+        var body = table.tBodies[0];
+        var rows = Array.prototype.slice.call(body.rows).filter(function (r) { return r.cells.length > 1; });
+        rows.sort(function (a, b) {
+          var x = a.cells[idx].dataset.v, y = b.cells[idx].dataset.v;
+          var c = numeric ? (parseFloat(x) - parseFloat(y)) : String(x).localeCompare(String(y), 'ko');
+          return dir[idx] === 'asc' ? c : -c;
+        });
+        rows.forEach(function (r) { body.appendChild(r); });
+        table.querySelectorAll('.arrow').forEach(function (a) { a.remove(); });
+        th.insertAdjacentHTML('beforeend', '<span class="arrow">' + (dir[idx] === 'asc' ? '▲' : '▼') + '</span>');
+      });
+    });
+  });
+</script>
+</body>
+</html>

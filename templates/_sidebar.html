@@ -1,0 +1,89 @@
+{#- 공통 사이드바. index/status/platform_history/channel_placeholder가 {% include "_sidebar.html" %}로 함께 씁니다.
+    필요한 변수는 app.py의 _inject_sidebar_context()가 모든 화면에 넣어줍니다:
+    mode, channels, active_channel_id, is_old_channel, platforms(=get_active_platforms()), platform_labels
+    현재 경로는 Flask가 기본 제공하는 request.path로 판단합니다. -#}
+<style>
+  .sidebar {
+    width: 220px; flex-shrink: 0; background: #161616; border-right: 1px solid #262626;
+    padding: 24px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .sidebar-title { font-size: 15px; font-weight: 700; color: #f5f5f5; margin: 0 8px 4px; }
+  .sidebar-mode { font-size: 11px; color: #777; margin: 0 8px 22px; }
+  .sidebar-section-label {
+    font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 0 8px 8px; font-weight: 600;
+  }
+  .channel-nav { display: flex; flex-direction: column; gap: 4px; }
+  .channel-btn {
+    display: block; background: transparent; color: #999; border: none; padding: 9px 10px;
+    border-radius: 8px; font-size: 13.5px; text-decoration: none; cursor: pointer; text-align: left;
+  }
+  .channel-btn.active { background: #1e3a5f; color: #7dd3fc; font-weight: 600; }
+  .channel-btn:hover:not(.active) { background: #1f1f1f; color: #ccc; }
+  .channel-arrow { display: inline-block; width: 14px; font-size: 11px; opacity: 0.8; }
+
+  .channel-menu { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 8px 14px; padding-left: 10px; border-left: 1px solid #262626; }
+  .channel-menu a {
+    color: #999; text-decoration: none; font-size: 13px; padding: 7px 10px; border-radius: 8px;
+  }
+  .channel-menu a.active { color: #f5f5f5; background: #202020; font-weight: 600; }
+  .channel-menu a:hover:not(.active) { background: #1f1f1f; color: #e5e5e5; }
+
+  /* OLD버전(보관) 묶음 — 흐린 색·작은 글씨 */
+  .sidebar-section-label.old { color: #4d4d4d; font-size: 10.5px; }
+  .channel-btn.old { font-size: 12px; color: #6b6b6b; padding: 7px 10px; }
+  .channel-btn.old.active { background: #232a33; color: #8aa4bd; font-weight: 600; }
+  .channel-menu.old a { font-size: 12px; color: #6b6b6b; }
+  .channel-menu.old a.active { color: #b5b5b5; }
+</style>
+{#- 채널 한 줄 + (선택됐으면) 하위 메뉴. old=True면 OLD버전 묶음 스타일. 도구 화면이면 어떤 채널도 강조·펼침 없음. -#}
+{% macro channel_item(cid, cfg, old, is_tool_page) %}
+    {% set is_active = (cid == active_channel_id and not is_tool_page) %}
+    <a class="channel-btn {{ 'old' if old else '' }} {{ 'active' if is_active else '' }}" href="/switch-channel/{{ cid }}"><span class="channel-arrow">{{ '▾' if is_active else '▸' }}</span>{{ cfg.short_label }}{{ '' if cfg.ready else ' 🚧' }}</a>
+    {% if is_active %}
+    <div class="channel-menu {{ 'old' if old else '' }}">
+      <a class="{{ 'active' if request.path == '/' else '' }}" href="/">주간 승인</a>
+      <a class="{{ 'active' if request.path == '/status' else '' }}" href="/status">발행 현황</a>
+      {% if cid == 'longterm_wp' %}<a class="{{ 'active' if request.path.startswith('/lt-cleanup') else '' }}" href="/lt-cleanup">🧹 묶음 정리</a>{% endif %}
+      {% for p in platforms %}
+      <a class="{{ 'active' if request.path == '/platform/' ~ p else '' }}" href="/platform/{{ p }}">{{ platform_labels[p] }} 이력</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+{% endmacro %}
+<div class="sidebar">
+  <div class="sidebar-title">콘텐츠 자동화</div>
+  <div class="sidebar-mode">{{ mode }}</div>
+
+  <div class="sidebar-section-label">채널</div>
+  {% set is_tool_page = request.path.startswith('/target-keywords') or request.path.startswith('/performance') or request.path.startswith('/v4-board') or request.path.startswith('/product-check') %}
+  {% set main_order = ['longterm_wp', 'naver_tips', 'wp_tips', 'radar_naver'] %}
+  <div class="channel-nav">
+    {% for cid in main_order %}
+    {% set cfg = channels.get(cid) %}
+    {% if cfg and not cfg.hidden and not cfg.archived %}{{ channel_item(cid, cfg, False, is_tool_page) }}{% endif %}
+    {% endfor %}
+    {% for cid, cfg in channels.items() %}
+    {% if cid not in main_order and not cfg.hidden and not cfg.archived %}{{ channel_item(cid, cfg, False, is_tool_page) }}{% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="sidebar-section-label" style="margin-top:22px">도구</div>
+  <div class="channel-nav">
+    <a class="channel-btn {{ 'active' if request.path.startswith('/target-keywords') else '' }}" href="/target-keywords">🎯 타깃 키워드 발굴</a>
+    <a class="channel-btn {{ 'active' if request.path.startswith('/performance') else '' }}" href="/performance">📈 성과</a>
+    <a class="channel-btn {{ 'active' if request.path.startswith('/v4-board') else '' }}" href="/v4-board">📊 V4 현황판</a>
+    <a class="channel-btn {{ 'active' if request.path.startswith('/product-check') else '' }}" href="/product-check">🧾 제품 체크</a>
+  </div>
+
+  {% set old_channels = channels.items() | selectattr('1.archived') | rejectattr('1.hidden') | list %}
+  {% if old_channels %}
+  <div class="sidebar-section-label old" style="margin-top:26px">OLD버전</div>
+  <div class="channel-nav">
+    {% set old_order = ['shop_naver', 'shop_wp'] %}
+    {% for cid in old_order %}{% set cfg = channels.get(cid) %}{% if cfg and cfg.archived and not cfg.hidden %}{{ channel_item(cid, cfg, True, is_tool_page) }}{% endif %}{% endfor %}
+    {% for cid, cfg in old_channels %}{% if cid not in old_order %}{{ channel_item(cid, cfg, True, is_tool_page) }}{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+</div>
+

@@ -1,0 +1,33 @@
+# 비밀 키가 들어 있는 파일 — 절대 공유·업로드하지 않음
+.env
+gsc_key.json
+
+# 실행 결과·캐시·백업
+pipeline/
+__pycache__/
+*.backup_before_*
+*.old_*
+backup/
+logs/
+preview/
+perf_inbox/
+Claude outputs/
+serp_collect/
+static/
+fonts/
+*.log
+
+# 앱 장부 (실제 데이터)
+articles*.json
+content_queue*.json
+perf_*.json
+*_cache.json
+target_keyword_*.json
+
+# 개인 설정·잠금
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+pipeline_backup_*/
+
+# 정리 1차: 옮겨 둔 백업(용량 큰 데이터 포함)
+archive/backups_20261115/

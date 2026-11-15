@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>W싼세계 함께 보면 좋은 글 일괄 새로고침</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px; }
+  .card { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 4px; font-size: 15px; color: #f5f5f5; }
+  .meta { color: #888; font-size: 12px; margin-bottom: 10px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-right: 6px; background: #17202b; color: #7dd3fc; border: 1px solid #1e3a5f; }
+  .badge.same { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .badge.ok { background: #1c2a1f; color: #86efac; border-color: #25452d; }
+  .badge.fail { background: #3b1212; color: #fca5a5; border-color: #5c1a1a; }
+  .cols { display: flex; gap: 20px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 300px; }
+  .col h4 { margin: 0 0 6px; font-size: 12.5px; color: #7dd3fc; }
+  ol { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7; }
+  li.in { color: #4ade80; }
+  li.out { color: #f87171; text-decoration: line-through; }
+  .btn { background: #1e3a5f; color: #e0f2fe; border: 1px solid #2c5282; padding: 10px 20px; border-radius: 8px; font-size: 14px; text-decoration: none; display: inline-block; cursor: pointer; font-family: inherit; }
+  .btn.sec { background: #262626; color: #ddd; border-color: #3a3a3a; }
+  .err { color: #fca5a5; font-size: 12.5px; }
+  a.lnk { color: #60a5fa; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container">
+    <h1>🔁 W싼세계 "함께 보면 좋은 글" 일괄 새로고침{% if done %} — 결과{% else %} — 확인 화면{% endif %}</h1>
+    {% set changed_rows = rows | selectattr('changed') | list %}
+    {% set failed_rows = rows | rejectattr('ok') | list %}
+    {% if not done %}
+    <p class="lead">최근 {{ days }}일 안에 공개됐거나 앞으로 예약된 W싼세계 글 {{ rows | length }}개의 '함께 보면 좋은 글'을 지금 규칙으로 다시 만들어 봤어요 (같은 카테고리 먼저 → 사이트 최신, 기타 리뷰 제외, 예약 글은 공개 시각이 이 글보다 이르고 정식 주소를 아는 것만 포함).
+      <b>지금은 아무것도 바뀌지 않았어요.</b> 아래 [실행]을 눌러야 <b>추천이 달라지는 {{ changed_rows | length }}개 글의 하단 블록만</b> 교체돼요. 본문·이미지는 건드리지 않아요.</p>
+    {% else %}
+    <p class="lead">실행 결과예요. 하단 블록만 교체했고 본문·이미지는 그대로예요.</p>
+    {% endif %}
+
+    {% if not rows %}<div class="card">대상 글이 없어요.</div>{% endif %}
+
+    {% for r in rows %}
+    <div class="card">
+      <h3>
+        {% if not r.ok %}<span class="badge fail">⚠ 조회 실패 — 바뀌지 않음</span>
+        {% elif done and r.changed %}<span class="badge ok">✓ 업데이트함</span>
+        {% elif done %}<span class="badge same">변경 없음 — 건너뜀</span>
+        {% elif r.changed %}<span class="badge">바뀜</span>
+        {% else %}<span class="badge same">그대로</span>{% endif %}
+        {{ r.title }}
+      </h3>
+      <div class="meta">{{ '예약' if r.scheduled else '공개' }} {{ r.published }}{% if r.url %} · <a class="lnk" href="{{ r.url }}" target="_blank" rel="noopener">글 열기 ↗</a>{% endif %}</div>
+      {% if not r.ok %}
+      <div class="err">{{ r.error }}</div>
+      {% elif r.changed %}
+      {% set old_hrefs = r.old | map(attribute=0) | list %}
+      {% set new_hrefs = r.new | map(attribute=0) | list %}
+      <div class="cols">
+        <div class="col"><h4>{{ '이전' if done else '지금' }} 추천</h4>
+          <ol>{% for h, t in r.old %}<li class="{{ 'out' if h not in new_hrefs else '' }}">{{ t }}</li>{% else %}<li style="list-style:none; color:#888;">(하단 블록 없음)</li>{% endfor %}</ol></div>
+        <div class="col"><h4>{{ '새' if done else '새로 바뀔' }} 추천</h4>
+          <ol>{% for h, t in r.new %}<li class="{{ 'in' if h not in old_hrefs else '' }}">{{ t }}</li>{% endfor %}</ol></div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if not done %}
+      {% if changed_rows %}
+      <form method="POST" action="/wp-tips-related-batch/run" onsubmit="return confirm('위 {{ changed_rows | length }}개 글의 \'함께 보면 좋은 글\' 블록만 워드프레스에서 교체합니다. 본문은 바뀌지 않아요. 실행할까요?');">
+        {% for r in changed_rows %}<input type="hidden" name="ids" value="{{ r.id }}">{% endfor %}
+        <button class="btn" type="submit">실행 — {{ changed_rows | length }}개 글 하단 블록 교체</button>
+        <a class="btn sec" href="/">취소</a>
+      </form>
+      {% else %}
+      <div class="card">바뀌는 글이 없어요 — 실행할 것이 없습니다.</div>
+      <a class="btn sec" href="/">← 돌아가기</a>
+      {% endif %}
+    {% else %}
+      <a class="btn sec" href="/">← 돌아가기</a>
+    {% endif %}
+  </div>
+  </div>
+</div>
+</body>
+</html>

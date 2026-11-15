@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>주간 키워드 승인 결과</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 32px 40px 60px; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #f5f5f5; }
+  h2 { font-size: 16px; margin: 0 0 10px; color: #7dd3fc; }
+  h3 { font-size: 13.5px; margin: 14px 0 6px; color: #ddd; }
+  .lead { color: #bbb; font-size: 14px; line-height: 1.7; margin-bottom: 18px; }
+  .panel { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; margin-bottom: 4px; }
+  th, td { padding: 7px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #2a2a2a; }
+  th { background: #262626; color: #f5f5f5; font-size: 12px; }
+  .ok { color: #4ade80; } .warn { color: #fbbf24; } .red { color: #fca5a5; } .muted { color: #888; }
+  .hold { background: #1e1e1e; border: 1px solid #3a2020; border-left: 4px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+  .hold .kw { font-weight: 700; color: #f5f5f5; font-size: 14.5px; }
+  .match { margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a2a2a; font-size: 12.5px; }
+  .match .title { color: #9ca3af; display: block; }
+  .match .meta { color: #8fa1b3; font-size: 12px; }
+  .match .reason { color: #777; font-size: 11.5px; }
+  .match a { color: #60a5fa; text-decoration: none; margin-left: 8px; }
+  .btn { background: #3b82f6; color: white; border: none; padding: 9px 16px; border-radius: 8px; font-size: 13.5px; cursor: pointer; text-decoration: none; font-family: inherit; display: inline-block; }
+  .btn.secondary { background: #262626; color: #ddd; border: 1px solid #3a3a3a; }
+  .btn.danger { background: #7f1d1d; margin-top: 10px; }
+  .none { color: #777; font-size: 13px; padding: 4px 0; }
+  .note { color: #8fa1b3; font-size: 12.5px; }
+  .hold .kw { display: block; cursor: pointer; }
+  .hold .kw input { width: 17px; height: 17px; vertical-align: -3px; margin-right: 6px; }
+  .hold.is-done { border-left-color: #22c55e; border-color: #1f3a28; opacity: .85; }
+  .hold.is-done form, .hold.is-done .match { display: none; }
+  .done-badge { color: #4ade80; font-size: 13px; font-weight: 700; }
+  .bulkbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 10px; }
+  .bulkbar .btn.danger { margin-top: 0; }
+  .bulkbar .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .bulkreport { background: #17171a; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 12.5px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+  <div class="container">
+    <h1>🎯 주간 키워드 승인 결과</h1>
+    <p class="lead">대상 주차: <b>{{ week }}</b> · 아래 키워드를 각 블로그의 주간 승인 화면에 반영했습니다. 🔴 보류는 아직 저장하지 않았고, "그래도 추가"를 눌러야 저장됩니다.</p>
+
+    {% for blog, r in results.items() %}
+    <div class="panel">
+      <h2>{{ r.label }} <span class="note" style="font-weight:400">— 추가됨 <span class="js-n-added">{{ r.added | length }}</span> · 이미 있음 <span class="js-n-exists">{{ r.exists | length }}</span> · 🔴 보류 <span class="js-n-held">{{ r.held | length }}</span>{% if r.unknown %} · 건너뜀 {{ r.unknown | length }}{% endif %}</span></h2>
+
+      {% if not (r.added or r.exists or r.held or r.unknown) %}
+      <div class="none">이 블로그로 고른 키워드가 없습니다.</div>
+      {% endif %}
+
+      {% if r.added %}
+      <h3 class="ok">✓ 추가됨 (승인 상태)</h3>
+      <table><tr><th>키워드</th><th>비고</th></tr>
+      {% for a in r.added %}<tr><td>{{ a.keyword }}</td><td class="note">{% if a.angle %}{{ angle_note }} 표시 붙음{% endif %}</td></tr>{% endfor %}
+      </table>
+      {% endif %}
+
+      {% if r.exists %}
+      <h3 class="warn">이미 있음 — 같은 주에 같은 키워드가 있어서 건너뜀</h3>
+      <table><tr><th>키워드</th><th>상태</th></tr>
+      {% for e in r.exists %}<tr><td>{{ e.keyword }}</td><td class="note">{{ '승인됨' if e.approved else '대기열에는 있으나 아직 승인 안 됨 — 주간 승인 화면에서 체크하세요' }}</td></tr>{% endfor %}
+      </table>
+      {% endif %}
+
+      {% if r.held %}
+      <h3 class="red">🔴 보류 — 이미 있는 글과 거의 같아서 저장하지 않음</h3>
+      <div class="holdgroup" data-blog="{{ blog }}">
+      <div class="bulkbar">
+        <button type="button" class="btn secondary js-toggle-all">전체 선택/해제</button>
+        <button type="button" class="btn danger js-bulk-add" disabled>선택한 것 모두 추가 (<span class="js-count">0</span>개)</button>
+        <span class="note js-bulk-msg"></span>
+      </div>
+      <div class="bulkreport js-report" hidden></div>
+      {% for h in r.held %}
+      <div class="hold" data-blog="{{ blog }}" data-keyword="{{ h.keyword }}" data-with-naver="{{ 1 if h.with_naver else 0 }}" data-planned-type="{{ h.planned_type or '' }}" data-serp-note="{{ h.serp_note or '' }}" data-serp-compete="{{ h.serp_compete or '' }}">
+        <label class="kw"><input type="checkbox" class="js-pick"> {{ h.keyword }}</label>
+        <span class="done-badge js-done" hidden></span>
+        {% for m in h.blog_matches %}
+        <div class="match">
+          <b>📚 {{ m.keyword }}</b> <span class="muted">— 같은 블로그 · 중복 위험 ({{ m.channel_label }})</span>
+          {% if m.url and (m.url.startswith('http://') or m.url.startswith('https://')) %}<a href="{{ m.url }}" target="_blank" rel="noopener">발행 글 열기 →</a>{% endif %}
+          {% if m.title %}<span class="title">{{ m.title }}</span>{% endif %}
+          <div class="meta">{{ m.state }} · {{ m.hint }}</div>
+          <div class="reason">{{ m.reason }}</div>
+        </div>
+        {% endfor %}
+        {% for m in h.matches %}
+        <div class="match">
+          <b>🔴 {{ m.keyword }}</b>
+          <a href="{{ m.link }}" target="_blank" rel="noopener">{{ '편집기 →' if m.link.startswith('/article/') else '주간 목록에서 보기 →' }}</a>
+          {% if m.title %}<span class="title">{{ m.title }}</span>{% endif %}
+          <div class="meta">{{ m.week }} 주차 · {{ m.state }}</div>
+          <div class="reason">{{ m.reason }}</div>
+        </div>
+        {% endfor %}
+        <form method="post" action="/target-keywords/approve-one" onsubmit='return confirm({{ (r.label ~ " " ~ week ~ " 주차에 [" ~ h.keyword ~ "] 키워드를 그래도 추가합니다. 진행할까요?") | tojson }});'>
+          <input type="hidden" name="hid" value="{{ hid }}">
+          <input type="hidden" name="week" value="{{ week }}">
+          <input type="hidden" name="blog" value="{{ blog }}">
+          <input type="hidden" name="keyword" value="{{ h.keyword }}">
+          {% if h.with_naver %}<input type="hidden" name="with_naver" value="1">{% endif %}
+          <input type="hidden" name="planned_type" value="{{ h.planned_type or '' }}">
+          <input type="hidden" name="serp_note" value="{{ h.serp_note or '' }}">
+          <input type="hidden" name="serp_compete" value="{{ h.serp_compete or '' }}">
+          <button class="btn danger js-one" type="submit">그래도 추가</button>
+        </form>
+      </div>
+      {% endfor %}
+      <div class="bulkbar">
+        <button type="button" class="btn secondary js-toggle-all">전체 선택/해제</button>
+        <button type="button" class="btn danger js-bulk-add" disabled>선택한 것 모두 추가 (<span class="js-count">0</span>개)</button>
+        <span class="note js-bulk-msg"></span>
+      </div>
+      </div>
+      {% endif %}
+
+      {% if r.unknown %}
+      <h3 class="warn">건너뜀 — 이 이력에 없는 키워드</h3>
+      <div class="none">{{ r.unknown | join(', ') }}</div>
+      {% endif %}
+
+      <p style="margin:12px 0 0"><a class="btn secondary" href="/switch-channel/{{ r.channel }}?week={{ week }}">{{ r.label }} 주간 승인 화면으로 →</a></p>
+    </div>
+    {% endfor %}
+
+    <div class="panel">
+      <h2>📋 기획 채팅에 붙여넣을 승인 목록</h2>
+      <p class="note" style="margin:0 0 8px">{{ week }} 주차의 N살림노트·W싼세계 승인 항목 전체(이번에 추가한 것 + 이미 승인돼 있던 것, 옛 SHOP(OLD) 같은 블로그 승인 포함)와 이 이력의 ☆예비 행입니다. 🔴 보류한 키워드는 넣지 않았고, "그래도 추가"를 하면 다시 그려진 이 화면에 반영됩니다.</p>
+      <textarea id="copyText" class="copyta" readonly rows="14" style="width:100%;background:#0f0f0f;color:#e5e5e5;border:1px solid #333;border-radius:6px;padding:10px;font:12px Consolas,'Malgun Gothic',monospace;white-space:pre;overflow:auto">{{ copy_text }}</textarea>
+      <p style="margin:8px 0 0"><button type="button" class="btn" onclick="copyList()">복사</button> <span class="note" id="copyMsg"></span></p>
+    </div>
+
+    <p><a class="btn secondary" href="/target-keywords/history/{{ hid }}">← 타깃 키워드 결과로 돌아가기</a></p>
+  </div>
+  </div>
+</div>
+<script>
+  // 🔴 보류 카드: 체크 → 일괄 추가 / 카드별 "그래도 추가" — 둘 다 같은 화면에서 처리(이동 없음)
+  (function () {
+    var HID = {{ hid | tojson }}, WEEK = {{ week | tojson }};
+    var busy = false;
+    function cards() { return Array.prototype.slice.call(document.querySelectorAll('.hold[data-keyword]')); }
+    function open_(c) { return !c.classList.contains('is-done'); }
+    function refresh() {
+      var groups = document.querySelectorAll('.holdgroup');
+      Array.prototype.forEach.call(groups, function (g) {
+        var n = g.querySelectorAll('.hold:not(.is-done) .js-pick:checked').length;
+        Array.prototype.forEach.call(g.querySelectorAll('.js-count'), function (s) { s.textContent = n; });
+        Array.prototype.forEach.call(g.querySelectorAll('.js-bulk-add'), function (b) { b.disabled = busy || n === 0; });
+        Array.prototype.forEach.call(g.querySelectorAll('.js-toggle-all'), function (b) { b.disabled = busy; });
+      });
+      cards().forEach(function (c) {
+        var p = c.querySelector('.js-pick'), one = c.querySelector('.js-one');
+        p.disabled = busy || !open_(c);
+        if (one) one.disabled = busy || !open_(c);
+      });
+    }
+    function payload(c) {
+      return { blog: c.dataset.blog, keyword: c.dataset.keyword, with_naver: c.dataset.withNaver === '1',
+               planned_type: c.dataset.plannedType || '', serp_note: c.dataset.serpNote || '', serp_compete: c.dataset.serpCompete || '' };
+    }
+    function send(list, report, msgEl) {
+      if (busy || !list.length) return;
+      busy = true; refresh();
+      var picked = list.map(function (c) { return c; });
+      var still = cards().filter(function (c) { return open_(c) && picked.indexOf(c) < 0; })
+                         .map(function (c) { return { blog: c.dataset.blog, keyword: c.dataset.keyword }; });
+      if (msgEl) msgEl.textContent = '저장 중…';
+      fetch('/target-keywords/approve-bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hid: HID, week: WEEK, items: picked.map(payload), still_held: still }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          if (!x.ok || !x.j.ok) throw new Error((x.j && x.j.error) || '저장하지 못했습니다');
+          var okN = [], dupN = [], failN = [];
+          x.j.results.forEach(function (res) {
+            var c = picked.filter(function (p) { return p.dataset.blog === res.blog && p.dataset.keyword === res.keyword; })[0];
+            if (res.status === 'added' || res.status === 'exists') {
+              if (c) {
+                c.classList.add('is-done');
+                var b = c.querySelector('.js-done'); b.hidden = false;
+                b.textContent = res.status === 'added' ? '✅ 추가됨' : (res.approved === false ? '📥 이미 대기열에 있음 (승인 전)' : '✅ 이미 추가됨');
+                c.querySelector('.js-pick').checked = false;
+                var pn = c.closest('.panel');
+                bump(pn, res.status === 'added' ? '.js-n-added' : '.js-n-exists', 1);
+                bump(pn, '.js-n-held', -1);
+              }
+              (res.status === 'added' ? okN : dupN).push(res.keyword);
+            } else { failN.push(res.keyword + ' — ' + res.message); }
+          });
+          if (x.j.copy_text != null) document.getElementById('copyText').value = x.j.copy_text;
+          var html = '';
+          if (okN.length) html += '<div class="ok">✅ 추가됨 ' + okN.length + '개: ' + okN.map(esc).join(', ') + '</div>';
+          if (dupN.length) html += '<div class="warn">이미 추가돼 있어 건너뜀 ' + dupN.length + '개: ' + dupN.map(esc).join(', ') + '</div>';
+          if (failN.length) html += '<div class="red">❌ 실패 ' + failN.length + '개 (보류로 남아 있습니다, 다시 시도할 수 있어요):<br>' + failN.map(esc).join('<br>') + '</div>';
+          report.innerHTML = html; report.hidden = !html;
+          if (msgEl) msgEl.textContent = '';
+        })
+        .catch(function (e) {
+          report.innerHTML = '<div class="red">❌ 저장하지 못했습니다 — ' + esc(e.message || e) + ' (아무것도 바뀌지 않았을 수 있으니 서칭 이력에서 확인해 주세요)</div>';
+          report.hidden = false; if (msgEl) msgEl.textContent = '';
+        })
+        .then(function () { busy = false; refresh(); });
+    }
+    function bump(panel, sel, d) {
+      var el = panel && panel.querySelector(sel);
+      if (el) el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) + d);
+    }
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+    document.addEventListener('change', function (e) { if (e.target.classList && e.target.classList.contains('js-pick')) refresh(); });
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('button') : null;
+      if (!t) return;
+      var g = t.closest('.holdgroup');
+      if (t.classList.contains('js-toggle-all') && g) {
+        var boxes = g.querySelectorAll('.hold:not(.is-done) .js-pick');
+        var all = Array.prototype.every.call(boxes, function (b) { return b.checked; });
+        Array.prototype.forEach.call(boxes, function (b) { b.checked = !all; });
+        refresh();
+      } else if (t.classList.contains('js-bulk-add') && g) {
+        var sel = Array.prototype.slice.call(g.querySelectorAll('.hold:not(.is-done)')).filter(function (c) { return c.querySelector('.js-pick').checked; });
+        if (!sel.length) return;
+        if (!confirm(sel.length + '개 키워드를 그래도 추가합니다. 진행할까요?')) return;
+        send(sel, g.querySelector('.js-report'), g.querySelector('.js-bulk-msg'));
+      }
+    });
+    document.addEventListener('submit', function (e) {
+      var f = e.target, c = f.closest ? f.closest('.hold[data-keyword]') : null;
+      if (!c) return;
+      e.preventDefault();  // (확인창은 폼의 onsubmit에서 이미 물었습니다 — 거절하면 여기 오지 않음)
+      send([c], c.closest('.holdgroup').querySelector('.js-report'), null);
+    });
+    refresh();
+  })();
+
+  function copyList() {
+    var ta = document.getElementById('copyText'), msg = document.getElementById('copyMsg');
+    function ok() { msg.textContent = '✓ 복사했습니다 — 기획 채팅에 붙여넣으세요'; }
+    function fallback() { ta.focus(); ta.select(); try { document.execCommand('copy') ? ok() : (msg.textContent = '복사하지 못했습니다 — 칸을 직접 선택해 복사해 주세요'); } catch (e) { msg.textContent = '복사하지 못했습니다 — 칸을 직접 선택해 복사해 주세요'; } }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(ok, fallback); else fallback();
+  }
+</script>
+</body>
+</html>

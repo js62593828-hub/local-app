@@ -1,0 +1,6 @@
+{#- OLD버전(보관) 채널 화면 맨 위 안내 한 줄. is_old_channel은 app.py의 _inject_sidebar_context()가 모든 화면에 넣어줍니다. -#}
+{% if is_old_channel %}
+<div class="old-channel-notice" style="background:#242424; border:1px solid #333; border-radius:8px; color:#9ca3af; font-size:13px; padding:8px 14px; margin:0 0 14px;">
+  OLD버전 채널 — 기존 글 보기·수정·재동기화용입니다. 새 글은 N살림노트 / W싼세계에서 쓰세요.
+</div>
+{% endif %}
