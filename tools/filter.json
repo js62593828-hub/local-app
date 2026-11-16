@@ -1,4 +1,7 @@
 {
+  "candidates_timeout_min": 30,
+  "_candidates_timeout": "제품 후보 도구(product_candidates.py): 에고라이트 한 번 실행의 제한 시간(분). 0 이면 제한 없음. 걸리면 그 묶음까지 저장하고 같은 명령으로 이어 감.",
+
   "_설명": "run_pipeline.py 가 읽는 설정입니다. 숫자·단어만 바꾸고 저장하세요. 따옴표와 쉼표 모양은 그대로 둡니다.",
 
   "volume_min": 300,

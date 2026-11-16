@@ -16,6 +16,7 @@ W싼세계(wp_tips)는 추천 3개를 쿠팡파트너스 상품검색에서 같�
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -40,9 +41,27 @@ TOP_N = 30          # 검색어마다 모으는 개수(넘치면 멈춤)
 RATING_MIN = 4.5
 RATING_RELAXED = 4.3
 PICK = 3
+BATCH_KW = 4        # 쇼핑커넥트: 한 번에 읽는 검색어 수(제한 시간을 넘지 않게 나눠서 실행)
+BATCH_CP = 10       # 쿠팡 확인: 한 번에 확인하는 상품 수
+NO_PRICE = "가격 없음(표시 안 됨)"
 
 
 # ───────────────────────── 브라우저 실행 ─────────────────────────
+
+FILTER_JSON = ROOT / "tools" / "filter.json"
+DEFAULT_TIMEOUT_MIN = 30
+
+
+def _timeout_sec() -> float | None:
+    """에고라이트 한 번 실행의 제한 시간(초). tools/filter.json 의 candidates_timeout_min(분).
+    없거나 이상한 값이면 30분, 0 이면 제한 없음(None)."""
+    try:
+        v = json.loads(FILTER_JSON.read_text(encoding="utf-8-sig")).get("candidates_timeout_min", DEFAULT_TIMEOUT_MIN)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+            v = DEFAULT_TIMEOUT_MIN
+    except Exception:  # noqa: BLE001
+        v = DEFAULT_TIMEOUT_MIN
+    return None if v == 0 else v * 60
 
 def _run_ego(script: str, tag: str) -> str:
     """에고라이트로 .mjs 한 개를 실행하고 출력을 돌려줍니다."""
@@ -53,7 +72,7 @@ def _run_ego(script: str, tag: str) -> str:
     url = "file:///" + str(f).replace("\\", "/")
     # shell=True: 윈도우에서 ego-browser(.cmd 등)를 찾기 위해
     p = subprocess.run(f'ego-browser nodejs -e "await import(\'{url}\')"', shell=True, capture_output=True,
-                       text=True, encoding="utf-8", errors="replace", timeout=900)
+                       text=True, encoding="utf-8", errors="replace", timeout=_timeout_sec())
     return (p.stdout or "") + (p.stderr or "")
 
 
@@ -97,6 +116,7 @@ for (const kw of KW) {{
   }});
   const total = await page.evaluate(() => {{ const m = document.body.innerText.match(/총\\s*([\\d,]+)\\s*개/); return m ? m[1] : null; }});
   res.push({{ kw, total, items: items.slice(0, {n}) }});
+  await fs.writeFile({json.dumps(str(out_json).replace(chr(92), "/"))}, JSON.stringify({{ lost, res }}), "utf8");
   console.log("NAVER", kw, "총", total, "읽음", items.length);
   await sleep(3000, 5000);
 }}
@@ -127,6 +147,7 @@ for (const q of Q) {{
     return {{ head, items }};
   }});
   res.push({{ id: q.id, query: q.query, head: r.head, items: r.items }});
+  await fs.writeFile({json.dumps(str(out_json).replace(chr(92), "/"))}, JSON.stringify({{ lost, res }}), "utf8");
   console.log("COUPANG", q.query, r.head, r.items.length);
   await sleep(3000, 5000);
 }}
@@ -138,6 +159,45 @@ console.log(lost ? "LOGIN_LOST" : "DONE");
 def _finish_space() -> None:
     """작업이 끝나면 에고라이트 작업 공간을 닫습니다."""
     _run_ego('const task = await taskSpace("product-candidates-run"); await task.finish({ keep: [] }); console.log("FINISHED");', "finish")
+
+
+def _cache_path(cache_dir: Path, key: str) -> Path:
+    return cache_dir / (hashlib.md5(key.encode("utf-8")).hexdigest()[:12] + ".json")
+
+
+def collect_in_batches(todo_all: list, key_of, cache_dir: Path, batch: int, make_js, tag: str, label: str) -> str:
+    """항목을 batch 개씩 나눠 따로 실행하고, 항목마다 cache_dir 에 저장합니다.
+    이미 저장된 항목은 다시 받지 않으므로, 중간에 끊겨도 같은 명령으로 이어 갑니다.
+    결과: 'ok'(모두 받음) / 'lost'(로그인 풀림) / 'incomplete'(시간 초과 등으로 덜 받음)"""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    todo = [it for it in todo_all if not _cache_path(cache_dir, key_of(it)).exists()]
+    print(f"{label}: 전체 {len(todo_all)}개 중 이미 받은 {len(todo_all) - len(todo)}개는 건너뛰고 {len(todo)}개를 받습니다.")
+    status = "ok"
+    for i in range(0, len(todo), batch):
+        part = todo[i:i + batch]
+        tmp = cache_dir / "_batch_tmp.json"
+        tmp.unlink(missing_ok=True)
+        print(f"  묶음 {i // batch + 1}/{(len(todo) + batch - 1) // batch} ({len(part)}개)")
+        timed_out = False
+        try:
+            print(_run_ego(make_js(part, tmp), tag).strip())
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            print("  제한 시간 초과 — 받은 것까지만 저장하고 멈춥니다. 같은 명령으로 이어 가기(받은 것은 건너뜁니다).")
+        lost = False
+        if tmp.exists():
+            d = json.loads(tmp.read_text(encoding="utf-8"))
+            lost = bool(d.get("lost"))
+            for r in d.get("res", []):
+                k = r["kw"] if "kw" in r else r["id"]
+                _cache_path(cache_dir, k).write_text(json.dumps(r, ensure_ascii=False), encoding="utf-8")
+            tmp.unlink(missing_ok=True)
+        if lost:
+            return "lost"
+        if timed_out or any(not _cache_path(cache_dir, key_of(it)).exists() for it in part):
+            status = "incomplete"
+            break
+    return status
 
 
 # ───────────────────────── 읽어온 글자 정리 ─────────────────────────
@@ -255,7 +315,7 @@ def recommend(items: list[dict]) -> tuple[list[dict], bool]:
     for k, x in enumerate(rec, 1):
         y = dict(x)
         low = relaxed and (x["rating"] or 0) < RATING_MIN
-        y["reason"] = (f"{k}순위: 평점 {x['rating']} · 리뷰 {x['reviews']:,}개(네이버 기준) · 브랜드 {x['brand']}"
+        y["reason"] = (f"{k}순위: 평점 {x['rating']} · 리뷰 {(x['reviews'] or 0):,}개(네이버 기준) · 브랜드 {x['brand']}"
                        + (" · 기준 낮춤(평점 4.3 이상)" if low else ""))
         result.append(y)
     return result, relaxed
@@ -387,15 +447,17 @@ def write_summary(run: Path, data: dict) -> None:
         if not k["recommended"]:
             L.append("- 조건에 맞는 제품이 없습니다.")
         for r in k["recommended"]:
-            L.append(f"- **{r['name']}** — {r['price']:,}원 · 수수료 {r['commission']}% · {r['reason']}")
+            pr = f"{r['price']:,}원" if r.get("price") else NO_PRICE
+            L.append(f"- **{r['name']}** — {pr} · 수수료 {r['commission']}% · {r['reason']}")
             if r.get("coupang"):
                 c = r["coupang"]
                 L.append(f"  - 쿠팡: {c['verdict']} ({c['why']})"
                          + (f" · 쿠팡 가격 {c['price']:,}원" if c.get("price") else ""))
         L += ["", "### 상위 30개", "", "| 순위 | 상품명 | 브랜드(추정) | 가격 | 수수료 | 리뷰 | 평점 |", "|---|---|---|---|---|---|---|"]
         for x in k["items"]:
+            px = f"{x['price']:,}" if x["price"] else NO_PRICE
             L.append(f"| {x['rank']} | {x['name'].replace('|', '/')} | {x['brand']} | "
-                     f"{(x['price'] or 0):,} | {x['commission']}% | {(x['reviews'] or 0):,} | {x['rating']} |")
+                     f"{px} | {x['commission']}% | {(x['reviews'] or 0):,} | {x['rating']} |")
         L.append("")
     sk = data.get("skipped_no_query") or []
     if sk:
@@ -446,15 +508,17 @@ def _main() -> int:
 
     # 1) 쇼핑커넥트
     raw_path = run / "raw_naver.json"
-    out = _run_ego(_js_naver(kws, raw_path, TOP_N), "naver")
-    print(out.strip())
-    if not raw_path.exists():
-        print("수집 실패(결과 파일 없음). 에고라이트 출력을 확인하세요.")
-        return 2
-    raw = json.loads(raw_path.read_text(encoding="utf-8"))
-    if raw["lost"]:
-        print("멈춤: 쇼핑커넥트 로그인이 풀려 있습니다. 에고라이트에서 직접 로그인한 뒤 다시 실행하세요.")
+    nav_dir = run / "raw_naver_parts"
+    st = collect_in_batches(kws, lambda k: k, nav_dir, BATCH_KW,
+                            lambda part, tmp: _js_naver(part, tmp, TOP_N), "naver", "쇼핑커넥트")
+    if st == "lost":
+        print("멈춤: 쇼핑커넥트 로그인이 풀려 있습니다. 에고라이트에서 직접 로그인한 뒤 같은 명령을 다시 실행하세요(받은 것은 이어서 씁니다).")
         return 3
+    if st == "incomplete":
+        print("아직 못 받은 검색어가 있습니다. 같은 명령을 다시 실행하면 이어서 받습니다.")
+        return 4
+    raw = {"lost": False, "res": [json.loads(_cache_path(nav_dir, k).read_text(encoding="utf-8")) for k in kws]}
+    raw_path.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
 
     data = {"channel": a.channel, "channel_label": CHANNEL_LABEL[a.channel],
             "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -473,13 +537,17 @@ def _main() -> int:
     if a.channel == "wp_tips":
         qs = [{"id": f"{ki}:{x['rank']}", "query": coupang_query(x)}
               for ki, k in enumerate(data["keywords"], 1) for x in k["recommended"]]
-        cp_path = run / "raw_coupang.json"
-        out = _run_ego(_js_coupang(qs, cp_path), "coupang")
-        print(out.strip())
-        if not cp_path.exists() or json.loads(cp_path.read_text(encoding="utf-8"))["lost"]:
-            print("멈춤: 쿠팡파트너스 로그인이 풀렸거나 수집에 실패했습니다. 쿠팡 칸은 비워 둡니다.")
+        cp_dir = run / "raw_coupang_parts"
+        st = collect_in_batches(qs, lambda q: q["id"], cp_dir, BATCH_CP,
+                                lambda part, tmp: _js_coupang(part, tmp), "coupang", "쿠팡 확인")
+        if st == "incomplete":
+            print("쿠팡 확인이 덜 끝났습니다. 같은 명령을 다시 실행하면 이어서 합니다.")
+            return 4
+        if st == "lost":
+            print("멈춤: 쿠팡파트너스 로그인이 풀렸습니다. 쿠팡 칸은 비워 둡니다.")
         else:
-            cp = {r["id"]: r for r in json.loads(cp_path.read_text(encoding="utf-8"))["res"]}
+            cp = {q["id"]: json.loads(_cache_path(cp_dir, q["id"]).read_text(encoding="utf-8")) for q in qs}
+            (run / "raw_coupang.json").write_text(json.dumps({"lost": False, "res": list(cp.values())}, ensure_ascii=False), encoding="utf-8")
             for ki, k in enumerate(data["keywords"], 1):
                 for x in k["recommended"]:
                     r = cp.get(f"{ki}:{x['rank']}")

@@ -1,23 +1,15 @@
-## 집 PC 에서 커밋 필요 (2026-11-16 제목 구체화·제품 종류·8번째 갈래, 이 PC 임시 저장소에는 커밋함)
-- 바뀐 파일: tools/filter.json, tools/keyword_pipeline.py, tools/radar_rules.md, HANDOFF.md
-- 완료: 제목에 구체적인 궁금증(유형 이름만 붙인 제목 금지), 띄어쓰기 무시 검사, 갈래 '모니터·노트북' 추가, 제품 종류 제외·이동 규칙. 11-23 주 계획 다시 만듦(대기열에는 안 넣음). 근거 preview/radar_title_fix/verify.md
+## 완료 (2026-11-16) — 빈 사양 보충(3차): 상세 이미지에서 읽어 17개 중 10개 상품 보충, 벨킨·앤커·AULA 개별 보정. `--fill-detail` 옵션 추가(커밋 60ddf73). 근거 preview/research_1123/verify.md 맨 위 '3차'. 남은 것: 7개 상품은 상세 이미지에 사양 없음
 
-## 집 PC 에서 커밋 필요 (2026-11-16 하루 구성 변경, 이 PC 임시 저장소에는 커밋함)
-- 바뀐 파일: tools/filter.json(radar_kw), tools/keyword_pipeline.py, tools/radar_rules.md, HANDOFF.md
-- 완료: N데스크피커 하루 3편 = 고르는 법 1 + 모델명 2. 11-23 주 계획 다시 만듦(대기열에는 안 넣음). 근거 preview/radar_mix_a1b2/verify.md
+## 완료 (2026-11-16) — 자료 수집 보완(평점 낮은순·공식 페이지 보충) + 26개 전체 수집: 성공 26/실패 0, 데이터 14개 해시 전후 같음. 근거 preview/research_1123/verify.md 맨 위. 결과 pipeline/candidates_run/20261116_radar_naver/research/
 
-## 집 PC 에서 커밋 필요 (2026-11-16 원고 표시)
-- 바뀐 파일: tools/radar_rules.md, tools/radar_check.py, HANDOFF.md (임시 저장소 커밋 63c6e2e). 근거 preview/radar_rules_mark/verify.md
+## 완료 (2026-11-16) — 제품 후보 도구 보완: 가격 없는 상품 표시 + 검색어 4개씩 나눠 실행·이어가기
+- 바뀐 파일: tools/product_candidates.py, HANDOFF.md. 이 PC 저장소에 커밋함(작업 전 e3c0453). 근거 preview/candidates_fix/verify.md
+- 같은 명령을 다시 실행하면 이미 받은 검색어는 건너뜀(같은 날짜·채널 폴더의 raw_naver_parts/).
 
-## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋됨)
-- 바뀐 파일: radar_images.py, tools/radar_images_trial.py, tools/radar_rules.md([표지]·이미지 줄만), HANDOFF.md
-- 내용: N데스크피커 표지를 시안 A 하나로(범주 32px·제목 56~88px·부제 38px·사진 70%·틀 A 모음형), 검수 권장 3건 고침. 근거 preview/radar_images_v2/verify.md
+## 완료 (2026-11-16): N데스크피커 11/23 주 대기열 넣기(run_id kw_radar_naver_20261123, 73→94) + 제품 후보 수집(pipeline/candidates_run/20261116_radar_naver). 알려진 문제: product_candidates.py 가격 없는 추천에서 summary 에러(미수정). 근거 preview/radar_push_1123/verify.md
 
 ## 완료 (2026-11-16) — N데스크피커 표지 시안 A 확정 + 시범 v2
 - 결과: preview/radar_images_v2/ (verify.md · feed_preview.jpg · contact_sheet.jpg · 글별 cover_a.jpg). 다시 만들기: python tools/radar_images_trial.py (비용 0원)
-
-## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
-- 바뀐 파일: radar_images.py(새 파일), tools/radar_images_trial.py(새 파일), HANDOFF.md
 
 ## 완료 (2026-11-16) — N데스크피커 사진 모듈 시범(radar_images v1)
 - 결과: preview/radar_images_v1/ (verify.md · cover_compare.jpg · contact_sheet.jpg · feed_preview.jpg · 글별 폴더). 데이터 12개 해시 전후 같음, 유료 API 0회.
@@ -28,16 +20,8 @@
 - 되돌리기: git log 의 '제목 끝맺음' 커밋(저장소 %LOCALAPPDATA%/local-app-git).
 - 다음: 마음에 들면 python tools/push_plan.py --channel radar_naver --plan pipeline/keyword_run/2026-11-23_radar_naver/plan.json (dry-run) → --apply.
 
-## 집 PC 에서 커밋 필요 (2026-11-16 제목 규칙, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
-- 바뀐 파일: tools/keyword_pipeline.py, tools/filter.json(radar_kw), tools/radar_rules.md([제목]) (+ HANDOFF.md)
-- 내용: 틀 A 끝맺음 6가지·한 주 분산 규칙, '추천' 허용·경험 꾸밈과 함께 쓰기 금지, --only-from 옵션(키워드·날짜 고정). 근거 preview/keyword_titles_mix/verify.md
-
 ## 완료 (2026-11-16) — 네이버 데스크테리어 레퍼런스 조사(refblog2, 읽기 전용)
 - 결과: pipeline/stage_refblog2_run/reference_report.md, preview/refblog2/verify.md. 데이터 12개 해시 전후 같음, 코드 수정 없음.
-
-## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
-- 바뀐 파일: tools/keyword_pipeline.py, tools/push_plan.py, tools/filter.json, pipeline/radar/seeds.txt, CLAUDE.md (+ HANDOFF.md)
-- 내용: 갈래 최소 편수(theme_min)·같은 날 같은 갈래 금지(조건)·모델명 출처 켜고 끄기·push_plan 되돌릴 기록 없음 처리. 근거 preview/keyword_pipeline/verify.md
 
 ## 완료 (2026-11-16) — 자동화 3단계: N데스크피커 키워드·제목 발굴(tools/keyword_pipeline.py)
 - 결과: preview/keyword_pipeline/verify.md. 결과 폴더 pipeline/keyword_run/2026-11-23_radar_naver/ (승인 21편, 부족 0, 대기열에는 안 넣음). 되돌리기 기준은 git log 의 'keyword_pipeline' 커밋(저장소 %LOCALAPPDATA%/local-app-git, 이 PC 에서 새로 만듦).
