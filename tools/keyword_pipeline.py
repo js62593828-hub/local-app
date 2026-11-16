@@ -139,6 +139,29 @@ def theme_of(word):
     return UNDECIDED
 
 
+def kind_check(c):
+    """틀 B 후보의 제품 종류 확인(filter.json product_kind). 상품명·키워드에 제외 낱말이 있으면 c['kind_exclude']=그룹 이름,
+    이동 규칙에 맞으면 갈래·큰 검색어를 옮기고 c['kind_move'] 에 옮긴 기록을 남긴다."""
+    pk = RK.get("product_kind") or {}
+    text = nk(c["keyword"] + " " + (c.get("product") or ""))
+    for grp, words in (pk.get("exclude_groups") or {}).items():
+        hit = next((w for w in words if nk(w) in text), None)
+        if hit:
+            c["kind_exclude"] = f"{grp}('{hit}')"
+            return
+    prod = nk(c.get("product") or "")
+    for rule in pk.get("move_rules") or []:
+        if not any(nk(w) in nk(c["seed"]) for w in rule["seed_contains"]):
+            continue
+        if not any(nk(w) in prod for w in rule["markers"]):
+            continue
+        if any(nk(w) in prod for w in rule["accessory_words"]):
+            continue
+        c["kind_move"] = {"kind": rule["kind"], "from_seed": c["seed"], "from_theme": c["theme"], "to_seed": rule["seed"], "to_theme": rule["theme"]}
+        c["seed"], c["theme"] = rule["seed"], rule["theme"]
+        return
+
+
 def rel(p):
     try:
         return str(Path(p).resolve().relative_to(BASE.resolve())).replace("\\", "/")
@@ -305,6 +328,11 @@ def stage_lookup(seeds):
     elif not mfile.exists():
         log(f"  [주의] 모델명 출처 파일 없음: {mfile}")
     if use_model and mfile.exists():
+        names_by = {}                                       # 같은 모델명으로 수집된 상품명 모음(제품 종류 확인용)
+        with open(mfile, encoding="utf-8-sig", newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r.get("모델명 종류") == "모델명":
+                    names_by.setdefault(nk(r.get("모델명") or ""), []).append((r.get("상품명") or "").strip())
         with open(mfile, encoding="utf-8-sig", newline="") as fh:
             for r in csv.DictReader(fh):
                 if r.get("모델명 종류") != "모델명":
@@ -323,7 +351,9 @@ def stage_lookup(seeds):
                     mdrop["이미 있는 키워드"] += 1
                     continue
                 sd = r.get("씨앗") or kw
-                cands[k] = {"keyword": kw, "nk": k, "volume": vol, "seed": sd, "theme": theme_of(sd), "docs": docs, "src": MODEL_SRC}
+                cands[k] = {"keyword": kw, "nk": k, "volume": vol, "seed": sd, "theme": theme_of(sd), "docs": docs, "src": MODEL_SRC,
+                            "product": " / ".join(dict.fromkeys(names_by.get(k, [])))}
+                kind_check(cands[k])
                 nmodel += 1
     cands = {k: c for k, c in cands.items() if c["theme"] != UNDECIDED}
     drops["모델명 후보(2차 결과 재사용)"] = {"켜짐": use_model, "더함": nmodel, **mdrop}
@@ -425,6 +455,8 @@ def stage_score(cands, drops):
         vmin = RK["volume_min_B"] if r["type"] == "B" else RK["volume_min"]
         r["ratio"] = None if c["docs"] is None else round(c["docs"] / max(c["volume"], 1), 3)
         r["reasons"] = []
+        if c.get("kind_exclude"):
+            r["reasons"].append(f"제품 종류 제외: 책상에서 쓰지 않는 물건 — {c['kind_exclude']}")
         if c["docs"] is None:
             r["reasons"].append("문서 수 조회 안 됨")
         if c["volume"] < vmin:
@@ -475,19 +507,19 @@ def rules_common_bans():
 
 
 ENDING_HINT = {
-    "추천": "'추천' 낱말을 넣는다(예: 듀얼 모니터 받침대 추천, 책상 폭별로 고른 3가지)",
-    "질문": "물음표로 끝나고 답이 보이는 질문(예: 발받침대, 어느 높이가 오래 앉기 편할까?)",
-    "숫자": "'○가지' 처럼 항목 개수를 넣는다(예: 무선 마우스 고를 때 볼 3가지)",
-    "확인할 점": "'사기 전'·'구매 전'·'확인할 점' 중 하나를 넣는다(예: 책상 정리함, 사기 전 확인할 점)",
-    "비교·차이": "'비교' 또는 '차이'를 넣는다(예: 보조배터리 10000 vs 20000, 차이와 선택 기준)",
-    "고르는 법·기준": "'고르는 법' 또는 '기준'을 넣는다(예: 발난로 고르는 법, 사무실 책상 밑에 둘 때 볼 기준)",
+    "추천": "'추천' 낱말을 넣고, 구체적인 기준 1~2개를 함께(예: 듀얼 모니터 받침대 추천, 책상 폭·모니터 무게별로 고른 3가지)",
+    "질문": "물음표로 끝나고 답이 보이는 구체적인 질문(예: 발받침대, 어느 높이가 오래 앉기 편할까?)",
+    "숫자": "'○가지' 처럼 항목 개수를 넣되 무엇을 따지는지 구체적으로(예: 무선 마우스, 무게·소음·배터리 3가지)",
+    "확인할 점": "'사기 전'·'구매 전'·'확인할' 중 하나를 넣되 확인할 것을 구체적으로(예: 책상 정리함, 사기 전 서랍 깊이·책상 두께 확인)",
+    "비교·차이": "'비교'·'차이'·'다른 점' 중 하나를 넣되 무엇이 다른지 구체적으로(예: 보조배터리 10000 vs 20000, 무게·충전 횟수 차이)",
+    "고르는 법·기준": "'고르는 법'·'기준' 중 하나를 넣되 구체적인 기준과 함께(예: 발난로 고르는 법, 소비전력·책상 밑 높이 기준)",
 }
 ENDING_HINT_B = {
-    "궁금한 점 정리": "'정리'·'궁금' 중 하나를 넣어 사람들이 궁금해하는 점을 모은 제목(예: 브라운 BC02XW 탁상시계, 크기·소리·가격 정리)",
-    "답이 보이는 질문": "물음표로 끝나고 글을 읽으면 답이 나오는 질문(예: 로지텍 G304 무선마우스, 손이 작아도 괜찮을까?)",
-    "살 만할까": "'살 만할까'를 넣는다(예: JBL FLIP7 블루투스스피커, 살 만할까?)",
-    "이런 분께 맞아요": "'이런 분께 맞아요'를 넣는다(예: AULA F108Pro 키보드, 이런 분께 맞아요)",
-    "대안과 차이": "'대안'·'차이'·'비교' 중 하나를 넣어 비슷한 제품과 다른 점을 짚는 제목(예: JBL GO5 블루투스스피커, 대안과 차이)",
+    "궁금한 점 정리": "그 제품의 구체적인 궁금증 1~2개를 '정리'·'한눈에'로 묶는다(예: 카멜마운트 PMA2X 모니터암, 책상 두께·하중 정리)",
+    "답이 보이는 질문": "그 제품의 구체적인 궁금증 하나를 물음표 질문으로(예: 로지텍 G304 무선마우스, 배터리 얼마나 갈까?)",
+    "살 만할까": "사기 전 망설일 구체적인 점을 넣고 '살 만'·'사도 괜찮'으로 묻는다(예: AULA F108Pro 키보드, 소음 걱정 없이 살 만할까?)",
+    "이런 분께 맞아요": "'분께'·'맞는 분'으로 쓰임새를 구체적으로 짚는다(예: JBL FLIP7 블루투스스피커, 캠핑과 책상 둘 다 쓸 분께)",
+    "대안과 차이": "'비슷한'·'다른 점'·'차이'·'대안' 중 하나로 비슷한 제품과 다른 점을 짚는다(예: 앤커 A1638 보조배터리, 비슷한 제품과 다른 점)",
 }
 A_COUNTER = {"A": 0, "B": 0}      # 제목 요청이 몇 번째 글인지(끝맺음을 돌려 배정하는 용도, 호출 사이에도 이어 감)
 
@@ -498,10 +530,11 @@ TITLE_PROMPT = """너는 네이버 블로그 'Desk Picker'(데스크피커)의 �
 
 [지킬 것]
 {bans}
-- 제목은 40자 이내. 키워드(띄어쓰기는 자연스럽게 해도 됨)가 제목 맨 앞 15자 안에 들어가야 한다.
-- 틀 A(고르는 법): 키워드 + 끝맺음. 목록의 '끝맺음' 칸에 적힌 3가지를 1안·2안·3안에 순서대로 하나씩 써라(3안은 서로 끝맺음이 달라야 한다). 끝맺음은 아래 뜻대로 분명히 드러내라.
+- 제목은 40자 이내. 키워드의 글자와 순서는 그대로 두고, 띄어쓰기만 자연스럽게 맞춘다(예: 맥세이프보조배터리 → 맥세이프 보조배터리). 키워드가 제목 맨 앞 15자(띄어쓰기 뺀 글자 기준) 안에 들어가야 한다.
+- 끝맺음 이름(궁금한 점 정리, 대안과 차이, 이런 분께 맞아요, 살 만할까, 사기 전 확인할 점, 고를 때 볼 3가지 같은 유형 이름)을 글자 그대로 붙이지 마라. 대신 그 글이 답할 구체적인 궁금증 1~2개(소음·배터리·크기·무게·호환·하중·설치·전력 등, 상품명과 상품 종류에서 상품 페이지·구매자 후기로 답할 수 있는 것만)를 넣어서 끝맺음의 뜻이 드러나게 써라.
+- 틀 A(고르는 법): 키워드 + 구체적인 궁금증 + 끝맺음. 목록의 '끝맺음' 칸에 적힌 3가지를 1안·2안·3안에 순서대로 하나씩 써라(3안은 서로 끝맺음이 달라야 한다). 끝맺음은 아래 뜻대로 드러내라.
 {ending_help}
-- 틀 B(모델명): 브랜드 모델명 + 큰 검색어(목록의 '상품 종류' 칸 낱말, 예: 탁상시계·블루투스스피커)를 그대로 제목에 넣고, 끝에 '끝맺음' 칸의 뜻을 분명히 드러내라. 끝맺음 칸의 3가지를 1안·2안·3안에 순서대로 하나씩 써라(3안은 서로 끝맺음이 달라야 한다).
+- 틀 B(모델명): 브랜드 모델명 + 큰 검색어(목록의 '상품 종류' 칸 낱말, 예: 탁상시계·블루투스스피커)를 그대로 제목에 넣고, 쉼표 뒤에 구체적인 궁금증으로 '끝맺음' 칸의 뜻을 드러내라. 끝맺음 칸의 3가지를 1안·2안·3안에 순서대로 하나씩 써라(3안은 서로 끝맺음이 달라야 한다). 목록의 '상품명' 칸으로 이 제품이 실제로 어떤 물건인지 확인하고 그에 맞는 궁금증을 골라라.
 {ending_help_b}
 - '추천'은 써도 되지만 '직접·제가·써본·솔직·찐·인생' 같은 경험을 꾸미는 말과 함께 쓰지 않는다. 금지 단어(후기, 내돈내산, 써보니, 사용기, 실사용, 직접 써본, 최고, 무조건, 100%, 완벽, 강력 추천, 1위)는 제목에 넣지 않는다.
 - 써본 척 표현·효과 단정·모르는 숫자는 쓰지 않는다. 한국어로만 쓴다.
@@ -509,7 +542,7 @@ TITLE_PROMPT = """너는 네이버 블로그 'Desk Picker'(데스크피커)의 �
 반드시 아래 JSON 한 덩어리로만 답해라(설명 금지).
 {{"items": [{{"id": "K1", "titles": ["제목1", "제목2", "제목3"], "search_query": "발난로 사무실"}}]}}
 
-[키워드 목록] (id | 키워드 | 틀 | 상품 종류 | 갈래 | 끝맺음)
+[키워드 목록] (id | 키워드 | 틀 | 상품 종류 | 갈래 | 끝맺음 | 상품명)
 {lines}
 """
 
@@ -535,7 +568,7 @@ def claude_titles(batch, want=None):
     rows_ = []
     for i, c in enumerate(batch):
         e = " / ".join(assigned_endings(c, (want or {}).get(c["nk"])))
-        rows_.append(f"K{i + 1} | {c['keyword']} | 틀 {c['type']} | {c['seed']} | {c['theme']} | {e}")
+        rows_.append(f"K{i + 1} | {c['keyword']} | 틀 {c['type']} | {c['seed']} | {c['theme']} | {e} | {(c.get('product') or '-')[:70]}")
     lines = "\n".join(rows_)
     help_ = "\n".join(f"  · {k}: {v}" for k, v in ENDING_HINT.items())
     help_b = "\n".join(f"  · {k}: {v}" for k, v in ENDING_HINT_B.items())
@@ -573,12 +606,12 @@ def template_titles(c):
     if c["type"] == "B":
         sd = c["seed"] if nk(c["seed"]) not in nk(kw) else ""
         base = f"{kw} {sd}".strip()
-        tpl_b = {"궁금한 점 정리": f"{base}, 크기·가격 정리", "답이 보이는 질문": f"{base}, 나에게 맞을까?", "살 만할까": f"{base} 살 만할까?",
-                 "이런 분께 맞아요": f"{base}, 이런 분께 맞아요", "대안과 차이": f"{base}, 대안과 차이"}
+        tpl_b = {"궁금한 점 정리": f"{base}, 크기·무게 정리", "답이 보이는 질문": f"{base}, 크기는 얼마나 될까?", "살 만할까": f"{base}, 가격 대비 살 만할까?",
+                 "이런 분께 맞아요": f"{base}, 책상에서 쓸 분께", "대안과 차이": f"{base}, 비슷한 제품과 다른 점"}
         titles = [tpl_b[e] for e in assigned_endings(c)]
     else:
-        tpl = {"추천": f"{kw} 추천, 상황별로 고른 제품", "질문": f"{kw}, 무엇을 보고 고르면 될까?", "숫자": f"{kw} 고를 때 볼 3가지",
-               "확인할 점": f"{kw}, 사기 전 확인할 점", "비교·차이": f"{kw} 비교, 차이부터 짚어 보기", "고르는 법·기준": f"{kw} 고르는 법, 볼 기준"}
+        tpl = {"추천": f"{kw} 추천, 크기·용도별로 고른 제품", "질문": f"{kw}, 크기는 무엇을 보고 고를까?", "숫자": f"{kw}, 크기·무게·가격 3가지",
+               "확인할 점": f"{kw}, 사기 전 크기·무게 확인", "비교·차이": f"{kw} 비교, 크기·무게 차이", "고르는 법·기준": f"{kw} 고르는 법, 크기·무게 기준"}
         titles = [tpl[e] for e in assigned_endings(c)]
     return {"titles": titles, "search_query": template_query(c)}
 
@@ -600,8 +633,30 @@ def ending_of(title, ttype):
     t = " ".join(title.split())
     cfg = RK["title_endings_A"] if ttype == "A" else RK["title_endings_B"]
     for name in (cfg["order"] if ttype == "A" else cfg["match_order"]):
-        if any(re.search(rx, t, re.I) for rx in cfg[name]):
+        if any(pat_hit(rx, t) for rx in cfg[name]):
             return name
+    return None
+
+
+def pat_hit(rx, t):
+    """끝맺음 패턴 하나가 제목에 맞는가. 정규식 기호(\\ ? $ 등)가 든 패턴은 그대로, 보통 글자 패턴은 띄어쓰기를 무시하고 비교."""
+    if re.search(r"[\\\[\]\(\)\?\*\+\$\^\|]", rx):
+        return bool(re.search(rx, t, re.I))
+    return nk(rx) in nk(t)
+
+
+def bare_issue(title, kw, seed):
+    """유형 이름만 붙은 제목인가(filter.json title_concrete). 키워드·큰 검색어·유형 이름 글귀를 지우고 남은 글자가 min_rest 미만이면 사유 글을 돌려줌."""
+    cfg = RK["title_concrete"]
+    s = nk(title)
+    for w in (nk(kw), nk(seed or "")):
+        if w:
+            s = s.replace(w, "")
+    for w in sorted((nk(x) for x in cfg["bare_phrases"]), key=len, reverse=True):
+        s = s.replace(w, "")
+    s = re.sub(r"[^0-9A-Za-z가-힣]", "", s)
+    if len(s) < cfg["min_rest"]:
+        return f"유형 이름만 붙은 제목(구체적인 궁금증 {cfg['min_rest']}글자 이상 필요, 남은 글자 '{s}')"
     return None
 
 
@@ -628,8 +683,12 @@ def title_issues(title, kw, ttype=None, seed=None):
             bad.append(f"큰 검색어 '{seed}' 가 제목에 없음")
     if re.search(r"\d+\s*일\s*(간\s*)?사용", t):
         bad.append("써본 척 표현 '○일 사용'")
-    if nk(kw) not in nk(t[:RK["title_front"]]):
+    if nk(kw) not in nk(t)[:RK["title_front"]]:        # 띄어쓰기를 무시하고 앞 title_front 글자 안에 키워드(글자·순서 그대로)
         bad.append(f"키워드가 앞 {RK['title_front']}자 안에 없음")
+    if ttype in ("A", "B"):
+        b = bare_issue(t, kw, seed)
+        if b:
+            bad.append(b)
     return bad
 
 
