@@ -1,3 +1,7 @@
+## 완료 (2026-11-17) — N데스크피커 상품 GIF 시범(앱 코드 수정 없음)
+- 집 PC 에서 커밋 필요: tools/radar_gif.py(새 파일), preview/radar_gif_test/ (이 PC 의 %LOCALAPPDATA%\local-app-git 에는 커밋함)
+- 결과·근거: preview/radar_gif_test/REPORT.md. 앱이 아직 radar_gif.py 를 불러오지 않음
+
 ## 완료 (2026-11-16) — 빈 사양 보충(3차): 상세 이미지에서 읽어 17개 중 10개 상품 보충, 벨킨·앤커·AULA 개별 보정. `--fill-detail` 옵션 추가(커밋 60ddf73). 근거 preview/research_1123/verify.md 맨 위 '3차'. 남은 것: 7개 상품은 상세 이미지에 사양 없음
 
 ## 완료 (2026-11-16) — 자료 수집 보완(평점 낮은순·공식 페이지 보충) + 26개 전체 수집: 성공 26/실패 0, 데이터 14개 해시 전후 같음. 근거 preview/research_1123/verify.md 맨 위. 결과 pipeline/candidates_run/20261116_radar_naver/research/
