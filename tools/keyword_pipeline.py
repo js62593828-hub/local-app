@@ -641,8 +641,8 @@ def query_issue(c, q):
     return None
 
 
-def choose_title(c, gen):
-    """통과안 중 최고점 1개. 반환 (title|None, 검사 기록, search_query, 보류 사유|None)"""
+def choose_title(c, gen, avoid=()):
+    """통과안 중 최고점 1개(avoid 에 있는 이미 승인된 제목과 겹치지 않는 안을 먼저 씀). 반환 (title|None, 검사 기록, search_query, 보류 사유|None)"""
     checks = []
     for t in gen.get("titles", []):
         bad = title_issues(t, c["keyword"], c["type"])
@@ -653,7 +653,8 @@ def choose_title(c, gen):
         return None, checks, gen.get("search_query", ""), "제목 생성 안 됨(claude 응답 없음)"
     if not ok:
         return None, checks, gen.get("search_query", ""), "제목 3안 모두 기계 검사 탈락: " + "; ".join(sorted({i for x in checks for i in x["issues"]}))
-    best = max(ok, key=lambda x: x["points"])
+    free = [x for x in ok if all(sim_ratio(x["title"], a) < RK["similarity"] for a in avoid)] or ok
+    best = max(free, key=lambda x: x["points"])
     return best["title"], checks, gen.get("search_query", ""), None
 
 
@@ -671,7 +672,14 @@ def stage_titles_gate(rows, led):
     approved, reserve_ok, held = [], [], []
     th_n, seed_n, ab_n = {}, {}, {"A": 0, "B": 0}
     cand = [r for r in rows if r["status"] == "후보"]
+    if A.only_from:                                  # 키워드 구성을 고정: 이전 plan 에 있던 키워드만 후보로 둔다(제목만 다시 만드는 용도)
+        keep = {nk(x["keyword"]) for x in json.loads(Path(A.only_from).read_text(encoding="utf-8"))["plans"]}
+        cand = [r for r in cand if r["nk"] in keep]
+        print(f"[titles] --only-from: 이전 plan 키워드 {len(keep)}개 중 후보 {len(cand)}개만 사용")
     by_nk = {r["nk"]: r for r in cand}
+    old_q = {}
+    if A.only_from:
+        old_q = {nk(x["keyword"]): (x.get("radar") or {}).get("search_query", "") for x in json.loads(Path(A.only_from).read_text(encoding="utf-8"))["plans"]}
     done = set()
     rounds = 0
     normal_rounds = 0
@@ -685,7 +693,7 @@ def stage_titles_gate(rows, led):
             if not min_phase and pcnt[r["type"]] >= want[r["type"]]:
                 continue
             pn = r.get("overlap_with")
-            if pn:                                   # 겹치는 짝이 아직 결과가 안 났거나 승인됐으면 이번엔 건너뜀
+            if pn and pn in by_nk:                                   # 겹치는 짝이 아직 결과가 안 났거나 승인됐으면 이번엔 건너뜀
                 if pn not in done or by_nk[pn]["status"] == "승인":
                     continue
             if pth.get(r["theme"], 0) >= RK["theme_cap"] or psd.get(r["seed"], 0) >= RK["per_seed_week_max"]:
@@ -731,7 +739,9 @@ def stage_titles_gate(rows, led):
                 r["status"], r["hold_reason"] = "보류", "제목 생성 실패(claude 재시도 1회 후)"
                 held.append(r)
                 continue
-            title, checks, q, why = choose_title(r, g)
+            title, checks, q, why = choose_title(r, g, [a["title"] for a in approved])
+            if old_q.get(r["nk"]):
+                q = old_q[r["nk"]]                  # --only-from: 이전 plan 의 search_query 를 그대로 재사용
             r["title_checks"], r["search_query"], r["title_source"] = checks, q, g.get("source")
             if not why:
                 why = query_issue(r, q)
@@ -762,7 +772,7 @@ def stage_titles_gate(rows, led):
         if r["status"] == "후보" and r["nk"] in done:
             r["status"] = "예비"
         pn = r.get("overlap_with")
-        if r["status"] in ("후보", "예비") and pn and by_nk[pn]["status"] == "승인":
+        if r["status"] in ("후보", "예비") and pn and pn in by_nk and by_nk[pn]["status"] == "승인":
             r["status"] = "탈락"
             r["reasons"].append(f"같은 주 후보 겹침({by_nk[pn]['keyword']} 승인)")
     short = {t: need[t] - ab_n[t] for t in "AB"}
@@ -770,7 +780,18 @@ def stage_titles_gate(rows, led):
 
 
 def assign_dates(approved):
-    """승인 항목을 7일에 하루 A2+B1 로 배정: 같은 날 같은 갈래 금지, 이틀 연속 같은 갈래는 가능한 한 피함(고정 시드 무작위 개선)."""
+    """승인 항목을 7일에 하루 A2+B1 로 배정: 같은 날 같은 갈래 금지, 이틀 연속 같은 갈래는 가능한 한 피함(고정 시드 무작위 개선).
+    --only-from 이면 이전 plan 의 날짜·순서를 그대로 쓴다."""
+    if A.only_from:
+        old = {nk(x["keyword"]): (i, x["publish_date"]) for i, x in enumerate(json.loads(Path(A.only_from).read_text(encoding="utf-8"))["plans"])}
+        miss = [r["keyword"] for r in approved if r["nk"] not in old]
+        if miss:
+            stop("dates", "이전 plan 에 없는 키워드가 승인됨: " + ", ".join(miss))
+        out = sorted(approved, key=lambda r: old[r["nk"]][0])
+        for n, r in enumerate(out, 1):
+            d = date.fromisoformat(old[r["nk"]][1])
+            r["date"], r["weekday"], r["no"] = d.isoformat(), WEEKDAYS[d.weekday()], n
+        return out, 0
     slots = [(d, k) for d in range(7) for k in ("A", "A", "B")]
     A_pos = [i for i, s in enumerate(slots) if s[1] == "A"]
     B_pos = [i for i, s in enumerate(slots) if s[1] == "B"]
@@ -1078,6 +1099,7 @@ def main():
     ap.add_argument("--searchad-limit", type=int, default=200)
     ap.add_argument("--claude-limit", type=int, default=35, help="claude 호출 상한(filter.json 의 claude_max_calls 보다 크게는 못 씀)")
     ap.add_argument("--no-claude", action="store_true")
+    ap.add_argument("--only-from", help="이전 plan.json 경로: 그 plan 의 키워드만 후보로 쓰고 날짜·순서도 그대로 둔다(제목만 다시 만들 때)")
     ap.add_argument("--until", choices=STAGES, help="그 단계까지만")
     ap.add_argument("--apply", action="store_true", help="결과를 대기열에 넣음(push_plan --apply). 기본은 dry-run 보여 주기만")
     A = ap.parse_args()

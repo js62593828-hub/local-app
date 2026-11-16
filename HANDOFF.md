@@ -1,7 +1,11 @@
-## 진행 중 (2026-11-16) — N데스크피커 제목 규칙 변경(끝맺음 6가지 돌려 쓰기) + 11-23 주 제목만 재생성
-- 단계: 코드 수정(tools/keyword_pipeline.py·filter.json radar_kw·radar_rules.md [제목]) 전. 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에 커밋 중. 대기열에 안 넣음(--apply 안 씀).
-- 지킬 것: 네이버 API 새 호출 0회, claude 새 호출 최대 3회(--claude-limit 11 = 이전 8 + 3), 앱 데이터·app.py 안 건드림.
-- 다음 명령: python tools/keyword_pipeline.py --week 2026-11-23 --blog-limit 0 --searchad-limit 0 --claude-limit 11 (titles_cache.json 만 지우고 실행, dry-run 까지)
+## 완료 (2026-11-16) — N데스크피커 제목 규칙 변경(끝맺음 6가지 돌려 쓰기) + 11-23 주 제목만 재생성
+- 결과: preview/keyword_titles_mix/verify.md. 키워드·날짜·갈래·유형·search_query 전과 같음, 대기열에는 안 넣음(dry-run 까지). 새 제목 plan.json(옛것은 plan.backup_before_title_mix_20261116.json).
+- 되돌리기: git log 의 '제목 끝맺음' 커밋(저장소 %LOCALAPPDATA%/local-app-git).
+- 다음: 마음에 들면 python tools/push_plan.py --channel radar_naver --plan pipeline/keyword_run/2026-11-23_radar_naver/plan.json (dry-run) → --apply.
+
+## 집 PC 에서 커밋 필요 (2026-11-16 제목 규칙, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
+- 바뀐 파일: tools/keyword_pipeline.py, tools/filter.json(radar_kw), tools/radar_rules.md([제목]) (+ HANDOFF.md)
+- 내용: 틀 A 끝맺음 6가지·한 주 분산 규칙, '추천' 허용·경험 꾸밈과 함께 쓰기 금지, --only-from 옵션(키워드·날짜 고정). 근거 preview/keyword_titles_mix/verify.md
 
 ## 완료 (2026-11-16) — 네이버 데스크테리어 레퍼런스 조사(refblog2, 읽기 전용)
 - 결과: pipeline/stage_refblog2_run/reference_report.md, preview/refblog2/verify.md. 데이터 12개 해시 전후 같음, 코드 수정 없음.
