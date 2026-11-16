@@ -1,3 +1,7 @@
+## 집 PC 에서 커밋 필요 (2026-11-16 하루 구성 변경, 이 PC 임시 저장소에는 커밋함)
+- 바뀐 파일: tools/filter.json(radar_kw), tools/keyword_pipeline.py, tools/radar_rules.md, HANDOFF.md
+- 완료: N데스크피커 하루 3편 = 고르는 법 1 + 모델명 2. 11-23 주 계획 다시 만듦(대기열에는 안 넣음). 근거 preview/radar_mix_a1b2/verify.md
+
 ## 집 PC 에서 커밋 필요 (2026-11-16 원고 표시)
 - 바뀐 파일: tools/radar_rules.md, tools/radar_check.py, HANDOFF.md (임시 저장소 커밋 63c6e2e). 근거 preview/radar_rules_mark/verify.md
 
