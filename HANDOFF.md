@@ -1,3 +1,6 @@
+## 완료 (2026-11-16) — 네이버 데스크테리어 레퍼런스 조사(refblog2, 읽기 전용)
+- 결과: pipeline/stage_refblog2_run/reference_report.md, preview/refblog2/verify.md. 데이터 12개 해시 전후 같음, 코드 수정 없음.
+
 ## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
 - 바뀐 파일: tools/keyword_pipeline.py, tools/push_plan.py, tools/filter.json, pipeline/radar/seeds.txt, CLAUDE.md (+ HANDOFF.md)
 - 내용: 갈래 최소 편수(theme_min)·같은 날 같은 갈래 금지(조건)·모델명 출처 켜고 끄기·push_plan 되돌릴 기록 없음 처리. 근거 preview/keyword_pipeline/verify.md
