@@ -474,6 +474,16 @@ def rules_common_bans():
     return "\n".join(ls)
 
 
+ENDING_HINT = {
+    "추천": "'추천' 낱말을 넣는다(예: 듀얼 모니터 받침대 추천, 책상 폭별로 고른 3가지)",
+    "질문": "물음표로 끝나고 답이 보이는 질문(예: 발받침대, 어느 높이가 오래 앉기 편할까?)",
+    "숫자": "'○가지' 처럼 항목 개수를 넣는다(예: 무선 마우스 고를 때 볼 3가지)",
+    "확인할 점": "'사기 전'·'구매 전'·'확인할 점' 중 하나를 넣는다(예: 책상 정리함, 사기 전 확인할 점)",
+    "비교·차이": "'비교' 또는 '차이'를 넣는다(예: 보조배터리 10000 vs 20000, 차이와 선택 기준)",
+    "고르는 법·기준": "'고르는 법' 또는 '기준'을 넣는다(예: 발난로 고르는 법, 사무실 책상 밑에 둘 때 볼 기준)",
+}
+A_COUNTER = [0]      # 틀 A 제목 요청이 몇 번째 글인지(끝맺음을 돌려 배정하는 용도, 호출 사이에도 이어 감)
+
 TITLE_PROMPT = """너는 네이버 블로그 'Desk Picker'(데스크피커)의 제목 담당이다. 도구는 쓰지 말고 바로 답해라.
 아래 키워드마다 블로그 글 제목 3안과 search_query 를 만들어라.
 
@@ -482,21 +492,44 @@ TITLE_PROMPT = """너는 네이버 블로그 'Desk Picker'(데스크피커)의 �
 [지킬 것]
 {bans}
 - 제목은 40자 이내. 키워드(띄어쓰기는 자연스럽게 해도 됨)가 제목 맨 앞 15자 안에 들어가야 한다.
-- 틀 A(고르는 법): 키워드 + 고르는 법/기준 + 상황. 틀 B(모델명): 브랜드 모델명 + 제품 종류 + 사람들이 궁금해하는 것.
+- 틀 A(고르는 법): 키워드 + 끝맺음. 목록의 '끝맺음' 칸에 적힌 3가지를 1안·2안·3안에 순서대로 하나씩 써라(3안은 서로 끝맺음이 달라야 한다). 끝맺음은 아래 뜻대로 분명히 드러내라.
+{ending_help}
+- 틀 B(모델명): 브랜드 모델명 + 제품 종류 + 사람들이 궁금해하는 것. "살 만할까", "이런 분께 맞아요" 같은 끝맺음도 써도 된다. 3안은 서로 다르게 써라.
+- '추천'은 써도 되지만 '직접·제가·써본·솔직·찐·인생' 같은 경험을 꾸미는 말과 함께 쓰지 않는다. 금지 단어(후기, 내돈내산, 써보니, 사용기, 실사용, 직접 써본, 최고, 무조건, 100%, 완벽, 강력 추천, 1위)는 제목에 넣지 않는다.
 - 써본 척 표현·효과 단정·모르는 숫자는 쓰지 않는다. 한국어로만 쓴다.
 - search_query: 제품 후보를 찾을 때 쓸 쇼핑 검색어. 틀 A는 핵심 물건 2~3단어(띄어쓰기로 구분, 예: "발난로 사무실"), 틀 B는 "브랜드 모델명"(예: "브라운 BC02XW"). 반드시 키워드에 들어 있는 낱말만 써라.
 반드시 아래 JSON 한 덩어리로만 답해라(설명 금지).
 {{"items": [{{"id": "K1", "titles": ["제목1", "제목2", "제목3"], "search_query": "발난로 사무실"}}]}}
 
-[키워드 목록] (id | 키워드 | 틀 | 상품 종류 | 갈래)
+[키워드 목록] (id | 키워드 | 틀 | 상품 종류 | 갈래 | 끝맺음)
 {lines}
 """
 
 
-def claude_titles(batch):
+def assigned_endings(c, want=None):
+    """틀 A 한 글에 3안으로 요청할 끝맺음 3가지(want 가 있으면 그것을 앞에 두고 모자라면 돌려 배정)."""
+    order = RK["title_endings_A"]["order"]
+    g = A_COUNTER[0]
+    A_COUNTER[0] += 1
+    out = list(want or [])
+    for off in (0, 1, 3, 2, 4, 5):
+        e = order[(g + off) % len(order)]
+        if len(out) >= 3:
+            break
+        if e not in out:
+            out.append(e)
+    return out[:3]
+
+
+def claude_titles(batch, want=None):
     """batch: 후보 목록. 반환 {nk: {"titles": [...], "search_query": "..."}}, 실패하면 None. 호출 수 상한을 지킨다."""
-    lines = "\n".join(f"K{i + 1} | {c['keyword']} | 틀 {c['type']} | {c['seed']} | {c['theme']}" for i, c in enumerate(batch))
-    prompt = TITLE_PROMPT.format(rules_title=rules_section("제목"), bans=rules_common_bans(), lines=lines)
+    rows_ = []
+    for i, c in enumerate(batch):
+        e = "(자유)" if c["type"] == "B" else " / ".join(assigned_endings(c, (want or {}).get(c["nk"])))
+        rows_.append(f"K{i + 1} | {c['keyword']} | 틀 {c['type']} | {c['seed']} | {c['theme']} | {e}")
+    lines = "\n".join(rows_)
+    help_ = "\n".join(f"  · {k}: {v}" for k, v in ENDING_HINT.items())
+    prompt = TITLE_PROMPT.format(rules_title=rules_section("제목"), bans=rules_common_bans(), ending_help=help_, lines=lines)
     for attempt in range(2):
         if claude_count() >= min(RK["claude_max_calls"], A.claude_limit):
             stop("titles", f"claude 호출 상한({min(RK['claude_max_calls'], A.claude_limit)}회)에 닿음")
@@ -527,9 +560,11 @@ def template_titles(c):
     """--no-claude: 규칙 템플릿 제목과 규칙 템플릿 search_query."""
     kw = c["keyword"]
     if c["type"] == "B":
-        titles = [f"{kw} 크기·가격·사양 한눈에 정리", f"{kw}, 살 때 볼 정보 정리", f"{kw} 구매 전 확인할 점 정리"]
+        titles = [f"{kw} 크기·가격·사양 한눈에 정리", f"{kw}, 이런 분께 맞아요", f"{kw} 구매 전 확인할 점 정리"]
     else:
-        titles = [f"{kw} 고르는 법, 사기 전 볼 기준", f"{kw} 고를 때 볼 기준 정리", f"{kw} 비교 기준과 상황별 선택"]
+        tpl = {"추천": f"{kw} 추천, 상황별로 고른 제품", "질문": f"{kw}, 무엇을 보고 고르면 될까?", "숫자": f"{kw} 고를 때 볼 3가지",
+               "확인할 점": f"{kw}, 사기 전 확인할 점", "비교·차이": f"{kw} 비교, 차이부터 짚어 보기", "고르는 법·기준": f"{kw} 고르는 법, 볼 기준"}
+        titles = [tpl[e] for e in assigned_endings(c)]
     return {"titles": titles, "search_query": template_query(c)}
 
 
@@ -545,7 +580,17 @@ def template_query(c):
     return f"{c['seed']} {rest}".strip() if len(rest) >= 2 else ""
 
 
-def title_issues(title, kw):
+def ending_of(title, ttype):
+    """제목의 끝맺음 이름. 틀 A: 추천·질문·숫자·확인할 점·비교·차이·고르는 법·기준 (번호 순서대로 먼저 맞는 것), 해당 없으면 None. 틀 B: 살 만할까·이런 분께·궁금한 점."""
+    t = " ".join(title.split())
+    cfg = RK["title_endings_A"] if ttype == "A" else RK["title_endings_B"]
+    for name in (cfg["order"] if ttype == "A" else [k for k in cfg if not k.startswith("_")]):
+        if any(re.search(rx, t, re.I) for rx in cfg[name]):
+            return name
+    return None if ttype == "A" else "궁금한 점"
+
+
+def title_issues(title, kw, ttype=None):
     t = " ".join(title.split())
     bad = []
     if len(t) > RK["title_max"]:
@@ -556,6 +601,11 @@ def title_issues(title, kw):
     for w in RK["title_experience"]:
         if nk(w) in nk(t):
             bad.append(f"써본 척 표현 '{w}'")
+    for w in RK.get("title_recommend_bad", []):
+        if nk(w) in nk(t):
+            bad.append(f"경험을 꾸미는 말과 함께 쓴 '추천'('{w}')")
+    if ttype == "A" and not ending_of(t, "A"):
+        bad.append("틀 A 끝맺음 6가지에 해당 안 함")
     if re.search(r"\d+\s*일\s*(간\s*)?사용", t):
         bad.append("써본 척 표현 '○일 사용'")
     if nk(kw) not in nk(t[:RK["title_front"]]):
@@ -595,8 +645,9 @@ def choose_title(c, gen):
     """통과안 중 최고점 1개. 반환 (title|None, 검사 기록, search_query, 보류 사유|None)"""
     checks = []
     for t in gen.get("titles", []):
-        bad = title_issues(t, c["keyword"])
-        checks.append({"title": t, "ok": not bad, "issues": bad, "points": None if bad else title_points(t, c["keyword"])})
+        bad = title_issues(t, c["keyword"], c["type"])
+        checks.append({"title": t, "ok": not bad, "issues": bad, "end": ending_of(t, c["type"]),
+                       "points": None if bad else title_points(t, c["keyword"])})
     ok = [x for x in checks if x["ok"]]
     if not checks:
         return None, checks, gen.get("search_query", ""), "제목 생성 안 됨(claude 응답 없음)"
@@ -660,6 +711,9 @@ def stage_titles_gate(rows, led):
             chunk = [r for r in pool[i:i + RK["title_batch"]] if r["nk"] not in cache]
             if not chunk:
                 continue
+            if not A.no_claude and len(chunk) < RK["title_batch"]:      # 호출 수를 줄이려고 다음 순서 후보의 제목을 미리 함께 받아 둔다(쓰이지 않으면 캐시에만 남음)
+                have = {r["nk"] for r in chunk} | set(cache)
+                chunk += [r for r in cand if r["nk"] not in have and r["nk"] not in done][:RK["title_batch"] - len(chunk)]
             if A.no_claude:
                 for r in chunk:
                     cache[r["nk"]] = {**template_titles(r), "source": "template"}
@@ -788,9 +842,137 @@ def assign_dates(approved):
     return out, best_c
 
 
+# ---------------- 5-2) 끝맺음 분산 (한 주 틀 A) ----------------
+def _opts(r):
+    """그 글의 통과안(끝맺음 이름 붙음). 처음 고른 제목이 맨 앞."""
+    seen, out = set(), []
+    for x in sorted((x for x in r.get("title_checks", []) if x["ok"]), key=lambda x: (x["title"] != r["title"], -(x["points"] or 0))):
+        if x["title"] in seen:
+            continue
+        seen.add(x["title"])
+        out.append({"title": x["title"], "end": x.get("end") or ending_of(x["title"], "A"), "points": x["points"] or 0})
+    return out
+
+
+def _search(As, fixed_titles, strict):
+    """모든 글에 통과안 하나씩 고르는 조합 중 '처음 고른 것에서 바꾸는 글 수'가 가장 적고 점수가 높은 것.
+    strict=False 면 규칙을 넘는 선택도 허용하되 넘은 개수가 가장 적은 조합(재생성 대상 찾기용)."""
+    cfg = RK["title_endings_A"]
+    opts = [_opts(r) for r in As]
+    n = len(As)
+    order = sorted(range(n), key=lambda i: (As[i]["date"], len(opts[i])))
+    best = [None, None]
+    cnt, pick = {}, [0]
+    chosen = {}
+
+    def cost_of(viol, chg, pts):
+        return (viol, chg, -pts)
+
+    def rec(k, viol, chg, pts):
+        if best[0] is not None and (viol, chg) > best[0][:2]:
+            return
+        if k == n:
+            c = cost_of(viol, chg, pts)
+            if best[0] is None or c < best[0]:
+                best[0], best[1] = c, dict(chosen)
+            return
+        i = order[k]
+        for j, o in enumerate(opts[i]):
+            v = 0
+            if cnt.get(o["end"], 0) >= cfg["same_max"]:
+                v += 1
+            ispick = any(w in o["title"] for w in cfg["pick_text"])
+            if ispick and pick[0] >= cfg["pick_max"]:
+                v += 1
+            for m_, oj in chosen.items():
+                if As[m_]["date"] == As[i]["date"] and oj["end"] == o["end"]:
+                    v += 1
+                if sim_ratio(o["title"], oj["title"]) >= RK["similarity"]:
+                    v += 1
+            if any(sim_ratio(o["title"], ft) >= RK["similarity"] for ft in fixed_titles):
+                v += 1
+            if v and strict:
+                continue
+            chosen[i] = o
+            cnt[o["end"]] = cnt.get(o["end"], 0) + 1
+            pick[0] += 1 if ispick else 0
+            rec(k + 1, viol + v, chg + (0 if j == 0 else 1), pts + o["points"])
+            del chosen[i]
+            cnt[o["end"]] -= 1
+            pick[0] -= 1 if ispick else 0
+
+    rec(0, 0, 0, 0)
+    return best[1], best[0], opts
+
+
+def distribute_endings(sched):
+    """날짜가 정해진 승인 글의 틀 A 제목을 분산 규칙(같은 끝맺음 최대 same_max·고르는 법 최대 pick_max·같은 날 A 2편은 다른 끝맺음)에 맞춘다.
+    넘으면 그 글의 다른 통과안으로 바꾸고, 안 되는 글만 claude 로 다시 만든다(최대 1회). 반환: 바뀐 글 목록(전 제목, 새 제목)."""
+    As = [r for r in sched if r["type"] == "A"]
+    fixed = [r["title"] for r in sched if r["type"] != "A"]
+    for r in As:
+        r["title_first"] = r["title"]
+    sol, cost, opts = _search(As, fixed, True)
+    regen = 0
+    if sol is None:
+        sol_r, cost_r, _ = _search(As, fixed, False)
+        cfg = RK["title_endings_A"]
+        # 규칙을 넘는 글 찾기: 넘친 끝맺음 그룹에서 통과안이 가장 적은 글부터, 같은 날 겹침은 뒤 글
+        cnt, bad = {}, []
+        for i in sorted(sol_r, key=lambda i: (len(opts[i]), As[i]["date"])):
+            cnt.setdefault(sol_r[i]["end"], []).append(i)
+        for e, idx in cnt.items():
+            for i in idx[cfg["same_max"]:]:
+                bad.append(i)
+        picks = [i for i in sol_r if any(w in sol_r[i]["title"] for w in cfg["pick_text"])]
+        for i in picks[cfg["pick_max"]:]:
+            bad.append(i)
+        for a in sol_r:
+            for b in sol_r:
+                if a < b and As[a]["date"] == As[b]["date"] and sol_r[a]["end"] == sol_r[b]["end"]:
+                    bad.append(b)
+        bad = sorted(set(bad))
+        if not bad:
+            bad = [i for i in sol_r if sum(1 for x in opts[i]) <= 1][:3] or [min(sol_r, key=lambda i: len(opts[i]))]
+        use = {e: sum(1 for o in sol_r.values() if o["end"] == e) for e in cfg["order"]}
+        order_less = sorted(cfg["order"], key=lambda e: use[e])
+        batch = [As[i] for i in bad]
+        want = {As[i]["nk"]: [e for e in order_less if e != sol_r[i]["end"]][:3] for i in bad}
+        log(f"  끝맺음 분산: 통과안으로는 규칙을 못 맞춤 → {len(batch)}편만 제목 다시 생성(claude 1회): " + ", ".join(r["keyword"] for r in batch))
+        got = claude_titles(batch, want)
+        regen = len(batch)
+        if got:
+            cache = jload(D / "titles_cache.json", {}) or {}
+            for r in batch:
+                g = got[r["nk"]]
+                for t in g.get("titles", []):
+                    bad_ = title_issues(t, r["keyword"], "A")
+                    r["title_checks"].append({"title": t, "ok": not bad_, "issues": bad_, "end": ending_of(t, "A"),
+                                              "points": None if bad_ else title_points(t, r["keyword"]), "regen": True})
+                if r["nk"] in cache:
+                    cache[r["nk"]]["regen_titles"] = g.get("titles", [])
+            jsave(D / "titles_cache.json", cache)
+        sol, cost, opts = _search(As, fixed, True)
+        if sol is None:
+            stop("titles", "끝맺음 분산 규칙(같은 끝맺음 최대 4편·고르는 법 최대 3편·같은 날 다른 끝맺음)을 맞출 제목 조합이 없음 — 다시 생성할 글: " + ", ".join(r["keyword"] for r in batch))
+    changed = []
+    for i, r in enumerate(As):
+        o = sol[i]
+        r["end"] = o["end"]
+        if o["title"] != r["title"]:
+            changed.append({"keyword": r["keyword"], "date": r["date"], "before": r["title"], "after": o["title"], "end": o["end"]})
+            r["title"] = o["title"]
+    for r in sched:
+        if r["type"] == "B":
+            r["end"] = ending_of(r["title"], "B")
+    return changed, regen
+
+
 # ---------------- 6) 결과 ----------------
 def build_outputs(rows, approved, held, short, perf, perf_note, seeds_info, drops, bundle):
     sched, plan_cost = assign_dates(approved)
+    dist_changed, dist_regen = distribute_endings(sched)
+    jsave(D / "ending_distribution.json", {"changed": dist_changed, "regenerated": dist_regen})
     shortage = short["A"] + short["B"]
     th_cnt = {th: sum(1 for r in sched if r["theme"] == th) for th in RK["theme_order"]}
     th_short = {th: theme_min_of(th) - th_cnt[th] for th in RK["theme_order"] if th_cnt[th] < theme_min_of(th)}
@@ -829,6 +1011,15 @@ def build_outputs(rows, approved, held, short, perf, perf_note, seeds_info, drop
     L.append("|---|---|---|---|---|---|---|---|---|")
     for r in sched:
         L.append(f"| {r['date']}({r['weekday']}) | {r['no']} | {r['theme']} | {r['type']} | {r['keyword']} | {r['volume']:,} | {r['docs']:,} | {r['title']} | {r['search_query']} |")
+    L.append("")
+    L.append("## 끝맺음별 개수")
+    L.append("| 틀 | 끝맺음 | 편수 |")
+    L.append("|---|---|---|")
+    for e in RK["title_endings_A"]["order"]:
+        L.append(f"| A | {e} | {sum(1 for r in sched if r['type'] == 'A' and r.get('end') == e)} |")
+    for e in sorted({r.get('end') for r in sched if r['type'] == 'B'}):
+        L.append(f"| B | {e} | {sum(1 for r in sched if r['type'] == 'B' and r.get('end') == e)} |")
+    L.append(f"분산 규칙으로 바뀐 제목 {len(dist_changed)}편 · 다시 생성 {dist_regen}편")
     L.append("")
     L.append("## 보류 목록과 사유")
     if held:

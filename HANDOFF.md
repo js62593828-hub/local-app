@@ -1,3 +1,8 @@
+## 진행 중 (2026-11-16) — N데스크피커 제목 규칙 변경(끝맺음 6가지 돌려 쓰기) + 11-23 주 제목만 재생성
+- 단계: 코드 수정(tools/keyword_pipeline.py·filter.json radar_kw·radar_rules.md [제목]) 전. 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에 커밋 중. 대기열에 안 넣음(--apply 안 씀).
+- 지킬 것: 네이버 API 새 호출 0회, claude 새 호출 최대 3회(--claude-limit 11 = 이전 8 + 3), 앱 데이터·app.py 안 건드림.
+- 다음 명령: python tools/keyword_pipeline.py --week 2026-11-23 --blog-limit 0 --searchad-limit 0 --claude-limit 11 (titles_cache.json 만 지우고 실행, dry-run 까지)
+
 ## 완료 (2026-11-16) — 네이버 데스크테리어 레퍼런스 조사(refblog2, 읽기 전용)
 - 결과: pipeline/stage_refblog2_run/reference_report.md, preview/refblog2/verify.md. 데이터 12개 해시 전후 같음, 코드 수정 없음.
 
