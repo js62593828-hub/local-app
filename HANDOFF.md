@@ -1,3 +1,8 @@
+## 진행 중 (2026-11-16) — N데스크피커 11-23 주 제목·제품 종류 3가지 고치기
+- 단계: 띄어쓰기 검사·틀 B/A 제목(구체 궁금증)·제품 종류 제외 규칙을 keyword_pipeline.py·filter.json·radar_rules.md 에 넣는 중
+- 다음: 저장된 자료로 이어서 다시 실행 → push_plan --channel radar_naver dry-run → preview/radar_title_fix/verify.md
+- 안 건드림: 대기열(--apply 금지), app.py·templates·image_gen.py·radar_images.py, 앱 데이터
+
 ## 집 PC 에서 커밋 필요 (2026-11-16 하루 구성 변경, 이 PC 임시 저장소에는 커밋함)
 - 바뀐 파일: tools/filter.json(radar_kw), tools/keyword_pipeline.py, tools/radar_rules.md, HANDOFF.md
 - 완료: N데스크피커 하루 3편 = 고르는 법 1 + 모델명 2. 11-23 주 계획 다시 만듦(대기열에는 안 넣음). 근거 preview/radar_mix_a1b2/verify.md
