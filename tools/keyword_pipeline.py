@@ -54,6 +54,8 @@ D = None
 WEEK = None
 RK = None
 RUN_ID = None
+RELATED_SRC = "연관 키워드(검색광고)"
+MODEL_SRC = "2차 상품 수집 모델명"
 _stop = {"reason": None}
 
 
@@ -294,10 +296,15 @@ def stage_lookup(seeds):
             cands[k] = owner[k]
         drops["씨앗별 상위 한도 밖"] += max(0, len(ks) - RK["per_seed_pool"])
     # 모델명 후보(틀 B): 상품 수집 2차 결과에서 이미 잰 모델명의 월 검색량·문서수를 재사용한다(API 0회). 모델명 모양인 것만.
-    mfile = BASE / "pipeline" / "stage_desk_pick2_run" / "candidates2.csv"
+    mfile = BASE / RK.get("model_source", "pipeline/stage_desk_pick2_run/candidates2.csv")
     mdrop = {"모델명 모양 아님": 0, "검색량·문서수 없음": 0, "이미 있는 키워드": 0}
     nmodel = 0
-    if mfile.exists():
+    use_model = bool(RK.get("use_model_source", True))
+    if not use_model:
+        log("  모델명 출처 꺼짐(filter.json radar_kw.use_model_source=false)")
+    elif not mfile.exists():
+        log(f"  [주의] 모델명 출처 파일 없음: {mfile}")
+    if use_model and mfile.exists():
         with open(mfile, encoding="utf-8-sig", newline="") as fh:
             for r in csv.DictReader(fh):
                 if r.get("모델명 종류") != "모델명":
@@ -316,10 +323,10 @@ def stage_lookup(seeds):
                     mdrop["이미 있는 키워드"] += 1
                     continue
                 sd = r.get("씨앗") or kw
-                cands[k] = {"keyword": kw, "nk": k, "volume": vol, "seed": sd, "theme": theme_of(sd), "docs": docs, "src": "2차 상품 수집 모델명"}
+                cands[k] = {"keyword": kw, "nk": k, "volume": vol, "seed": sd, "theme": theme_of(sd), "docs": docs, "src": MODEL_SRC}
                 nmodel += 1
     cands = {k: c for k, c in cands.items() if c["theme"] != UNDECIDED}
-    drops["모델명 후보(2차 결과 재사용)"] = {"더함": nmodel, **mdrop}
+    drops["모델명 후보(2차 결과 재사용)"] = {"켜짐": use_model, "더함": nmodel, **mdrop}
     # 블로그 문서 수(블로그 검색 총 문서수) — 저장된 값은 다시 받지 않는다
     todo = [c for k, c in cands.items() if c.get("docs") is None and k not in raw["blog_total"]]
     for i, c in enumerate(todo):
@@ -345,7 +352,7 @@ def stage_lookup(seeds):
     for k, c in cands.items():
         if c.get("docs") is None:
             c["docs"] = raw["blog_total"].get(k)
-            c["src"] = "연관 키워드(검색광고)"
+            c["src"] = RELATED_SRC
     jsave(D / "cands_raw.json", {"cands": cands, "drops": drops})
     print(f"[lookup] 후보 {len(cands)}개 (조회 전 탈락 {drops}) / 사용량 {api.usage}")
     return cands, drops
@@ -600,6 +607,10 @@ def choose_title(c, gen):
 
 
 # ---------------- 5) 승인 관문 + 배정 ----------------
+def theme_min_of(th):
+    return int((RK.get("theme_min_by") or {}).get(th, RK.get("theme_min", 2)))
+
+
 def stage_titles_gate(rows, led):
     """라운드: 점수 높은 후보를 (갈래·씨앗·A:B 한도를 지키며) 골라 제목을 받고, 관문을 통과하면 승인. 모자라면 다음 라운드로 예비를 채운다."""
     cache = jload(D / "titles_cache.json", {}) or {}
@@ -612,12 +623,15 @@ def stage_titles_gate(rows, led):
     by_nk = {r["nk"]: r for r in cand}
     done = set()
     rounds = 0
-    while (ab_n["A"] < need["A"] or ab_n["B"] < need["B"]) and rounds < 8:
-        rounds += 1
-        want = {t: (need[t] - ab_n[t]) + (res_ab[t] if rounds == 1 else 2) for t in "AB"}
+    normal_rounds = 0
+
+    def make_pool(min_phase, want):
+        """min_phase=True: 갈래 최소(theme_min)에 모자란 갈래의 후보만 점수 순으로. False: 전체 점수 순(갈래 상한 유지)."""
         pool, pth, psd, pcnt = [], dict(th_n), dict(seed_n), {"A": 0, "B": 0}
         for r in cand:
-            if r["nk"] in done or pcnt[r["type"]] >= want[r["type"]] or ab_n[r["type"]] >= need[r["type"]]:
+            if r["nk"] in done or ab_n[r["type"]] >= need[r["type"]]:
+                continue
+            if not min_phase and pcnt[r["type"]] >= want[r["type"]]:
                 continue
             pn = r.get("overlap_with")
             if pn:                                   # 겹치는 짝이 아직 결과가 안 났거나 승인됐으면 이번엔 건너뜀
@@ -625,10 +639,21 @@ def stage_titles_gate(rows, led):
                     continue
             if pth.get(r["theme"], 0) >= RK["theme_cap"] or psd.get(r["seed"], 0) >= RK["per_seed_week_max"]:
                 continue
+            if min_phase and pth.get(r["theme"], 0) >= theme_min_of(r["theme"]):
+                continue
             pool.append(r)
             pth[r["theme"]] = pth.get(r["theme"], 0) + 1
             psd[r["seed"]] = psd.get(r["seed"], 0) + 1
             pcnt[r["type"]] += 1
+        return pool
+
+    while (ab_n["A"] < need["A"] or ab_n["B"] < need["B"]) and rounds < 14:
+        rounds += 1
+        pool = make_pool(True, None)                 # 1단계: 갈래마다 최소 편수부터(보류로 빠지면 다음 라운드에서 다시)
+        if not pool:
+            normal_rounds += 1
+            want = {t: (need[t] - ab_n[t]) + (res_ab[t] if normal_rounds == 1 else 2) for t in "AB"}
+            pool = make_pool(False, want)            # 2단계: 나머지는 전체 점수 순
         if not pool:
             break
         for i in range(0, len(pool), RK["title_batch"]):
@@ -742,6 +767,14 @@ def assign_dates(approved):
             best, best_c = list(arr), c
         if best_c == 0:
             break
+    dups = []
+    for d in range(7):
+        ths = [best[i]["theme"] for i, s_ in enumerate(slots) if s_[0] == d and best[i]]
+        for th in set(ths):
+            if ths.count(th) > 1:
+                dups.append(f"{(WEEK + timedelta(days=d)).isoformat()} {th}")
+    if dups:                                           # 같은 날 같은 갈래 금지: 지키지 못하면 멈춤
+        stop("dates", "같은 날 같은 갈래를 피하는 배정을 찾지 못함: " + ", ".join(dups))
     out, no = [], 0
     for i, r in enumerate(best):
         if r:
@@ -760,6 +793,7 @@ def build_outputs(rows, approved, held, short, perf, perf_note, seeds_info, drop
     sched, plan_cost = assign_dates(approved)
     shortage = short["A"] + short["B"]
     th_cnt = {th: sum(1 for r in sched if r["theme"] == th) for th in RK["theme_order"]}
+    th_short = {th: theme_min_of(th) - th_cnt[th] for th in RK["theme_order"] if th_cnt[th] < theme_min_of(th)}
     plans = []
     for r in sched:
         plans.append({
@@ -777,6 +811,10 @@ def build_outputs(rows, approved, held, short, perf, perf_note, seeds_info, drop
                                  "perf_weights": perf, "씨앗": seeds_info, "keywords": [{k: v for k, v in r.items()} for r in rows]})
     usage = usage_get()
     L = []
+    if th_short:
+        L.append("# ⚠ " + " · ".join(f"갈래 부족: {th} {n}편" for th, n in th_short.items()))
+        L.append(f"(갈래마다 최소 {RK.get('theme_min', 2)}편 기준 — 위 갈래는 그만큼 못 채움. 숫자는 모자란 편수)")
+        L.append("")
     if shortage:
         miss = ([f"틀 A {short['A']}편"] if short["A"] else []) + ([f"틀 B {short['B']}편"] if short["B"] else [])
         open_th = [f"{th}({th_cnt[th]}/{RK['theme_cap']})" for th in RK["theme_order"] if th_cnt[th] < RK["theme_cap"]]
@@ -802,10 +840,19 @@ def build_outputs(rows, approved, held, short, perf, perf_note, seeds_info, drop
         L.append("없음")
     L.append("")
     L.append("## 갈래별 편수")
-    L.append("| 갈래 | 승인 편수 | 상한 |")
-    L.append("|---|---|---|")
+    L.append("| 갈래 | 승인 편수 | 최소 | 상한 |")
+    L.append("|---|---|---|---|")
     for th in RK["theme_order"]:
-        L.append(f"| {th} | {th_cnt[th]} | {RK['theme_cap']} |")
+        L.append(f"| {th} | {th_cnt[th]} | {theme_min_of(th)} | {RK['theme_cap']} |")
+    L.append("")
+    L.append("## 후보 출처별 수")
+    L.append(f"모델명 출처(use_model_source): {'켬' if RK.get('use_model_source', True) else '끔'} · 파일 {RK.get('model_source')}")
+    L.append("| 출처 | 조회·점수 낸 후보 | 검사 통과(후보) | 승인 |")
+    L.append("|---|---|---|---|")
+    appr_keys = {r["nk"] for r in sched}
+    for src in (RELATED_SRC, MODEL_SRC):
+        rs_ = [r for r in rows if r.get("src") == src]
+        L.append(f"| {src} | {len(rs_)} | {sum(1 for r in rs_ if not r['reasons'])} | {sum(1 for r in rs_ if r['nk'] in appr_keys)} |")
     L.append("")
     L.append("## 갈래 가중치 (실적 반영 계산표)")
     L.append(f"표본 {RK['perf_min_samples']}편 미만이면 1.0(꺼짐). {perf_note}.")

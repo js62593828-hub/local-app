@@ -508,6 +508,9 @@ def cmd_undo(args):
 def cmd_undo_run(args):
     """--undo-run-id: 그 run_id 로 넣은 항목(plan 칸 run_id 가 같은 것)만 대기열에서 뺍니다. 발행됐거나 글이 만들어진 항목은 그대로 둡니다."""
     rid = args.undo_run_id
+    if not os.path.exists(LOG_PATH):               # 넣은 기록이 없으면 빈 기록 파일도 만들지 않고 끝냄
+        print("되돌릴 기록 없음")
+        return 0
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs("backup", exist_ok=True)
     total = 0
@@ -535,10 +538,13 @@ def cmd_undo_run(args):
             total += len(removed)
     if args.apply:
         log = read_json(LOG_PATH, []) or []
+        changed = False
         for r in log:
             if r.get("run_id") == rid:
                 r["undone"] = True
-        write_json_atomic(LOG_PATH, log)
+                changed = True
+        if changed:
+            write_json_atomic(LOG_PATH, log)
     else:
         print("\n[dry-run] 아무것도 쓰지 않았습니다. 되돌리려면 --apply 를 함께")
     return 0

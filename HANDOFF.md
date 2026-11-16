@@ -1,3 +1,7 @@
+## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
+- 바뀐 파일: tools/keyword_pipeline.py, tools/push_plan.py, tools/filter.json, pipeline/radar/seeds.txt, CLAUDE.md (+ HANDOFF.md)
+- 내용: 갈래 최소 편수(theme_min)·같은 날 같은 갈래 금지(조건)·모델명 출처 켜고 끄기·push_plan 되돌릴 기록 없음 처리. 근거 preview/keyword_pipeline/verify.md
+
 ## 완료 (2026-11-16) — 자동화 3단계: N데스크피커 키워드·제목 발굴(tools/keyword_pipeline.py)
 - 결과: preview/keyword_pipeline/verify.md. 결과 폴더 pipeline/keyword_run/2026-11-23_radar_naver/ (승인 21편, 부족 0, 대기열에는 안 넣음). 되돌리기 기준은 git log 의 'keyword_pipeline' 커밋(저장소 %LOCALAPPDATA%/local-app-git, 이 PC 에서 새로 만듦).
 - 다음: 마음에 들면 python tools/push_plan.py --channel radar_naver --plan pipeline/keyword_run/2026-11-23_radar_naver/plan.json (dry-run) → --apply.

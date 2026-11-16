@@ -539,6 +539,12 @@
    "B": 7
   },
   "theme_cap": 4,
+  "theme_min": 2,
+  "theme_min_by": {},
+  "_theme_min": "theme_min = 갈래마다 주 최소 편수(기본 2). 갈래별로 다르게 하려면 theme_min_by 에 {\"갈래이름\": 편수} 로 적는다. 먼저 갈래마다 이 편수만큼 점수 순으로 채우고, 나머지는 전체 점수 순(상한 theme_cap 유지). 못 채우면 report.md 맨 위에 '갈래 부족'을 적는다.",
+  "model_source": "pipeline/stage_desk_pick2_run/candidates2.csv",
+  "use_model_source": true,
+  "_model_source": "모델명 후보(틀 B)의 정식 출처 = 상품 수집 2차 결과 파일 경로. use_model_source 를 false 로 두면 이 출처를 쓰지 않는다(연관 키워드 후보만).",
   "reserve": 6,
   "per_seed_week_max": 2,
   "per_seed_pool": 10,
