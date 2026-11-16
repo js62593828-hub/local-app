@@ -1,3 +1,10 @@
+## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
+- 바뀐 파일: radar_images.py(새 파일), tools/radar_images_trial.py(새 파일), HANDOFF.md
+
+## 완료 (2026-11-16) — N데스크피커 사진 모듈 시범(radar_images v1)
+- 결과: preview/radar_images_v1/ (verify.md · cover_compare.jpg · contact_sheet.jpg · feed_preview.jpg · 글별 폴더). 데이터 12개 해시 전후 같음, 유료 API 0회.
+- 다시 만들기: python tools/radar_images_trial.py (1초 안팎, 비용 0원). 다음: 표지 시안 고르기 → 원고지침(radar_rules.md)에 표지·사진 자리 적는 법 반영.
+
 ## 완료 (2026-11-16) — N데스크피커 제목 규칙 변경(끝맺음 6가지 돌려 쓰기) + 11-23 주 제목만 재생성
 - 결과: preview/keyword_titles_mix/verify.md. 키워드·날짜·갈래·유형·search_query 전과 같음, 대기열에는 안 넣음(dry-run 까지). 새 제목 plan.json(옛것은 plan.backup_before_title_mix_20261116.json).
 - 되돌리기: git log 의 '제목 끝맺음' 커밋(저장소 %LOCALAPPDATA%/local-app-git).
