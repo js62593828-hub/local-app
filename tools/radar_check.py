@@ -9,7 +9,7 @@ BANNED = ["최고", "무조건", "100%", "완벽", "강력 추천", "1위", "써
 BANNED_RX = [r"(사용|써본|솔직|직접|체험)\s?후기"]
 RANGES = {"A": (1800, 2500, 5, 7), "B": (1300, 1800, 4, 6), "C": (1300, 1800, 4, 6)}
 KEYWORDS = {"A": "발난로", "B": "리웨이 355", "C": "브라운 BC02XW"}
-PLACEHOLDER = re.compile(r"^\[(이미지|상품카드|표|링크)[^\n]*\]$", re.M)
+PLACEHOLDER = re.compile(r"^\[(사진|상품카드|내부링크): [^\n]*\]$", re.M)
 NUM = re.compile(r"\d+(?:[.,]\d+)*")
 
 
@@ -47,11 +47,13 @@ def check_post(folder, key):
     first = next(l for l in post.splitlines() if l.strip())
     res["notice_ok"] = first.strip() == NOTICE
     # 6. 이미지
-    imgs = re.findall(r"\[이미지: ([^\]]+)\]", post)
+    # 새 표시 [사진: 번호] 의 번호로 폴더 안 사진 파일(이름에 그 번호가 들어간 이미지)을 찾는다
+    nums = re.findall(r"^\[사진: ?(\d+)\]$", post, re.M)
+    files = [f for f in os.listdir(folder) if f.lower().endswith((".png", ".jpg", ".jpeg")) and not f.lower().startswith("cover")]
     sizes = {}
-    for im in imgs:
-        p = os.path.join(folder, im)
-        sizes[im] = list(Image.open(p).size) if os.path.exists(p) else None
+    for n in nums:
+        hit = next((f for f in sorted(files) if re.search(r"(?<!\d)0*%s(?!\d)" % n, f)), None)
+        sizes["사진 " + n] = list(Image.open(os.path.join(folder, hit)).size) if hit else None
     res["image_sizes"] = sizes
     res["images_ok"] = bool(sizes) and all(v == [1080, 1080] for v in sizes.values())
     # 7. 표지 Desk Picker 표기 (메타 + 오른쪽 아래 영역에 글씨 픽셀이 실제로 있는지)
