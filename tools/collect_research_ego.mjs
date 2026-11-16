@@ -84,7 +84,10 @@ async function collectSorted(sortName, want) {
 }
 
 const results = [];
+let firstItem = true;
 for (const it of JOB.items) {
+  if (!firstItem) await wait(3000 + Math.floor(Math.random() * 2000)); // 페이지 사이 3~5초
+  firstItem = false;
   const rec = { product_id: it.product_id, name: it.name, page_url: it.product_url, error: null };
   try {
     // 1) 브랜드커넥트 상품 정보(가격·평점·리뷰 수·수수료, 스토어 주소)
@@ -121,6 +124,42 @@ for (const it of JOB.items) {
       };
     });
     Object.assign(rec, { page_name: top.h, page_title: top.title, rating: num(top.rating), rating_6m: num(top.rating_6m), review_count: num(top.review_count), price: num(top.price), list_price: num(top.list_price), main_image_url: top.main_image });
+    // 2b) 추가 이미지: 이미 연 이 페이지의 넘겨 보는 목록(캐러셀)에서 원본 주소로 받는다(페이지를 더 열지 않음)
+    if (it.img_dir && !it.skip_images) {
+      try {
+        const car = await page.evaluate(() => [...document.querySelectorAll("img")].filter(i => i.alt === "대표이미지").map(i => {
+          const r = i.getBoundingClientRect();
+          return { url: i.getAttribute("data-src") || i.currentSrc || i.src, x: Math.round(r.x) };
+        }));
+        const strip = u => u.replace(/\?.*$/, "");
+        const seen = new Set(), list = [];
+        for (const c of car) { const u = strip(c.url); if (u && !seen.has(u)) { seen.add(u); list.push({ url: u, x: c.x }); } }
+        rec.carousel_total = list.length;
+        // 대표 이미지(승인 목록 주소와 같은 것)를 첫 장으로. 그보다 앞에 있던 것은 목록 끝(한 바퀴 돌아온 칸)일 수 있어 '순서 확인 필요'
+        let ri = it.rep_hint ? list.findIndex(c => c.url.includes(it.rep_hint)) : -1;
+        rec.rep_found_in_carousel = ri >= 0;
+        if (ri < 0) ri = 0;
+        const ordered = [...list.slice(ri).map(c => ({ ...c, order_uncertain: false })), ...list.slice(0, ri).map(c => ({ ...c, order_uncertain: true }))].slice(0, JOB.max_images || 10);
+        await fs.mkdir(it.img_dir, { recursive: true });
+        rec.images = [];
+        let n = 0;
+        for (const c of ordered) {
+          n += 1;
+          const row = { n, url: c.url, x: c.x, order_uncertain: c.order_uncertain };
+          try {
+            const res = await fetch(c.url);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const ct = res.headers.get("content-type") || "";
+            const ext = /png/.test(ct) ? "png" : /webp/.test(ct) ? "webp" : /gif/.test(ct) ? "gif" : "jpg";
+            const buf = Buffer.from(await res.arrayBuffer());
+            row.file = (n === 1 ? "01_rep" : String(n).padStart(2, "0")) + "." + ext;
+            await fs.writeFile(it.img_dir + "/" + row.file, buf);
+            row.bytes = buf.length; row.type = ct;
+          } catch (e) { row.error = String(e.message).slice(0, 120); }
+          rec.images.push(row);
+        }
+      } catch (e) { rec.images_error = String(e.message).slice(0, 160); }
+    }
     // 3) 상품정보 제공고시(사양 표)
     await page.evaluate(() => { const b = [...document.querySelectorAll("button")].find(e => e.innerText.trim() === "상품정보 제공고시"); if (b) b.scrollIntoView({ block: "center" }); });
     await wait(600);

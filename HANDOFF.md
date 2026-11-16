@@ -1,3 +1,7 @@
+## 완료 (2026-11-17) — N데스크피커 GIF 프레임 F2 확정 + 추가 이미지 수집(앱 코드 수정 없음)
+- 바뀐 것: tools/radar_gif.py(F2·디더링 기본, 갈래·짧은 이름 글자), tools/collect_research.py·collect_research_ego.mjs(추가 이미지 10장·images.json·짧은 이름·--gif·--refresh-images). 사용: python -I tools/collect_research.py --run <실행> --ids <상품id> --gif (받은 상품은 이미지를 다시 받지 않음)
+- 남은 것: 편집기(앱) 연결, 발행 글 주소 칸. 글자 많음·제품 보임은 자동 추정이라 틀릴 수 있어 research/_img/<id>/overrides.json 으로 고침. 근거 preview/radar_gif_final/verify.md
+
 ## 완료 (2026-11-17) — N데스크피커 상품 GIF 시범(앱 코드 수정 없음)
 - 집 PC 에서 커밋 필요: tools/radar_gif.py(새 파일), preview/radar_gif_test/ (이 PC 의 %LOCALAPPDATA%\local-app-git 에는 커밋함)
 - 결과·근거: preview/radar_gif_test/REPORT.md. 앱이 아직 radar_gif.py 를 불러오지 않음

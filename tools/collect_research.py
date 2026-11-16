@@ -8,12 +8,19 @@
 - 이미지: <실행>/img/k<키워드번호>_r<순위>.jpg 가 있으면 경로만 적고, 없으면 대표 이미지 1장을 img/<상품id>.jpg 로 저장(가공 없음).
 - 브라우저 동작은 tools/collect_research_ego.mjs (ego lite) 가 한다. 로그인 화면이 나오면 멈추고 알린다.
 - 앱 데이터(content_queue*·articles*)·links.json 은 읽지도 고치지도 않는다(links.json 은 읽기만).
+- 추가 이미지: 이미 여는 상품 페이지의 넘겨 보는 목록(캐러셀)에서 최대 10장을 research/_img/<상품id>/ 에 01_rep, 02… 로 저장하고
+  images.json 에 크기·글자 많음·제품 보임·확인 필요를 적는다(자동 추정 + 같은 폴더 overrides.json 으로 사람이 고친 판정 덮어쓰기).
+  이미 받은 상품은 다시 받지 않는다(--refresh-images 때만). --gif 를 주면 수집 뒤 tools/radar_gif.py 로 <상품id>.gif 도 만든다.
+- research/<상품id>.md 에 `짧은 이름:`(브랜드+모델명 14자 안, 못 만들면 비우고 '확인 필요') 칸이 있다.
 """
-import argparse, json, os, re, shutil, subprocess, sys, tempfile
-from collections import OrderedDict
+import argparse, glob, json, os, re, shutil, subprocess, sys, tempfile
+from collections import Counter, OrderedDict
+from urllib.parse import unquote
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EGO_MJS = os.path.join(ROOT, "tools", "collect_research_ego.mjs")
+GIF_PY = os.path.join(ROOT, "tools", "radar_gif.py")
+MAX_IMAGES = 10
 
 
 def jload(p):
@@ -49,8 +56,17 @@ def pick_targets(run_dir, ids):
                 "name": p["name"], "product_url": lk["product_url"], "approved": p,
                 "existing_image": have if os.path.exists(have) else "",
                 "save_image_to": "" if os.path.exists(have) else os.path.join(img_dir, pid + ".jpg").replace("\\", "/"),
+                "img_dir": os.path.join(run_dir, "research", "_img", pid).replace("\\", "/"),
+                "rep_hint": rep_hint(p.get("image_url", "")),
             })
     return out
+
+
+def rep_hint(image_url):
+    """승인 목록의 대표 이미지 주소에서 원본 경로(20260708_43/…/….jpg)만 뽑는다. 캐러셀에서 대표 이미지를 찾는 데 쓴다."""
+    u = unquote(image_url or "")
+    m = re.search(r"pstatic\.net/([^\"?&]+?\.(?:jpg|jpeg|png|webp|gif))", u, re.I)
+    return m.group(1) if m else ""
 
 
 # ---------- 브라우저 실행 ----------
@@ -58,8 +74,8 @@ def run_ego(items, raw_dir, per_sort):
     exe = shutil.which("ego-browser")
     if not exe:
         sys.exit("ego-browser 를 찾을 수 없습니다.")
-    job = {"items": [{k: it[k] for k in ("product_id", "name", "product_url", "save_image_to")} for it in items],
-           "raw_dir": raw_dir.replace("\\", "/"), "per_sort": per_sort}
+    job = {"items": [{k: it[k] for k in ("product_id", "name", "product_url", "save_image_to", "img_dir", "rep_hint", "skip_images")} for it in items],
+           "raw_dir": raw_dir.replace("\\", "/"), "per_sort": per_sort, "max_images": MAX_IMAGES}
     tmp = tempfile.mkdtemp(prefix="collect_research_")
     wrapper = os.path.join(tmp, "run.mjs")
     with open(wrapper, "w", encoding="utf-8") as f:
@@ -374,6 +390,7 @@ def build(item, raw, expect, official=None):
     out["상품id"] = item["product_id"]
     out["상품명"] = raw.get("page_name") or item["name"]
     out["승인 목록 상품명"] = item["name"]
+    out["짧은 이름"] = make_short_name(item.get("keyword", ""), raw.get("page_name") or item["name"])
     out["페이지 URL"] = {"브랜드커넥트 상품 정보": item["product_url"], "네이버 쇼핑 상품 페이지": raw.get("final_url") or raw.get("store_url_from_page", "")}
     out["수집 시각"] = raw.get("collected_at", "")
     out["수집 결과"] = "실패: " + raw["error"] if raw.get("error") else "성공"
@@ -405,8 +422,17 @@ def verify_expect(specs, exp):
     return res
 
 
+def _short_line(o):
+    sn = o.get("짧은 이름")
+    if sn is None:  # 이 칸이 생기기 전에 만든 옛 파일
+        return "- 짧은 이름: (옛 파일 — 다시 수집하면 채워짐)"
+    if sn.get("값"):
+        return "- 짧은 이름: %s  〈%s〉" % (sn["값"], sn.get("출처", ""))
+    return "- 짧은 이름:\n  - 확인 필요: " + sn.get("확인 필요", "")
+
+
 def to_md(o):
-    L = ["> ※ 후기 장점·단점 개수는 낱말 규칙으로 센 대략값입니다(원고에 정확한 숫자로 쓰지 말 것).", "", "# " + o["상품명"], "", "- 상품id: " + o["상품id"], "- 수집 시각: " + o["수집 시각"], "- 수집 결과: " + o["수집 결과"],
+    L = ["> ※ 후기 장점·단점 개수는 낱말 규칙으로 센 대략값입니다(원고에 정확한 숫자로 쓰지 말 것).", "", "# " + o["상품명"], "", "- 상품id: " + o["상품id"], _short_line(o), "- 수집 시각: " + o["수집 시각"], "- 수집 결과: " + o["수집 결과"],
          "- 네이버 쇼핑 페이지: " + o["페이지 URL"]["네이버 쇼핑 상품 페이지"],
          "- 브랜드커넥트 상품 정보: " + o["페이지 URL"]["브랜드커넥트 상품 정보"], ""]
     p = o["가격(수집 시점)"]
@@ -436,6 +462,162 @@ def to_md(o):
         L += ["", "## verify (원고 값 ↔ 네이버 페이지 값)"]
         L += ["- %s: 원고 %s / 페이지 %s → %s" % (v["항목"], v["원고 값"], v["네이버 페이지 값"], "같음" if v["같음"] else "다름 또는 없음") for v in o["verify"]]
     return "\n".join(L) + "\n"
+
+
+# ---------- 추가 이미지 기록 (images.json) ----------
+def analyze_image(path):
+    """Pillow 만으로 하는 거친 자동 추정. 사진 속 제품이 보이는지는 배경이 한 색일 때만 판단하고, 아니면 '판정 불가'로 둔다.
+    정확하지 않으므로 같은 폴더 overrides.json 으로 사람이 고친 판정이 우선한다."""
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    w, h = im.size
+    sm = im.copy()
+    sm.thumbnail((320, 320))
+    W, H = sm.size
+    px = list(sm.getdata())
+    n = len(px)
+    # 배경 색: 가장 많은 색 덩어리
+    bucket = Counter((r // 24, g // 24, b // 24) for r, g, b in px)
+    bk, cnt = bucket.most_common(1)[0]
+    bg_share = cnt / n
+    members = [p for p in px if (p[0] // 24, p[1] // 24, p[2] // 24) == bk]
+    bg = tuple(sum(c[i] for c in members) / len(members) for i in range(3))
+    flat = bg_share >= 0.40
+    res = {"width": w, "height": h, "bytes": os.path.getsize(path), "배경 한 색 비율": round(bg_share, 2)}
+    # 글자 많음: 배경이 한 색 계열인 이미지에서, 가장자리(글자 획)가 있는 칸이 많으면
+    gray = sm.convert("L")
+    gp = list(gray.getdata())
+    edge = [0] * n
+    for y in range(H - 1):
+        for x in range(W - 1):
+            i = y * W + x
+            if abs(gp[i] - gp[i + 1]) + abs(gp[i] - gp[i + W]) > 70:
+                edge[i] = 1
+    cell = 16
+    cells = texty = 0
+    for cy in range(0, H - cell + 1, cell):
+        for cx in range(0, W - cell + 1, cell):
+            e = sum(edge[(cy + dy) * W + cx + dx] for dy in range(cell) for dx in range(cell)) / (cell * cell)
+            cells += 1
+            if 0.05 <= e <= 0.60:
+                texty += 1
+    tshare = texty / max(1, cells)
+    res["글자 칸 비율"] = round(tshare, 2)
+    res["글자 많음"] = bool(bg_share >= 0.30 and tshare >= 0.40)
+    res["글자 많음 근거"] = "자동 추정(가장자리 밀도)"
+    # 제품 보임: 배경이 한 색일 때만
+    if flat:
+        xs, ys, ex = [], [], 0
+        for i, p in enumerate(px):
+            if max(abs(p[0] - bg[0]), abs(p[1] - bg[1]), abs(p[2] - bg[2])) > 40:
+                xs.append(i % W)
+                ys.append(i // W)
+        if xs:
+            frac = (max(xs) - min(xs) + 1) * (max(ys) - min(ys) + 1) / (W * H)
+            side = lambda cond: sum(1 for k in range(len(xs)) if cond(xs[k], ys[k]))
+            touch = sum(1 for c, L in ((side(lambda x, y: x <= 1), H), (side(lambda x, y: x >= W - 2), H),
+                                       (side(lambda x, y: y <= 1), W), (side(lambda x, y: y >= H - 2), W)) if c >= 0.05 * L)
+            res["제품 영역 비율"] = round(frac, 2)
+            if frac < 0.12:
+                res.update({"제품 보임": "작음", "확인 필요": True, "확인 필요 이유": "흰 배경에서 제품이 작음(자동 추정)"})
+            elif touch >= 3:
+                res.update({"제품 보임": "일부만 보일 수 있음", "확인 필요": True, "확인 필요 이유": "제품이 화면 가장자리 3면 이상에 닿음(자동 추정)"})
+            else:
+                res.update({"제품 보임": "보임(자동 추정)", "확인 필요": False})
+        else:
+            res.update({"제품 보임": "판정 불가(빈 화면)", "확인 필요": True, "확인 필요 이유": "배경 말고 보이는 것이 없음"})
+    else:
+        res.update({"제품 보임": "판정 불가(배경이 복잡한 사진, 자동으로는 못 봄)", "확인 필요": False})
+    return res
+
+
+def write_images_json(item, raw, genre, short):
+    """수집 결과(raw['images'])로 research/_img/<상품id>/images.json 을 만든다. overrides.json 이 있으면 덮어쓴다."""
+    d = item["img_dir"]
+    rows = []
+    ov = {}
+    ovp = os.path.join(d, "overrides.json")
+    if os.path.exists(ovp):
+        ov = jload(ovp)
+    for r in raw.get("images", []):
+        row = OrderedDict([("순번", r["n"]), ("file", r.get("file", "")), ("원본 주소", r["url"]), ("순서 확인 필요", bool(r.get("order_uncertain")))])
+        if r.get("error") or not r.get("file"):
+            row["받기 실패"] = r.get("error", "파일 없음")
+            row["확인 필요"] = True
+            row["확인 필요 이유"] = "받기 실패"
+            rows.append(row)
+            continue
+        row.update(analyze_image(os.path.join(d, r["file"])))
+        row["판정 방법"] = "자동 추정"
+        fix = (ov.get("by_url") or {}).get(r["url"]) or (ov.get("by_file") or {}).get(r["file"])
+        if fix:
+            row.update(fix)
+            row["판정 방법"] = "사람이 지정(overrides.json)"
+        rows.append(row)
+    out = OrderedDict([("상품id", item["product_id"]), ("갈래", genre or ""), ("짧은 이름", short.get("값", "")),
+                       ("캐러셀 이미지 수", raw.get("carousel_total")), ("받은 이미지 수", sum(1 for r in rows if r.get("file") and not r.get("받기 실패"))),
+                       ("대표 이미지를 목록에서 찾음", raw.get("rep_found_in_carousel")), ("수집 시각", raw.get("collected_at", "")),
+                       ("주의", "글자 많음·제품 보임은 자동 추정이라 틀릴 수 있음. 고치려면 overrides.json 에 적는다."), ("images", rows)])
+    jsave(os.path.join(d, "images.json"), out)
+    return out
+
+
+def load_genre_map():
+    """pipeline/keyword_run/*_radar_naver/plan.json 에서 {검색어: 갈래}. 최신 계획이 우선."""
+    m = {}
+    for pp in sorted(glob.glob(os.path.join(ROOT, "pipeline", "keyword_run", "*_radar_naver", "plan.json")), reverse=True):
+        try:
+            for pl in jload(pp).get("plans", []):
+                g = (pl.get("radar") or {}).get("갈래")
+                if g and pl.get("keyword") and pl["keyword"] not in m:
+                    m[pl["keyword"]] = g
+        except Exception:
+            pass
+    return m
+
+
+# ---------- 짧은 이름 (브랜드 + 모델명, 14자 안) ----------
+SKIP_BRAND = {"삼성공식파트너", "공식", "정품", "국내정품", "신제품", "[N배송]", "[내일출발]", "공식판매처", "공식스토어"}
+
+
+def _is_model(tok):
+    t = tok.strip("()[],")
+    if not re.search(r"\d", t) or not re.search(r"[A-Za-z]", t) or len(t) < 2:
+        return False
+    if re.fullmatch(r"\d+(\.\d+)?[A-Za-z가-힣]+", t):  # 10000mAh, 45W, 180Hz 같은 수치는 모델명이 아니다
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9\-\+\.]*", t))
+
+
+def make_short_name(keyword, page_name):
+    """{'값','출처'} 또는 {'값':'','확인 필요':이유}. 지어내지 않고, 검색어·상품명에 있는 글자만 쓴다."""
+    kw = (keyword or "").strip()
+    toks = kw.split()
+    if len(toks) >= 2 and any(_is_model(t) for t in toks) and len(kw) <= 14:
+        return {"값": kw, "출처": "검색어"}
+    toks = (page_name or "").split()
+    for i, t in enumerate(toks):
+        if _is_model(t):
+            j = i - 1
+            while j >= 0 and (toks[j] in SKIP_BRAND or len(toks[j]) < 2 or toks[j].startswith("[")):
+                j -= 1
+            cand = (toks[j] + " " + t) if j >= 0 else t
+            if len(cand) <= 14:
+                return {"값": cand, "출처": "상품명(브랜드 추정)" if j >= 0 else "상품명(모델명만)"}
+            if len(t) <= 14:
+                return {"값": t, "출처": "상품명(모델명만)"}
+            break
+    return {"값": "", "확인 필요": "브랜드+모델명 14자 안으로 만들 수 없음"}
+
+
+# ---------- GIF 만들기 (--gif) ----------
+def run_gif(item, genre, short):
+    d = item["img_dir"]
+    if not os.path.exists(os.path.join(d, "images.json")):
+        return "GIF 없음(images.json 없음)"
+    cmd = [sys.executable, "-I", GIF_PY, "--src", d, "--out", os.path.join(d, item["product_id"]), "--genre", genre or "", "--name", short.get("값", "")]
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+    return (r.stdout.strip() or r.stderr.strip()[-300:])
 
 
 # ---------- 상세 이미지에서 읽은 사양 보충 (--fill-detail) ----------
@@ -523,6 +705,8 @@ def main():
     ap.add_argument("--official", default="", help="공식 페이지 주소 json {상품id: [주소,...]} (기본: <실행>/research/official.json). 있으면 받아서 부족한 사양만 보충")
     ap.add_argument("--refetch-official", action="store_true", help="공식 페이지를 다시 받음(기본은 _raw/official_<id>.json 재사용)")
     ap.add_argument("--fill-detail", action="store_true", help="브라우저·수집 없이, research/detail_values.json(상세 이미지를 읽어 적은 값)으로 '없음' 사양만 채우고 .md 를 다시 만듦")
+    ap.add_argument("--gif", action="store_true", help="수집 뒤 tools/radar_gif.py 로 research/_img/<상품id>/<상품id>.gif 를 만든다(기본 꺼짐)")
+    ap.add_argument("--refresh-images", action="store_true", help="이미 받은 추가 이미지도 다시 받는다(기본은 받은 상품은 건너뜀)")
     ap.add_argument("--parse-only", action="store_true", help="브라우저 없이 research/_raw 로 요약 파일만 다시 만듦")
     a = ap.parse_args()
     run_dir = a.run if os.path.isdir(a.run) else os.path.join(ROOT, "pipeline", "candidates_run", a.run)
@@ -538,6 +722,13 @@ def main():
     if not items:
         sys.exit("대상 상품이 없습니다.")
     print("대상 %d개: %s" % (len(items), [i["product_id"] for i in items]))
+    for it in items:
+        done = os.path.exists(os.path.join(it["img_dir"], "images.json"))
+        it["skip_images"] = bool(done and not a.refresh_images)
+        if done and a.refresh_images and not a.parse_only:  # 옛 이미지 파일만 지움(overrides.json 은 남김)
+            for f in glob.glob(os.path.join(it["img_dir"], "*")):
+                if os.path.basename(f) != "overrides.json" and os.path.isfile(f):
+                    os.remove(f)
     if not a.parse_only:
         for it in items:  # 옛 수집 파일이 성공으로 잘못 세어지지 않도록, 이번에 다시 받을 상품의 옛 파일은 지운다
             old = os.path.join(raw_dir, it["product_id"] + ".json")
@@ -549,6 +740,7 @@ def main():
     off_path = a.official or os.path.join(rdir, "official.json")
     off_urls = jload(off_path) if os.path.exists(off_path) else {}
     ok = fail = 0
+    genre_map = load_genre_map()
     for it in items:
         rp = os.path.join(raw_dir, it["product_id"] + ".json")
         raw = jload(rp) if os.path.exists(rp) else {"error": "수집 파일 없음"}
@@ -561,7 +753,17 @@ def main():
             fail += 1
         else:
             ok += 1
-        print(it["product_id"], o["수집 결과"], "| 이미지:", o["이미지"]["상태"])
+        print(it["product_id"], o["수집 결과"], "| 이미지:", o["이미지"]["상태"], "| 짧은 이름:", o["짧은 이름"].get("값") or "(비움: 확인 필요)")
+        genre = genre_map.get(it.get("keyword", ""), "")
+        if raw.get("images") and not it["skip_images"]:
+            ij = write_images_json(it, raw, genre, o["짧은 이름"])
+            print("  추가 이미지: 받음 %s장 (목록 %s장)" % (ij["받은 이미지 수"], ij["캐러셀 이미지 수"]))
+        elif it["skip_images"]:
+            print("  추가 이미지: 이미 받음 — 건너뜀")
+        elif not raw.get("error"):
+            print("  추가 이미지: 못 받음", raw.get("images_error", ""))
+        if a.gif and not raw.get("error"):
+            print("  GIF:", run_gif(it, genre, o["짧은 이름"]))
     print("성공 %d / 실패 %d" % (ok, fail))
 
 
