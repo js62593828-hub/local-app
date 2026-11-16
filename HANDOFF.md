@@ -1,3 +1,10 @@
+## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋됨)
+- 바뀐 파일: radar_images.py, tools/radar_images_trial.py, tools/radar_rules.md([표지]·이미지 줄만), HANDOFF.md
+- 내용: N데스크피커 표지를 시안 A 하나로(범주 32px·제목 56~88px·부제 38px·사진 70%·틀 A 모음형), 검수 권장 3건 고침. 근거 preview/radar_images_v2/verify.md
+
+## 완료 (2026-11-16) — N데스크피커 표지 시안 A 확정 + 시범 v2
+- 결과: preview/radar_images_v2/ (verify.md · feed_preview.jpg · contact_sheet.jpg · 글별 cover_a.jpg). 다시 만들기: python tools/radar_images_trial.py (비용 0원)
+
 ## 집 PC 에서 커밋 필요 (2026-11-16, 이 PC 임시 저장소 %LOCALAPPDATA%\local-app-git 에는 커밋함)
 - 바뀐 파일: radar_images.py(새 파일), tools/radar_images_trial.py(새 파일), HANDOFF.md
 

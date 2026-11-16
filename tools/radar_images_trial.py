@@ -1,7 +1,8 @@
 """
-N데스크피커 사진 모듈 시범 실행 (radar_images.py v1)
+N데스크피커 사진 모듈 시범 실행 (radar_images.py v2 — 표지는 시안 A 하나)
   - 시범 원고 3편(pipeline/radar_drafts/trial_1116/)만 읽는다(읽기 전용).
-  - 결과는 preview/radar_images_v1/ 에만 쓴다. 앱 데이터는 건드리지 않는다.
+  - 결과는 preview/radar_images_v2/ 에만 쓴다. 앱 데이터는 건드리지 않는다.
+  - 원고(post.txt)나 메모(memo.txt)에 [표지] 블록이 있으면 그 값(범주·제목·부제·사진)을 쓰고, 없을 때만 아래 POSTS 값을 쓴다.
   - 이미지 생성 AI·네이버·Claude 호출 0회(AI 사진은 프롬프트 글만 저장).
 실행:  python tools/radar_images_trial.py
 """
@@ -19,7 +20,7 @@ import radar_images as ri  # noqa: E402
 
 TRIAL = os.path.join(ROOT, "pipeline", "radar_drafts", "trial_1116")
 WORK_IMG = os.path.join(TRIAL, "_work", "img")
-OUT = os.path.join(ROOT, "preview", "radar_images_v1")
+OUT = os.path.join(ROOT, "preview", "radar_images_v2")
 
 DATE_NOTE = "작성일 2026년 11월 15일 기준 · 가격은 변동 가능"
 
@@ -36,30 +37,48 @@ def title_of(d):
     return d
 
 
-# 표지에 들어갈 글(범주·제목·부제) — 제목·부제는 원고에 있는 말만
+# 표지에 들어갈 글(범주·제목·부제) — 원고에 [표지] 블록이 없을 때만 쓰는 값. 제목·부제는 원고에 있는 말만.
+# cover_photos 는 후보 목록: 틀 A 는 흰 배경 사진이 2개 이상이면 모음형, 아니면 맨 앞 사진 한 장.
 POSTS = {
     "A_발난로_고르는법": {
         "frame": "A",
         "category": "난방",
         "title": "발난로 고르는 법",
         "subtitle": "책상 밑에 둘 때 볼 기준",
-        "cover_photo": os.path.join(TRIAL, "A_발난로_고르는법", "img1.jpg"),
+        "cover_photos": [
+            os.path.join(TRIAL, "A_발난로_고르는법", "img1.jpg"),
+            os.path.join(WORK_IMG, "onhour", "m00.jpg"),
+            os.path.join(WORK_IMG, "macaron", "m02.jpg"),
+            os.path.join(WORK_IMG, "wleg", "m01.jpg"),
+            os.path.join(WORK_IMG, "shinil", "m00.jpg"),
+        ],
     },
     "B_리웨이355": {
         "frame": "B",
         "category": "난방",
-        "title": "리웨이 355 파티션히터",
+        "title": "리웨이 355",
         "subtitle": "무릎 아래를 둘러싸는",
-        "cover_photo": os.path.join(TRIAL, "B_리웨이355", "img1.jpg"),
+        "cover_photos": [os.path.join(TRIAL, "B_리웨이355", "img1.jpg")],
     },
     "C_브라운BC02XW": {
         "frame": "B",
         "category": "책상 소품",
-        "title": "브라운 BC02XW 알람시계",
+        "title": "브라운 BC02XW",
         "subtitle": "책상 위에 둘 작고 조용한",
-        "cover_photo": os.path.join(WORK_IMG, "c_bc02xw", "m00.jpg"),  # 흰 배경 제품 사진
+        "cover_photos": [os.path.join(WORK_IMG, "c_bc02xw", "m00.jpg")],  # 흰 배경 제품 사진
     },
 }
+
+
+def cover_spec(d, spec, text):
+    """표지 글·사진: 메모의 [표지] 블록이 있으면 그 값, 없는 칸은 POSTS 값. 반환: (범주, 제목, 부제, 사진목록, 출처)."""
+    memo_path = os.path.join(TRIAL, d, "memo.txt")
+    memo = ri.parse_cover_memo(text) or (ri.parse_cover_memo(read(memo_path)) if os.path.exists(memo_path) else None)
+    if not memo:
+        return spec["category"], spec["title"], spec["subtitle"], spec["cover_photos"], "원고에서 뽑음(메모 [표지] 없음)"
+    photos = [x if os.path.isabs(x) else os.path.join(TRIAL, d, x) for x in memo.get("사진목록", [])] or spec["cover_photos"]
+    return (memo.get("범주", spec["category"]), memo.get("제목", spec["title"]), memo.get("부제", spec["subtitle"]),
+            photos, "메모 [표지] 블록")
 
 
 def body_plan(d, text, tables):
@@ -136,13 +155,14 @@ def main():
         os.makedirs(folder, exist_ok=True)
         n_target = ri.body_photo_count(text)
         info = {"chars_no_space": ri.body_chars(text), "n_target": n_target, "frame": spec["frame"], "covers": {}, "photos": []}
-        # 표지 3안
-        cover_files[d] = {}
-        for v in "ABC":
-            p = os.path.join(folder, f"cover_{v}.jpg")
-            meta = ri.make_cover(spec["cover_photo"], p, spec["category"], spec["title"], spec["subtitle"], v)
-            info["covers"][v] = meta
-            cover_files[d][v] = p
+        # 표지: 시안 A 하나
+        cat, ttl, sub, photos, src = cover_spec(d, spec, text)
+        spec = dict(spec, category=cat, title=ttl, subtitle=sub)
+        p = os.path.join(folder, "cover_a.jpg")
+        meta = ri.make_cover(photos, p, cat, ttl, sub, "A", frame=spec["frame"])
+        meta["source"] = src
+        info["covers"]["A"] = meta
+        cover_files[d] = {"A": p}
         # 본문 사진
         plan = body_plan(d, text, tables)
         body_files[d] = []
@@ -200,23 +220,8 @@ def main():
 
 def make_sheets(cover_files, body_files):
     names = list(cover_files)
-    F, FB = ri.font(False, 26), ri.font(True, 30)
-    # 표지 시안 비교 3x3
-    T, gap, left, top = 520, 20, 150, 70
-    W = left + 3 * (T + gap) + gap
-    H = top + len(names) * (T + gap) + gap
-    sheet = Image.new("RGB", (W, H), (255, 255, 255))
-    d = ImageDraw.Draw(sheet)
-    for ci, v in enumerate("ABC"):
-        d.text((left + gap + ci * (T + gap), 36), f"시안 {v} · {ri.THEMES[v]['name']}", font=FB, fill=(30, 30, 30), anchor="ls")
-    for ri_, n in enumerate(names):
-        y = top + gap + ri_ * (T + gap)
-        d.text((12, y + T // 2), n[0] + "편", font=FB, fill=(30, 30, 30), anchor="lm")
-        for ci, v in enumerate("ABC"):
-            sheet.paste(Image.open(cover_files[n][v]).resize((T, T), Image.LANCZOS), (left + gap + ci * (T + gap), y))
-    sheet.save(os.path.join(OUT, "cover_compare.jpg"), quality=92)
-
-    # 전체 모음(시안 A) : 글마다 한 줄 = 표지 + 본문 5장
+    F = ri.font(False, 26)
+    # 전체 모음 : 글마다 한 줄 = 표지 + 본문 5장
     t, g = 250, 14
     cols = 6
     sheet = Image.new("RGB", (cols * (t + g) + g, len(names) * (t + g + 64) + g), (240, 238, 234))
@@ -227,7 +232,7 @@ def make_sheets(cover_files, body_files):
         tiles = [("표지(시안 A)", cover_files[n]["A"])] + [(f"{e['no']} {e['type_ko']}", p) for e, p in body_files[n]]
         for c, (label, p) in enumerate(tiles):
             x = g + c * (t + g)
-            if p:
+            if p and os.path.exists(p):
                 im = Image.open(p).convert("RGB")
                 im.thumbnail((t, t), Image.LANCZOS)
                 sheet.paste(im, (x + (t - im.width) // 2, y + 34 + (t - im.height) // 2))
@@ -237,12 +242,15 @@ def make_sheets(cover_files, body_files):
             d.text((x + 4, y + 34 + t + 24), label, font=ri.font(False, 22), fill=(60, 60, 60), anchor="ls")
     sheet.save(os.path.join(OUT, "contact_sheet.jpg"), quality=90)
 
-    # 네이버 글 목록처럼 2열 미리보기(표지 시안 A + 제목)
+    # 네이버 글 목록처럼 2열 미리보기: 위 = 표지 504px(2열), 아래 = 표지를 300px 로 줄인 모습
     cw, gx, gy, m = 504, 24, 30, 24
     rows = (len(names) + 1) // 2
     tf = ri.font(True, 29)
     cell_h = cw + 24 + 2 * 40 + 34
-    sheet = Image.new("RGB", (2 * cw + gx + 2 * m, m + rows * (cell_h + gy)), (255, 255, 255))
+    sm = 300
+    small_h = 70 + sm + 24 + 2 * 30 + 24
+    W = 2 * cw + gx + 2 * m
+    sheet = Image.new("RGB", (W, m + rows * (cell_h + gy) + small_h + m), (255, 255, 255))
     d = ImageDraw.Draw(sheet)
     for i, n in enumerate(names):
         x = m + (i % 2) * (cw + gx)
@@ -253,6 +261,17 @@ def make_sheets(cover_files, body_files):
             d.text((x, yy), ln, font=tf, fill=(34, 38, 43), anchor="ls")
             yy += 40
         d.text((x, yy + 6), "데스크피커 · 2026.11.15", font=ri.font(False, 22), fill=(140, 140, 140), anchor="ls")
+    y0 = m + rows * (cell_h + gy)
+    d.line([(m, y0 - 10), (W - m, y0 - 10)], fill=(225, 225, 225), width=2)
+    d.text((m, y0 + 36), "표지를 300px 로 줄인 모습(작은 목록에서 보이는 크기)", font=ri.font(True, 26), fill=(34, 38, 43), anchor="ls")
+    gap3 = (W - 2 * m - 3 * sm) // 2
+    for i, n in enumerate(names):
+        x = m + i * (sm + gap3)
+        sheet.paste(Image.open(cover_files[n]["A"]).resize((sm, sm), Image.LANCZOS), (x, y0 + 60))
+        yy = y0 + 60 + sm + 30
+        for ln in ri.wrap(title_of(n), ri.font(True, 22), sm)[:2]:
+            d.text((x, yy), ln, font=ri.font(True, 22), fill=(34, 38, 43), anchor="ls")
+            yy += 30
     sheet.save(os.path.join(OUT, "feed_preview.jpg"), quality=92)
 
 

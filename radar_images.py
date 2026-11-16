@@ -2,7 +2,7 @@
 N데스크피커 글 사진 만들기 (Pillow, 비용 0원 · 이미지 생성 AI 호출 없음)
 
 만드는 것
-  표지 1장(1080x1080)  : 시안 A·B·C — make_cover()
+  표지 1장(1080x1080)  : 시안 A 가 기본(B·C 는 옵션) — make_cover(), 메모 [표지] 읽기 parse_cover_memo()
   본문 사진            : 제품 사진 정리 product_photo(), 표 그림 table_image(),
                          카드 card_image(), 캡처 자리 capture_placeholder(),
                          AI 장면 사진 ai_prompt() (프롬프트 글만 만듦, 실제 호출 안 함)
@@ -45,6 +45,13 @@ THEMES = {
 
 COVER_TOP_RATIO = 0.64
 COVER_TOP_H = round(SIZE * COVER_TOP_RATIO)  # 691
+DEFAULT_VARIANT = "A"        # 기본 표지는 시안 A 하나(B·C 는 variant 로 고를 때만)
+COVER_PHOTO_RATIO = 0.70     # 제품 사진 영역 가로 비율(표지 폭 대비)
+COVER_CAT_PX = 32
+COVER_TITLE_MAX, COVER_TITLE_MIN = 88, 56
+COVER_TITLE_FILL = 0.85      # 제목 가로 폭 상한(띠 안쪽 너비 대비)
+COVER_SUB_PX = 38
+COVER_MAX_COLLECT = 3        # 모음형 표지 최대 사진 수
 
 _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 _BOLD = [os.path.join(_FONT_DIR, "Pretendard-ExtraBold.otf"), "C:\\Windows\\Fonts\\malgunbd.ttf"]
@@ -222,34 +229,47 @@ def _fit(size, box_w, box_h):
     return max(1, round(w * s)), max(1, round(h * s))
 
 
+def _white_prepared(src):
+    """흰 배경 사진 → (제품 영역만 자른 RGB lvl, 제품 마스크 prod). 흰 배경이 아니면 None."""
+    im = Image.open(src).convert("RGB")
+    if not is_plain_white_bg(im):
+        return None
+    lvl, prod, box = _white_cutout(im)
+    pad = round(min(im.size) * 0.02)
+    box = (max(0, box[0] - pad), max(0, box[1] - pad), min(im.width, box[2] + pad), min(im.height, box[3] + pad))
+    return lvl.crop(box), prod.crop(box)
+
+
+def _paste_white(canvas, lvl, prod, px, py):
+    """제품(배경색과 곱해 섞음) + 제품 아래 타원 그림자. 한 장·모음형이 같은 그림자를 쓴다."""
+    nw, nh = lvl.size
+    pb = prod.getbbox() or (0, 0, nw, nh)
+    bottom = py + pb[3]
+    cx = px + nw / 2
+    draw_ellipse_shadow(canvas, cx, bottom - 4, (pb[2] - pb[0]) * 0.85, h=max(22, nh * 0.055), blur=15, opacity=0.34)
+    region = canvas.crop((px, py, px + nw, py + nh))
+    canvas.paste(ImageChops.multiply(lvl, region), (px, py))
+
+
 def place_product(canvas, src, area, radius=30):
     """사진을 area=(x0,y0,x1,y1) 안 가운데에 비율 그대로 놓고 그림자를 깐다.
     - 흰 배경: 제품만 오려 배경과 섞음 + 제품 아래 타원 그림자
     - 복잡한 배경: 둥근 모서리 사각형 + 아래 타원 그림자
     반환: dict(mode, box)"""
-    im = Image.open(src).convert("RGB")
     x0, y0, x1, y1 = area
     aw, ah = x1 - x0, y1 - y0
     cx = (x0 + x1) / 2
-    if is_plain_white_bg(im):
-        lvl, prod, box = _white_cutout(im)
-        pad = round(min(im.size) * 0.02)
-        box = (max(0, box[0] - pad), max(0, box[1] - pad), min(im.width, box[2] + pad), min(im.height, box[3] + pad))
-        lvl, prod = lvl.crop(box), prod.crop(box)
+    prep = _white_prepared(src)
+    if prep is not None:
+        lvl, prod = prep
         # 그림자 자리를 위해 높이를 조금 남긴다
         nw, nh = _fit(lvl.size, aw, ah - 36)
         lvl = lvl.resize((nw, nh), Image.LANCZOS)
         prod = prod.resize((nw, nh), Image.LANCZOS)
         px, py = round(cx - nw / 2), round(y0 + (ah - 36 - nh) / 2 + 6)
-        # 제품 아래 그림자(먼저 깐다)
-        pb = prod.getbbox() or (0, 0, nw, nh)
-        bottom = py + pb[3]
-        draw_ellipse_shadow(canvas, cx, bottom - 4, (pb[2] - pb[0]) * 0.85, h=max(22, nh * 0.055), blur=15, opacity=0.34)
-        region = canvas.crop((px, py, px + nw, py + nh))
-        multiplied = ImageChops.multiply(lvl, region)
-        blended = multiplied  # 전체를 배경색과 곱해 섞는다(안쪽 흰색도 배경 톤으로 — 번짐·얼룩 없음)
-        canvas.paste(blended, (px, py))
+        _paste_white(canvas, lvl, prod, px, py)
         return {"mode": "white_blend", "box": [px, py, px + nw, py + nh]}
+    im = Image.open(src).convert("RGB")
     im = _trim_blank_edges(im)
     nw, nh = _fit(im.size, aw, ah - 28)
     im = im.resize((nw, nh), Image.LANCZOS)
@@ -265,47 +285,124 @@ def place_product(canvas, src, area, radius=30):
     return {"mode": "rounded_rect", "box": [px, py, px + nw, py + nh]}
 
 
+def white_bg_photos(paths, limit=COVER_MAX_COLLECT):
+    """후보 사진 중 흰 배경(누끼) 사진만 순서대로 최대 limit 개."""
+    out = []
+    for p in paths:
+        if len(out) >= limit:
+            break
+        if os.path.exists(p) and is_plain_white_bg(Image.open(p)):
+            out.append(p)
+    return out
+
+
+def place_collection(canvas, srcs, area, gap=36):
+    """흰 배경 제품 사진 2~3개를 나란히(겹치지 않게, 비율 그대로, 같은 그림자).
+    높이를 똑같이 맞추고, 가로가 모자라면 같은 비율로 같이 줄인다. 반환: dict(mode, boxes)."""
+    x0, y0, x1, y1 = area
+    aw, ah = x1 - x0, y1 - y0
+    preps = [_white_prepared(s) for s in srcs]
+    if any(p is None for p in preps):
+        raise ValueError("모음형은 흰 배경 사진만 쓸 수 있어요")
+    th = ah - 36
+    ratios = [p[0].width / p[0].height for p in preps]
+    if sum(r * th for r in ratios) + gap * (len(preps) - 1) > aw:
+        th = (aw - gap * (len(preps) - 1)) / sum(ratios)
+    th = int(th)
+    sizes = [(max(1, round(r * th)), th) for r in ratios]
+    total_w = sum(w for w, _ in sizes) + gap * (len(sizes) - 1)
+    x = round(x0 + (aw - total_w) / 2)
+    py = round(y0 + (ah - 36 - th) / 2 + 6)
+    boxes = []
+    for (lvl, prod), (nw, nh) in zip(preps, sizes):
+        lvl = lvl.resize((nw, nh), Image.LANCZOS)
+        prod = prod.resize((nw, nh), Image.LANCZOS)
+        _paste_white(canvas, lvl, prod, x, py)
+        boxes.append([x, py, x + nw, py + nh])
+        x += nw + gap
+    return {"mode": "collection", "boxes": boxes, "box": [boxes[0][0], py, boxes[-1][2], py + th]}
+
+
 # ── ① 표지 ──────────────────────────────────────────────────
-def make_cover(photo, out_path, category, title, subtitle, variant="A"):
-    """표지 1080x1080. 위 64% 사진 + 아래 36% 단색 띠. 반환: 메모(글자 크기·넘침 여부 등)."""
+def parse_cover_memo(text):
+    """원고 메모의 [표지] 블록을 읽는다. 줄마다 '이름: 값'(범주·제목·부제·사진), 빈 줄이나 다음 [..] 에서 끝.
+    반환: dict(범주·제목·부제·사진목록) — 블록이 없으면 None. 없는 칸은 키를 넣지 않는다."""
+    lines = text.split("\n")
+    start = next((i for i, ln in enumerate(lines) if ln.strip() == "[표지]"), None)
+    if start is None:
+        return None
+    out = {}
+    for ln in lines[start + 1:]:
+        if not ln.strip() or ln.strip().startswith("["):
+            break
+        m = re.match(r"\s*(범주|제목|부제|사진)\s*:\s*(.*?)\s*(?:←.*)?$", ln)
+        if m and m.group(2):
+            out[m.group(1)] = m.group(2)
+    if "사진" in out:
+        out["사진목록"] = [x.strip() for x in re.split(r"[|,]", out.pop("사진")) if x.strip()]
+    return out or None
+
+
+def fit_title_px(title, max_w, f_max=COVER_TITLE_MAX, f_min=COVER_TITLE_MIN):
+    """max_w 를 넘지 않는 가장 큰 제목 글자 크기(f_min~f_max). f_min 에서도 넘으면 (f_min, False)."""
+    for px in range(f_max, f_min - 1, -1):
+        if text_w(font(True, px), title) <= max_w:
+            return px, True
+    return f_min, False
+
+
+def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIANT, frame=None):
+    """표지 1080x1080. 위 64% 사진 + 아래 36% 단색 띠. 반환: 메모(글자 크기·넘침 여부·쓴 사진 등).
+    photo: 사진 경로 하나, 또는 후보 경로 목록. frame="A"(고르는 법) 이고 목록 안에 흰 배경 사진이 2개 이상이면
+    2~3개 모음형으로, 아니면 첫 번째 사진 한 장으로 만든다."""
     th = THEMES[variant]
-    meta = {"variant": variant, "category": category, "title": title, "subtitle": subtitle, "warnings": []}
+    meta = {"variant": variant, "frame": frame, "category": category, "title": title, "subtitle": subtitle, "warnings": []}
     canvas = Image.new("RGB", (SIZE, SIZE), th["band"])
     canvas.paste(gradient_bg(SIZE, COVER_TOP_H), (0, 0))
 
-    pad_y = 46
-    meta["photo"] = place_product(canvas, photo, (MARGIN, pad_y, SIZE - MARGIN, COVER_TOP_H - 14))
+    cands = [photo] if isinstance(photo, str) else list(photo)
+    pw = round(SIZE * COVER_PHOTO_RATIO)
+    area = ((SIZE - pw) // 2, 46, (SIZE - pw) // 2 + pw, COVER_TOP_H - 14)
+    whites = white_bg_photos(cands) if frame == "A" and len(cands) > 1 else []
+    if len(whites) >= 2:
+        meta["photo"] = place_collection(canvas, whites, area)
+        meta["photo"]["files"] = whites
+    else:
+        if frame == "A" and len(cands) > 1:
+            meta["warnings"].append("흰 배경 사진이 2개 미만이라 모음형 대신 한 장으로 만듦")
+        meta["photo"] = place_product(canvas, cands[0], area)
+        meta["photo"]["files"] = [cands[0]]
 
     d = ImageDraw.Draw(canvas)
     band_top = COVER_TOP_H
     d.line([(0, band_top), (SIZE, band_top)], fill=th["accent"], width=1)  # 강조색 1px 선
 
-    # 글자 크기 맞추기
-    max_w = SIZE - MARGIN * 2
-    tsize = 72
+    # 글자 크기 맞추기: 제목은 띠 안쪽 너비의 85% 안에서 가장 크게(88~56px)
+    inner_w = SIZE - MARGIN * 2
     meta["title_chars"] = len(title)
     if len(title) > 12:
-        # 12자를 넘으면 넘친 글자 1개당 3px 씩 줄인다(최소 56px)
-        tsize = max(56, 72 - 3 * (len(title) - 12))
-    while tsize > 56 and text_w(font(True, tsize), title) > max_w:
-        tsize -= 2
-    meta["title_shrunk"] = tsize < 72
-    if text_w(font(True, tsize), title) > max_w:
-        meta["warnings"].append("제목이 56px 에서도 한 줄에 안 들어감(넘침)")
+        meta["warnings"].append(f"제목 {len(title)}자(12자 초과)")
+    tsize, ok = fit_title_px(title, inner_w * COVER_TITLE_FILL)
+    if not ok:
+        meta["warnings"].append(f"제목이 {COVER_TITLE_MIN}px 에서도 띠 너비의 85%를 넘음")
+    if text_w(font(True, tsize), title) > inner_w:
+        meta["warnings"].append("제목이 한 줄에 안 들어감(넘침)")
     meta["title_px"] = tsize
-    ssize = 34
-    while ssize > 32 and text_w(font(False, ssize), subtitle) > max_w:
+    meta["title_shrunk"] = tsize < COVER_TITLE_MAX
+    ssize = COVER_SUB_PX
+    while ssize > 32 and text_w(font(False, ssize), subtitle) > inner_w:
         ssize -= 1
     if len(subtitle) > 16:
         meta["warnings"].append(f"부제 {len(subtitle)}자(16자 초과)")
-    if text_w(font(False, ssize), subtitle) > max_w:
+    if text_w(font(False, ssize), subtitle) > inner_w:
         meta["warnings"].append("부제가 32px 에서도 한 줄에 안 들어감(넘침)")
     meta["subtitle_px"] = ssize
+    meta["category_px"] = COVER_CAT_PX
 
-    cat_f, title_f, sub_f = font(True, 26), font(True, tsize), font(False, ssize)
+    cat_f, title_f, sub_f = font(True, COVER_CAT_PX), font(True, tsize), font(False, ssize)
     # 세로 배치(기준선): 범주 → 제목 → 막대 → 부제. 띠 안에서 가운데 맞춤.
     gaps = (26, 34, 28)  # 범주↔제목, 제목↔막대, 막대↔부제 (글자 위쪽 여백 포함)
-    h_cat, h_title, h_sub = 26 * 0.75, tsize * 0.80, ssize * 0.80
+    h_cat, h_title, h_sub = COVER_CAT_PX * 0.75, tsize * 0.80, ssize * 0.80
     total = h_cat + gaps[0] + h_title + gaps[1] + 4 + gaps[2] + h_sub
     top = band_top + (SIZE - band_top - total) / 2 - 8
     y = top + h_cat
@@ -422,10 +519,19 @@ def table_image(rows, out_path, title, kicker="", footnote="", accent=GOLD):
     정사각(1080)에 안 들어가면 세로를 늘려 최대 1350. 반환: dict(height, font_px, tall, warnings)."""
     W = SIZE - 2 * 56
     info = {"warnings": []}
+    rows = [list(r) for r in (rows or []) if r]
+    if not rows or not rows[0]:
+        info["warnings"].append("표가 비어 있어 그림을 만들지 않음")
+        info.update({"skipped": True, "rows": 0, "cols": 0, "height": 0, "font_px": 0, "tall": False})
+        return info
+    ncol = len(rows[0])
+    bad = sum(1 for r in rows if len(r) != ncol)
+    if bad:
+        info["warnings"].append(f"칸 수가 머리줄({ncol}칸)과 다른 줄 {bad}개: 모자란 칸은 비우고 넘는 칸은 뺌")
+        rows = [(r + [""] * ncol)[:ncol] for r in rows]
     for fs in (28, 27, 26, 25, 24, 23, 22):
         hf, bf, first_f = font(True, fs - 1), font(False, fs), font(True, fs)
         padx, pady = 22, 20
-        ncol = len(rows[0])
         nat = []
         for c in range(ncol):
             m = 0
@@ -624,11 +730,13 @@ def ai_prompt(scene, no_product=True):
 
 # ── 본문 사진 수 · 배치 계획 ─────────────────────────────────
 DISCLOSURE_PREFIX = "이 포스팅은 네이버 쇼핑커넥트"
+GUIDE_LINE = re.compile(r"^\[(사진|이미지|표|상품카드|내부링크)\s*:")
 
 
 def body_chars(post_text):
-    """공백 제외 글자 수. [이미지:]·[표:]·[상품카드:] 안내 줄과 쇼핑커넥트 안내문은 뺀다."""
-    keep = [ln for ln in post_text.split("\n") if not ln.startswith("[") and not ln.startswith(DISCLOSURE_PREFIX)]
+    """공백 제외 글자 수. 안내 줄([사진:]·[이미지:]·[표:]·[상품카드:]·[내부링크:])과 쇼핑커넥트 안내문만 뺀다.
+    그 밖에 '['로 시작하는 문장은 글자 수에 넣는다."""
+    keep = [ln for ln in post_text.split("\n") if not GUIDE_LINE.match(ln.strip()) and not ln.startswith(DISCLOSURE_PREFIX)]
     return len(re.sub(r"\s", "", "".join(keep)))
 
 
@@ -646,7 +754,8 @@ TYPE_KO = {"product": "제품 사진", "table": "표", "card": "카드", "captur
 
 
 def validate_plan(frame, photos, n_target):
-    """틀 A/B 의 장수 범위와 목표 장수를 지켰는지 확인. 반환: 문제 목록(없으면 [])."""
+    """틀 A/B 의 장수 범위와 목표 장수를 지켰는지 확인.
+    반환: (문제 목록, 종류별 장수 dict) 두 개짜리 튜플. 문제가 없으면 목록은 []."""
     counts = {k: 0 for k in FRAMES[frame]}
     for p in photos:
         counts[p["type"]] = counts.get(p["type"], 0) + 1
