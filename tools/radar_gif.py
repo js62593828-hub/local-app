@@ -60,23 +60,40 @@ def _fit_text(draw, text, max_w, start_px, min_px=16):
 
 
 # ---------- 프레임 ----------
+# 시안 A 색 (radar_images.py 12~19행 근처: BG_TOP, INK, MUTED, LINE, GOLD)
+BG_A = (0xF4, 0xF1, 0xEC)
+INK_A = (0x22, 0x26, 0x2B)
+MUTED_A = (0x6B, 0x6F, 0x76)
+LINE_A = (0xDD, 0xD7, 0xCC)
+GOLD_A = (0xC9, 0xA3, 0x5B)
+DOT_IDLE = (0xDA, 0xD7, 0xD0)
+
+
 def frame_f2(genre, name, total):
-    """F2 에디토리얼 카드: 위 띠(왼쪽 Desk Picker, 오른쪽 갈래 이름) + 아래 띠(왼쪽 짧은 이름, 오른쪽 장 번호 점)."""
-    im = Image.new("RGBA", (BASE, BASE), (0, 0, 0, 0))
+    """F2 밝은 에디토리얼 카드: 회백색 바탕 + 흰 카드(둥근 모서리, 베이지 테두리).
+    위 줄(금색 D 원 + Desk Picker + 갈래 이름), 사진 칸, 아래(장 번호 점 + 짧은 이름). 사진 위엔 아무것도 안 그림."""
+    ss = 4
+    S = BASE * ss
+    im = Image.new("RGB", (S, S), BG_A)
     d = ImageDraw.Draw(im)
-    d.rectangle([0, 0, BASE, 48], fill=DARK)
-    d.rectangle([0, 48, BASE, 51], fill=ACC)
-    d.rectangle([0, 752, BASE, BASE], fill=DARK)
-    d.rectangle([0, 749, BASE, 752], fill=ACC)
-    d.text((28, 25), "Desk Picker", font=_font(24), fill=ACC, anchor="lm")
+    d.rounded_rectangle([24 * ss, 24 * ss, (BASE - 24) * ss, (BASE - 24) * ss], radius=24 * ss,
+                        fill=(255, 255, 255), outline=LINE_A, width=ss)
+    # 위 줄
+    cx, cy, rr = 24 + 28 + 17, 24 + 35, 17
+    d.ellipse([(cx - rr) * ss, (cy - rr) * ss, (cx + rr) * ss, (cy + rr) * ss], outline=GOLD_A, width=2 * ss)
+    d.text((cx * ss, cy * ss), "D", font=_font(20 * ss), fill=GOLD_A, anchor="mm")
+    d.text(((cx + rr + 12) * ss, cy * ss), "Desk Picker", font=_font(24 * ss), fill=INK_A, anchor="lm")
     if genre:
-        d.text((BASE - 28, 25), genre, font=_fit_text(d, genre, 380, 22), fill=(235, 235, 235, 255), anchor="rm")
-    r, gap = 7, 26
-    dots_w = gap * (total - 1) + 2 * r
+        gf = _fit_text(d, genre, 300 * ss, 20 * ss, 14 * ss)
+        d.text(((BASE - 24 - 28) * ss, cy * ss), genre, font=gf, fill=MUTED_A, anchor="rm")
+    # 아래 이름
     if name:
-        d.text((28, 776), name, font=_fit_text(d, name, BASE - 56 - dots_w - 30, 24), fill=(255, 255, 255, 255), anchor="lm")
-    spec = {"inner": [0, 56, 800, 744],
-            "dots": {"cx": BASE - 28 - r - gap * (total - 1) / 2, "cy": 776, "r": r, "gap": gap, "color": DOT_ON, "off": DOT_OFF}}
+        ny = 24 + 728 - 30
+        d.rectangle([52 * ss, (ny - 1) * ss, 84 * ss, (ny + 2) * ss], fill=GOLD_A)
+        d.text((96 * ss, (ny + 0.5) * ss), name, font=_fit_text(d, name, 560 * ss, 22 * ss, 14 * ss), fill=INK_A, anchor="lm")
+    im = im.resize((BASE, BASE), Image.LANCZOS).convert("RGBA")
+    spec = {"inner": [84, 104, 716, 668], "base": True,
+            "pills": {"cy": 706, "cx": BASE / 2, "h": 10, "w_on": 23, "gap": 10, "on": GOLD_A, "off": DOT_IDLE}}
     return im, spec
 
 
@@ -167,15 +184,35 @@ def select_images(src, pick):
 def compose(img_path, frame_rgba, spec, size, idx, total):
     k = size / BASE
     inner = [round(v * k) for v in spec["inner"]]
+    base = bool(spec.get("base"))
     canvas = Image.new("RGB", (size, size), (255, 255, 255))
+    if base:  # 프레임이 바탕(불투명)인 경우: 프레임을 먼저 깔고 사진을 올림
+        canvas = (frame_rgba if frame_rgba.width == size else frame_rgba.resize((size, size), Image.LANCZOS)).convert("RGB")
     iw, ih = inner[2] - inner[0], inner[3] - inner[1]
     im = Image.open(img_path).convert("RGB")
     scale = min(iw / im.width, ih / im.height)  # 자르지 않고 안쪽 영역에 맞춤
     nw, nh = max(1, round(im.width * scale)), max(1, round(im.height * scale))
     im = im.resize((nw, nh), Image.LANCZOS)
     canvas.paste(im, (inner[0] + (iw - nw) // 2, inner[1] + (ih - nh) // 2))
-    fr = frame_rgba if frame_rgba.width == size else frame_rgba.resize((size, size), Image.LANCZOS)
-    canvas = Image.alpha_composite(canvas.convert("RGBA"), fr)
+    if not base:
+        fr = frame_rgba if frame_rgba.width == size else frame_rgba.resize((size, size), Image.LANCZOS)
+        canvas = Image.alpha_composite(canvas.convert("RGBA"), fr)
+    else:
+        canvas = canvas.convert("RGBA")
+    pl = spec.get("pills")
+    if pl:  # 장 번호 점: 지금 장 = 금색 긴 알약, 나머지 = 옅은 회색 동그라미
+        ss = 4
+        layer = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
+        dr = ImageDraw.Draw(layer)
+        h, won, gap = pl["h"] * k * ss, pl["w_on"] * k * ss, pl["gap"] * k * ss
+        widths = [won if i == idx else h for i in range(total)]
+        x = pl["cx"] * k * ss - (sum(widths) + gap * (total - 1)) / 2
+        cy = pl["cy"] * k * ss
+        for i, w in enumerate(widths):
+            col = _hex("#%02X%02X%02X" % tuple(pl["on"] if i == idx else pl["off"])) + (255,)
+            dr.rounded_rectangle([x, cy - h / 2, x + w, cy + h / 2], radius=h / 2, fill=col)
+            x += w + gap
+        canvas = Image.alpha_composite(canvas, layer.resize((size, size), Image.LANCZOS))
     d = spec.get("dots")
     if d:  # 장 번호 점: 지금 장은 채움, 나머지는 속이 빈 동그라미 (4배로 그려 부드럽게)
         ss = 4
