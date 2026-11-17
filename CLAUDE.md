@@ -1,3 +1,8 @@
+## PC 전환 규칙 (집 PC=G:, 회사 PC=G:)
+- 작업 파일은 구글 드라이브로, git 기록은 GitHub(origin)으로 동기화한다. git 기록 폴더는 각 PC의 C:\local-app-git (.git 파일이 gitdir로 가리킴). 이 구조는 바꾸지 않는다.
+- 작업 시작: 드라이브 동기화 완료 확인 → git fetch → git reset origin/main (파일은 안 바뀜, 기록만 맞춤) → git status 가 깨끗한지 확인. 깨끗하지 않으면 드라이브 동기화가 덜 된 것이니 작업하지 말고 사용자에게 알린다.
+- 작업 끝: 커밋 → git push → HANDOFF.md 맨 위 "이어갈 것" 갱신.
+
 ## 채널 표 (화면 이름 ↔ 안쪽 채널)
 
 | 화면 이름 | 안쪽 채널 | 사이트 | 발행 | 담당 Claude 프로젝트 |
