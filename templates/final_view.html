@@ -297,7 +297,55 @@
   </div>
   {% endif %}
 
-  {% if short_link %}
+  {% if radar_meta %}
+  <div class="tags-box" id="radar-meta-box" style="display:block;">
+    {% for w in radar_meta.emphasis_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
+    {% for w in radar_meta.sub_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
+    {% for w in radar_meta.avoid_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
+    {% if radar_banner_missing %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ 가격 확인 배너 이미지를 못 찾았어요(static/radar/banner_{{ radar_banner_missing | join(', ') }}.png). 그래서 배너 없이 만들었어요.</div>{% endif %}
+    {% if '<!--RD:AUTO_EM:' in content %}{% set _ae = content.split('<!--RD:AUTO_EM:')[1].split('-->')[0].split(',') %}<div style="color:#9a9a9a; font-size:12px; margin-bottom:8px;">자동 강조: 숫자 {{ _ae[0] }}곳, 결론 형광펜 {{ _ae[1] }}곳</div>{% endif %}
+    <div style="margin-bottom:10px;">
+      📝 <strong>글 제목</strong> <span class="src">(네이버 제목 칸에 따로 넣으세요 — 본문에는 안 들어가 있어요)</span>
+      <button type="button" class="short-link-copy-btn" data-text="{{ radar_meta.title }}" onclick="radarCopyText(this.dataset.text, this)">제목 복사</button>
+      <div style="margin-top:4px; color:#e5e5e5; font-size:14px;">{{ radar_meta.title }}</div>
+    </div>
+    <div style="margin-bottom:10px;">
+      📁 <strong>카테고리:</strong>
+      {% if radar_meta.category %}<span style="color:#e5e5e5;">{{ radar_meta.category }}</span> <span class="src">({{ radar_meta.category_source }} — 네이버에서 직접 고르세요)</span>
+      <button type="button" class="short-link-copy-btn" data-text="{{ radar_meta.category }}" onclick="radarCopyText(this.dataset.text, this)">복사</button>
+      {% else %}<span style="background:#3b1212; border:1px solid #d32f2f; color:#ff8a80; border-radius:6px; padding:3px 10px; font-weight:bold;">카테고리 없음</span> <span class="src">(메모에 "카테고리:" 줄을 적거나, 갈래 표(config.py RADAR_CATEGORY_MAP)에 갈래를 넣으세요)</span>{% endif %}
+    </div>
+    <div>
+      🏷️ <strong>태그</strong> {% if radar_meta.tags %}<span class="src">({{ radar_meta.tag_source }} · {{ radar_meta.tags|length }}개 — 네이버 에디터 하단 태그 칸에 하나씩 붙여넣으세요)</span>
+      <button type="button" class="short-link-copy-btn tag-all-btn" onclick="radarCopyTags(this)">태그 전체 복사</button>
+      <span class="copy-status" id="radar-tags-status"></span>
+      <div class="tag-chips" id="radar-tag-chips" style="margin-top:6px;">
+        {% for t in radar_meta.tags %}<span class="tag-chip" data-tag="{{ t }}"><span class="tc-name">#{{ t }}</span><button type="button" class="tc-copy" onclick="copyTagChip(this)">복사</button></span>
+        {% endfor %}
+      </div>
+      {% else %}<span style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:6px; padding:3px 10px; font-weight:bold;">태그 없음</span> <span class="src">(메모에 "태그:" 줄을 적어 주세요 — 쉼표·공백·# 모두 됩니다)</span>{% endif %}
+      {% if radar_meta.tags_over %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-top:8px; font-size:13px;">⚠ 태그가 {{ radar_meta.tags|length }}개예요. 네이버 태그는 최대 {{ radar_meta.tag_max }}개까지예요 — 줄여 주세요.</div>{% endif %}
+    </div>
+    <script>
+    function radarCopyText(text, btn) {
+      copyTextPlain(text).then(function (ok) {
+        const old = btn.textContent;
+        btn.textContent = ok ? '✓ 복사됨' : '✗ 실패';
+        setTimeout(function () { btn.textContent = old; }, 2000);
+      });
+    }
+    function radarCopyTags(btn) {   // 한 줄에 하나씩
+      const tags = Array.from(document.querySelectorAll('#radar-tag-chips .tag-chip')).map(function (c) { return c.dataset.tag; });
+      copyTextPlain(tags.join('\n')).then(function (ok) {
+        const st = document.getElementById('radar-tags-status');
+        st.textContent = ok ? '✓ 복사됨 (' + tags.length + '개, 한 줄에 하나씩)' : '✗ 복사 실패';
+        st.className = 'copy-status ' + (ok ? 'ok' : 'fail');
+        setTimeout(function () { st.textContent = ''; }, 4000);
+      });
+    }
+    </script>
+  </div>
+{% endif %}{% if radar_final_err %}<div style="background:#3b1212; border:1px solid #d32f2f; color:#ff4d4d; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:14px; font-weight:bold;">{{ radar_final_err }}</div>{% endif %}{% if radar_pub_err %}<div style="background:#3b1212; border:1px solid #d32f2f; color:#ff8a80; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:14px;">⚠ {{ radar_pub_err }}</div>{% endif %}{% if radar_missing_links %}<div style="background:#3b1212; border:1px solid #d32f2f; color:#ff8a80; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:14px;">⚠ 제휴 링크를 못 찾은 상품카드가 <strong>{{ radar_missing_links }}개</strong> 있어요. 본문에서 빨간 글자 "상품카드 링크 없음" 자리를 찾아 링크를 발급하거나 ② 사진 화면에서 상품을 고른 뒤 ③을 다시 눌러 주세요.</div>{% endif %}{% if radar_no_related %}<div style="background:#1f2a3a; border:1px solid #3b5b8a; color:#9ec3f0; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:14px;">ℹ 다른 글 없음 — "함께 보면 좋은 글"로 붙일 발행된 글이 아직 없어서 붙이지 않았어요.</div>{% endif %}{% if radar_empty_slots %}<div style="background:#3b1212; border:1px solid #d32f2f; color:#ff8a80; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:14px;">⚠ 비어 있는 사진 칸이 <strong>{{ radar_empty_slots }}개</strong> 있어요. 본문에서 빨간 글자 "사진 n 비어 있음" 자리를 찾아 ② 사진 화면에서 채운 뒤 ③을 다시 눌러 주세요.</div>{% endif %}{% if short_link %}
   <div class="short-link-box">
     📎 <strong>SNS 공유용 짧은 링크</strong> (한글 주소가 길게 깨져 보이는 카드뉴스·쓰레드 캡션 등에 사용하세요 — 검색엔진용 정식 주소는 그대로 유지됩니다)
     <code id="short-link-text">{{ short_link }}</code>
@@ -622,6 +670,27 @@
   </div>
   {% endif %}
 
+  {% if radar_upload_err %}<div style="background:#3b1212; border:1px solid #d32f2f; color:#ff8a80; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:14px;">⚠ {{ radar_upload_err }}</div>{% endif -%}
+  {% if radar_upload %}
+  <div id="radar-upload-box" style="background:#1a1a1a; border:1px solid #2f2f2f; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:13px;">
+    <strong>📁 네이버 업로드 폴더</strong> <span style="color:#999;">— 본문의 "📷 파일이름" 한 줄 자리에, 같은 이름의 사진을 이 폴더에서 끌어다 놓고 그 한 줄은 지우세요</span>
+    <form method="post" action="{{ url_for('radar_open_upload_folder', article_id=idx) }}" style="display:inline-block; margin-left:10px;">
+      <button type="submit" class="copy-btn">업로드 폴더 열기</button>
+    </form>
+    {% if radar_upload.mismatch %}<div style="color:#ff8a80; margin-top:8px;">⚠ 폴더 안 파일이 최종본과 맞지 않아요{% if radar_upload.missing %} (없는 파일: {{ radar_upload.missing | join(', ') }}){% endif %}. ③ 최종본 만들기를 다시 눌러 주세요.</div>{% endif %}
+    {% if radar_upload.big_gifs %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-top:8px;">⚠ GIF 가 3MB 를 넘어요: {{ radar_upload.big_gifs | join(', ') }}</div>{% endif %}
+    {% if radar_upload.bad_dims %}<div style="color:#ff8a80; margin-top:8px;">⚠ {{ radar_upload.size_want }}×{{ radar_upload.size_want }} 이 아닌 파일이 있어요: {{ radar_upload.bad_dims | join(', ') }}. ③ 최종본 만들기를 다시 눌러 주세요.</div>{% endif %}
+    {% if radar_upload.files %}
+    <table style="margin-top:8px; border-collapse:collapse; width:100%;">
+      <tr style="color:#999; text-align:left;"><th style="padding:4px 8px; width:56px;">번호</th><th style="padding:4px 8px;">이름</th><th style="padding:4px 8px; width:100px;">크기(가로×세로)</th><th style="padding:4px 8px; width:80px;">용량</th><th style="padding:4px 8px; width:64px;">보기</th></tr>
+      {% for f in radar_upload.files %}
+      <tr style="border-top:1px solid #2f2f2f;"><td style="padding:4px 8px;">{{ f.no }}</td><td style="padding:4px 8px; user-select:all;">{{ f.name }}</td><td style="padding:4px 8px;{% if not f.dim_ok %} color:#ff5252; font-weight:bold;{% endif %}">{{ f.dim }}{% if f.is_notice %} <span style="color:#999; font-weight:normal;">{{ f.notice_note or "(그대로)" }}</span>{% endif %}{% if f.is_banner %} <span style="color:#999; font-weight:normal;">(배너)</span>{% endif %}</td><td style="padding:4px 8px;">{{ f.size }}</td><td style="padding:4px 8px;"><img src="{{ f.url }}" alt="" style="height:36px; border-radius:4px;"></td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<div style="color:#999; margin-top:8px;">아직 업로드 폴더에 파일이 없어요(③ 최종본 만들기를 누르면 생겨요).</div>{% endif %}
+  </div>
+  {% endif -%}
+
   {% if radar_downloads %}
   <div style="background:#1a1a1a; border:1px solid #2f2f2f; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:13px;">
     <strong>🖼 N데스크피커 이미지 다운로드</strong> <span style="color:#999;">— 네이버 에디터에 직접 올리세요(복사되는 본문에는 이미지 주소가 아니라 이미지 자체가 들어가요)</span>
@@ -634,7 +703,7 @@
   </div>
   {% endif %}
 
-  <div class="content{{ ' naver-preview' if platform == 'naver' else '' }}" id="content-area">{{ content | safe }}</div>
+  <div class="content{{ ' naver-preview' if platform == 'naver' else '' }}" id="content-area">{{ (radar_screen_content or content) | safe }}</div>
   {% if platform == 'naver' %}<script type="application/json" id="raw-final">{{ outgoing_content | tojson }}</script>{% endif %}
   <div id="copy-source">{{ outgoing_content | safe }}</div>
 
@@ -842,6 +911,9 @@ function buildShopCopyHtml() {
 }
 
 function copyContent() {
+  {%- if radar_meta %}
+  if (document.getElementById('raw-final')) { copyNaver(); return; }   // N데스크피커: 전체 복사도 네이버용 복사와 같은 깨끗한 HTML
+  {%- endif %}
   const el = document.getElementById('copy-source');
   const range = document.createRange();
   if (IS_SHOP_CHANNEL) {

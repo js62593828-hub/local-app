@@ -22,6 +22,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 SIZE = 1080
 MARGIN = 72
+TABLE_IMG_W = 800    # 표 그림 가로(세로는 표 길이대로)
+TABLE_MAX_ROWS = 10  # 표 데이터 행(머리줄 뺀)이 이보다 많으면 경고
 JPG_QUALITY = 94
 AI_COST_KRW = 9  # 장당 약 9원(예상)
 
@@ -36,6 +38,12 @@ YELLOW = (0xF2, 0xB5, 0x44)
 MUTED = (0x6B, 0x6F, 0x76)
 LINE = (0xDD, 0xD7, 0xCC)
 SHADOW = (70, 58, 40)
+
+# ── 안쪽 카드 테두리 (GIF 프레임 tools/radar_gif.py 와 본문 사진이 같이 씀 — 값은 여기 한 곳만) ──
+FRAME_BORDER_COLOR = LINE   # #DDD7CC
+FRAME_BORDER_PX = 2         # 전: 1px → 후: 2px
+FRAME_RADIUS = 24           # 모서리 둥글기(px)
+FRAME_INSET = 24            # 가장자리에서 테두리까지 간격(px)
 
 THEMES = {
     "A": {"band": IVORY, "text": INK, "accent": GOLD, "name": "아이보리 띠 · 금색"},
@@ -351,20 +359,81 @@ def fit_title_px(title, max_w, f_max=COVER_TITLE_MAX, f_min=COVER_TITLE_MIN):
     return f_min, False
 
 
+# ── ① 표지: 상품 사진 고르기 (뱃지 있는 이미지는 뺀다) ─────────
+def _rep_bad(j):
+    """대표 이미지 판정(dict)에서 표지에 못 쓰는 이유(GIF 와 같은 기준). 뱃지·글자 많음·확인 필요(뱃지 확인 필요 포함) 중 하나라도 true 면 이유 글자, 아니면 ''."""
+    if not j:
+        return ""
+    bad = [n for n in ("뱃지", "글자 많음", "확인 필요", "뱃지 확인 필요") if j.get(n)]
+    if not bad:
+        return ""
+    why = " + ".join(bad)
+    if j.get("뱃지 확인 필요") and j.get("뱃지 근거"):
+        why += "(" + j["뱃지 근거"] + ")"
+    return why
+
+
+def pick_cover_photo(rep_path, rep_judge, img_dir, meta_path=""):
+    """표지에 쓸 상품 사진을 고른다. 판정은 collect_research.py 가 남긴 json 만 읽는다(이 모듈은 서로 가져다 쓰지 않음).
+      rep_path  : 후보 img/ 의 대표 이미지 파일
+      rep_judge : img/rep_badge.json 에서 이 상품 칸(dict). 없으면 None(판정 모름 → 대표 이미지를 그대로 씀)
+      img_dir   : research/_img/<상품id>/ (이미지 파일이 있는 폴더)
+      meta_path : images.json 위치(시험용). 기본은 <img_dir>/images.json
+    1) 대표 이미지가 깨끗하면(뱃지·글자 많음·확인 필요 모두 false) 그대로.
+    2) 아니면 img_dir 의 images.json 순서대로 다음 깨끗한 이미지(뱃지·글자 많음·확인 필요 모두 false).
+    3) 하나도 없으면 사진 없이 글자만 있는 표지(path=None, no_photo=True → 표지 상품 사진 없음).
+    반환: {"path", "no_photo", "reason", "skipped": [(파일, 이유)]}"""
+    why = _rep_bad(rep_judge)
+    if not why and rep_path and os.path.exists(rep_path):
+        return {"path": rep_path, "no_photo": False, "reason": "대표 이미지 사용", "skipped": []}
+    skipped = [(os.path.basename(rep_path or "대표 이미지 없음"), why or "파일 없음")]
+    meta_p = meta_path or os.path.join(img_dir or "", "images.json")
+    if os.path.exists(meta_p):
+        with open(meta_p, encoding="utf-8") as f:
+            rows = json.load(f).get("images", [])
+        rows.sort(key=lambda r: (r.get("순번") or 999, r.get("file", "")))
+        for r in rows:
+            fp = os.path.join(img_dir, r.get("file", "")) if r.get("file") else ""
+            bad = [n for n in ("뱃지", "글자 많음", "확인 필요", "뱃지 확인 필요") if r.get(n)]
+            if not fp or not os.path.exists(fp):
+                continue
+            if bad:
+                skipped.append((r["file"], " + ".join(bad)))
+                continue
+            return {"path": fp, "no_photo": False, "reason": "대표 이미지가 깨끗하지 않아(뱃지·글자 많음·확인 필요) 다음 깨끗한 이미지 사용", "skipped": skipped}
+    return {"path": None, "no_photo": True, "reason": "표지 상품 사진 없음", "skipped": skipped}
+
+
+def _norm_cover_text(t):
+    """표지 글자 비교용: 띄어쓰기(모든 공백)를 빼고 영문은 소문자로."""
+    return re.sub(r"\s+", "", t or "").lower()
+
+
+def _sub_in_title(title, subtitle):
+    """짧은 이름(subtitle)이 큰 제목(title)과 같거나 그 안에 들어 있으면 True(= 아랫줄을 그리지 않음).
+    비었으면 그릴 게 없으니 True."""
+    sn, tn = _norm_cover_text(subtitle), _norm_cover_text(title)
+    return sn == "" or sn in tn
+
+
 def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIANT, frame=None):
     """표지 1080x1080. 위 64% 사진 + 아래 36% 단색 띠. 반환: 메모(글자 크기·넘침 여부·쓴 사진 등).
-    photo: 사진 경로 하나, 또는 후보 경로 목록. frame="A"(고르는 법) 이고 목록 안에 흰 배경 사진이 2개 이상이면
+    photo: 사진 경로 하나, 또는 후보 경로 목록, 또는 None(상품 사진 없이 글자만 — meta["no_photo"]=True, 경고 "표지 상품 사진 없음"). frame="A"(고르는 법) 이고 목록 안에 흰 배경 사진이 2개 이상이면
     2~3개 모음형으로, 아니면 첫 번째 사진 한 장으로 만든다."""
     th = THEMES[variant]
     meta = {"variant": variant, "frame": frame, "category": category, "title": title, "subtitle": subtitle, "warnings": []}
     canvas = Image.new("RGB", (SIZE, SIZE), th["band"])
     canvas.paste(gradient_bg(SIZE, COVER_TOP_H), (0, 0))
 
-    cands = [photo] if isinstance(photo, str) else list(photo)
+    cands = [] if not photo else ([photo] if isinstance(photo, str) else list(photo))
     pw = round(SIZE * COVER_PHOTO_RATIO)
     area = ((SIZE - pw) // 2, 46, (SIZE - pw) // 2 + pw, COVER_TOP_H - 14)
     whites = white_bg_photos(cands) if frame == "A" and len(cands) > 1 else []
-    if len(whites) >= 2:
+    if not cands:  # 쓸 수 있는 깨끗한 사진이 없음(pick_cover_photo 가 None): 사진 없이 시안 A 의 글자만
+        meta["no_photo"] = True
+        meta["warnings"].append("표지 상품 사진 없음")
+        meta["photo"] = {"mode": "none", "files": []}
+    elif len(whites) >= 2:
         meta["photo"] = place_collection(canvas, whites, area)
         meta["photo"]["files"] = whites
     else:
@@ -389,12 +458,14 @@ def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIA
         meta["warnings"].append("제목이 한 줄에 안 들어감(넘침)")
     meta["title_px"] = tsize
     meta["title_shrunk"] = tsize < COVER_TITLE_MAX
+    sub_hidden = _sub_in_title(title, subtitle)  # 짧은 이름이 큰 제목과 같거나 그 안에 들어 있으면 아랫줄·금색 막대를 그리지 않음
+    meta["subtitle_hidden"] = sub_hidden
     ssize = COVER_SUB_PX
-    while ssize > 32 and text_w(font(False, ssize), subtitle) > inner_w:
+    while not sub_hidden and ssize > 32 and text_w(font(False, ssize), subtitle) > inner_w:
         ssize -= 1
-    if len(subtitle) > 16:
+    if len(subtitle) > 16 and not sub_hidden:
         meta["warnings"].append(f"부제 {len(subtitle)}자(16자 초과)")
-    if text_w(font(False, ssize), subtitle) > inner_w:
+    if not sub_hidden and text_w(font(False, ssize), subtitle) > inner_w:
         meta["warnings"].append("부제가 32px 에서도 한 줄에 안 들어감(넘침)")
     meta["subtitle_px"] = ssize
     meta["category_px"] = COVER_CAT_PX
@@ -403,21 +474,41 @@ def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIA
     # 세로 배치(기준선): 범주 → 제목 → 막대 → 부제. 띠 안에서 가운데 맞춤.
     gaps = (26, 34, 28)  # 범주↔제목, 제목↔막대, 막대↔부제 (글자 위쪽 여백 포함)
     h_cat, h_title, h_sub = COVER_CAT_PX * 0.75, tsize * 0.80, ssize * 0.80
-    total = h_cat + gaps[0] + h_title + gaps[1] + 4 + gaps[2] + h_sub
+    total = h_cat + gaps[0] + h_title + (0 if sub_hidden else gaps[1] + 4 + gaps[2] + h_sub)
     top = band_top + (SIZE - band_top - total) / 2 - 8
     y = top + h_cat
     draw_text(d, MARGIN, y, category, cat_f, th["accent"], spacing=5)
     y += gaps[0] + h_title
     draw_text(d, MARGIN, y, title, title_f, th["text"])
-    y += gaps[1]
-    d.rectangle([MARGIN, y, MARGIN + 55, y + 3], fill=th["accent"])  # 가로 56px · 두께 4px
-    y += 4 + gaps[2] + h_sub
-    draw_text(d, MARGIN, y, subtitle, sub_f, th["text"])
-    meta["text_block"] = [MARGIN, round(top), round(MARGIN + max(text_w(title_f, title), text_w(sub_f, subtitle))), round(y)]
+    if not sub_hidden:
+        y += gaps[1]
+        d.rectangle([MARGIN, y, MARGIN + 55, y + 3], fill=th["accent"])  # 가로 56px · 두께 4px
+        y += 4 + gaps[2] + h_sub
+        draw_text(d, MARGIN, y, subtitle, sub_f, th["text"])
+    right = max(text_w(title_f, title), 0 if sub_hidden else text_w(sub_f, subtitle))
+    meta["text_block"] = [MARGIN, round(top), round(MARGIN + right), round(y)]
     meta["brand_box"] = draw_brand(canvas, th["text"], size=22, opacity=0.6)
 
     _save(canvas, out_path)
     return meta
+
+
+def draw_frame_border(canvas, ss=4):
+    """안쪽 카드 테두리(둥근 모서리)를 사진 위에 얹는다. 크기는 그대로. GIF 프레임과 같은 값을 쓴다."""
+    w, h = canvas.size
+    m = Image.new("L", (w * ss, h * ss), 0)
+    ImageDraw.Draw(m).rounded_rectangle(
+        [FRAME_INSET * ss, FRAME_INSET * ss, (w - FRAME_INSET) * ss, (h - FRAME_INSET) * ss],
+        radius=FRAME_RADIUS * ss, outline=255, width=FRAME_BORDER_PX * ss)
+    m = m.resize((w, h), Image.LANCZOS)
+    canvas.paste(Image.new("RGB", (w, h), FRAME_BORDER_COLOR), (0, 0), m)
+    return canvas
+
+
+def _save_body(canvas, out_path):
+    """본문 사진(제품·표·카드·캡처)용 저장: 테두리를 넣고 저장. 표지는 쓰지 않는다."""
+    draw_frame_border(canvas)
+    _save(canvas, out_path)
 
 
 def _save(canvas, out_path):
@@ -433,7 +524,7 @@ def product_photo(src, out_path):
     """대표 이미지를 1080x1080 안에 비율 그대로(회백색 여백 · 옅은 그림자). 글자 없음."""
     canvas = gradient_bg(SIZE, SIZE)
     info = place_product(canvas, src, (84, 84, SIZE - 84, SIZE - 84), radius=34)
-    _save(canvas, out_path)
+    _save_body(canvas, out_path)
     return info
 
 
@@ -455,19 +546,19 @@ def parse_md_tables(text):
     return tables
 
 
-def _header_block(d, kicker, title, accent, max_w, title_px=46):
+def _header_block(d, kicker, title, accent, max_w, title_px=46, margin=MARGIN):
     """카드·표 위쪽 머리글. 반환: 다음 내용이 시작할 y."""
     y = 104
     if kicker:
-        draw_text(d, MARGIN, y, kicker, font(True, 26), accent, spacing=3)
+        draw_text(d, margin, y, kicker, font(True, 26), accent, spacing=3)
         y += 20
     tf = font(True, title_px)
     for ln in wrap(title, tf, max_w):
         y += title_px * 1.05
-        draw_text(d, MARGIN, y, ln, tf, INK)
+        draw_text(d, margin, y, ln, tf, INK)
         y += title_px * 0.2
     y += 22
-    d.rectangle([MARGIN, y, MARGIN + 55, y + 3], fill=accent)
+    d.rectangle([margin, y, margin + 55, y + 3], fill=accent)
     return y + 4
 
 
@@ -515,9 +606,12 @@ def _greedy_widths(rows, mins, nat, W, padx, hf, bf, first_f, step=6):
 
 
 def table_image(rows, out_path, title, kicker="", footnote="", accent=GOLD):
-    """마크다운 표 → 그림. 가로 1080, 머리줄 먹색+흰 글자, 줄 사이 가는 선, 칸 넓게.
-    정사각(1080)에 안 들어가면 세로를 늘려 최대 1350. 반환: dict(height, font_px, tall, warnings)."""
-    W = SIZE - 2 * 56
+    """마크다운 표 → 그림. 가로 800(TABLE_IMG_W), 세로는 표 길이대로(정사각·최대 높이 제한 없음).
+    머리줄 먹색+흰 글자, 줄 사이 가는 선. 데이터 행(머리줄 뺀 줄)이 TABLE_MAX_ROWS 를 넘으면 경고만 함.
+    반환: dict(height, font_px, tall, warnings)."""
+    CW = TABLE_IMG_W
+    side = 48
+    W = CW - 2 * side
     info = {"warnings": []}
     rows = [list(r) for r in (rows or []) if r]
     if not rows or not rows[0]:
@@ -529,9 +623,11 @@ def table_image(rows, out_path, title, kicker="", footnote="", accent=GOLD):
     if bad:
         info["warnings"].append(f"칸 수가 머리줄({ncol}칸)과 다른 줄 {bad}개: 모자란 칸은 비우고 넘는 칸은 뺌")
         rows = [(r + [""] * ncol)[:ncol] for r in rows]
-    for fs in (28, 27, 26, 25, 24, 23, 22):
+    if len(rows) - 1 > TABLE_MAX_ROWS:
+        info["warnings"].append(f"표 행이 {len(rows) - 1}개(기준 {TABLE_MAX_ROWS}개 초과): 나눠서 두 표로 쓰는 것을 권해요")
+    for fs in (24, 23, 22, 21, 20):
         hf, bf, first_f = font(True, fs - 1), font(False, fs), font(True, fs)
-        padx, pady = 22, 20
+        padx, pady = 16, 16
         nat = []
         for c in range(ncol):
             m = 0
@@ -539,18 +635,18 @@ def table_image(rows, out_path, title, kicker="", footnote="", accent=GOLD):
                 f = hf if r_i == 0 else (first_f if c == 0 else bf)
                 m = max(m, text_w(f, r[c]) if c < len(r) else 0)
             nat.append(m + 2 * padx)
+        # 가장 긴 낱말 폭을 최소로 둔다(낱말이 칸보다 길면 글자 크기를 한 단계 줄여 다시)
+        mins = []
+        for c in range(ncol):
+            m = 0
+            for r_i, r in enumerate(rows):
+                f = hf if r_i == 0 else (first_f if c == 0 else bf)
+                for wd, _sp in _pieces(r[c] if c < len(r) else ""):
+                    m = max(m, text_w(f, wd))
+            mins.append(m + 2 * padx)
         if sum(nat) <= W:
             widths = [w * W / sum(nat) for w in nat]
         else:
-            # 가장 긴 낱말 폭을 최소로 두고, 남는 폭을 자연 폭 비율로 나눈다
-            mins = []
-            for c in range(ncol):
-                m = 0
-                for r_i, r in enumerate(rows):
-                    f = hf if r_i == 0 else (first_f if c == 0 else bf)
-                    for wd, _sp in _pieces(r[c] if c < len(r) else ""):
-                        m = max(m, text_w(f, wd))
-                mins.append(m + 2 * padx)
             if sum(mins) >= W:
                 widths = [w * W / sum(mins) for w in mins]
             else:
@@ -567,24 +663,17 @@ def table_image(rows, out_path, title, kicker="", footnote="", accent=GOLD):
                 mx = max(mx, len(ls))
             cells.append(row_cells)
             heights.append(mx * lh + 2 * pady)
-        head_block = 104 + 20 + 46 * 1.25 + 22 + 4 + 44  # 머리글이 차지하는 높이(대략)
-        foot = 96
+        head_block = 104 + 20 + 38 * 1.25 + 22 + 4 + 36  # 머리글이 차지하는 높이(대략)
+        foot = 84
         total = round(head_block + sum(heights) + foot)
-        if total <= 1350 or fs == 22:
+        if sum(mins) <= W or fs == 20:  # 낱말이 안 잘리는 가장 큰 글자 크기에서 멈춤
             break
-    H = SIZE if total <= SIZE else min(1350, total)
-    if total > 1350:
-        info["warnings"].append(f"글자 22px 로도 세로 {total}px(1350 초과)")
-        H = total
-    canvas = Image.new("RGB", (SIZE, H), IVORY)
+    H = total  # 세로는 표 길이대로
+    canvas = Image.new("RGB", (CW, H), IVORY)
     d = ImageDraw.Draw(canvas)
-    y_head_end = _header_block(d, kicker, title, accent, SIZE - 2 * MARGIN)
-    table_h = sum(heights)
-    # 내용이 정사각보다 짧으면 위아래 여백을 나눠 가운데로
-    avail_top = y_head_end + 44
-    avail_bot = H - foot
-    y = avail_top + max(0, (avail_bot - avail_top - table_h) / 2 - 10) if total <= SIZE else avail_top
-    x0 = 56
+    y_head_end = _header_block(d, kicker, title, accent, CW - 2 * side, title_px=38, margin=side)
+    y = y_head_end + 36
+    x0 = side
     y_top = y
     # 머리줄
     hh = heights[0]
@@ -609,10 +698,10 @@ def table_image(rows, out_path, title, kicker="", footnote="", accent=GOLD):
         y += heights[r_i]
         d.line([(x0, y), (x0 + W, y)], fill=LINE, width=1)  # 줄 사이 가는 선
     if footnote:
-        draw_text(d, MARGIN, H - 52, footnote, font(False, 23), MUTED)
-    draw_brand(canvas, INK, size=22, opacity=0.6)
-    _save(canvas, out_path)
-    info.update({"height": H, "font_px": fs, "tall": H > SIZE, "rows": len(rows), "cols": ncol})
+        draw_text(d, side, H - 40, footnote, font(False, 20), MUTED)
+    draw_brand(canvas, INK, size=20, opacity=0.6, right=side, bottom=40)
+    _save_body(canvas, out_path)
+    info.update({"height": H, "width": CW, "font_px": fs, "tall": H > CW, "rows": len(rows), "cols": ncol})
     return info
 
 
@@ -678,7 +767,7 @@ def card_image(out_path, title, sections, kicker="", footnote="", accent=GOLD):
     if footnote:
         draw_text(d, MARGIN, SIZE - 52, footnote, font(False, 23), MUTED)
     draw_brand(canvas, INK, size=22, opacity=0.6)
-    _save(canvas, out_path)
+    _save_body(canvas, out_path)
     return info
 
 
@@ -704,7 +793,7 @@ def capture_placeholder(out_path, number, note, accent=GOLD):
     for ln in wrap(note, nf, 780):
         draw_text(d, SIZE / 2 - text_w(nf, ln) / 2, y, ln, nf, MUTED)
         y += 46
-    _save(canvas, out_path)
+    _save_body(canvas, out_path)
     return {"note": note}
 
 
@@ -770,3 +859,57 @@ def validate_plan(frame, photos, n_target):
 
 def post_headings(post_text):
     return [ln[3:].strip() for ln in post_text.split("\n") if ln.startswith("## ")]
+
+
+# ── 원고 표시 읽기 ───────────────────────────────────────────
+_MARK_COVER = re.compile(r"^\[표지\]\s*$")
+_MARK_SLOT = re.compile(r"^\[사진자리\]\s*$")
+_MARK_PHOTO = re.compile(r"^\[사진\s*:\s*(\d+)\s*\]\s*$")
+_MARK_CARD = re.compile(r"^\[상품카드\s*:\s*(.+?)\s*\]\s*$")
+
+
+def parse_photo_markers(text):
+    """원고 텍스트에서 표시를 순서대로 읽는다(원고는 고치지 않음).
+    표시: [표지], [사진자리](빈 줄에서 끝나는 메모 블록), [사진: 번호], [상품카드: 상품명].
+    반환 dict:
+      markers: 순서대로 [{"kind": "표지"|"사진자리"|"사진"|"상품카드", "line": 줄번호(1부터), "end_line": 블록 끝 줄(블록 표시만),
+                          "h2": 속한 H2 소제목(없으면 None), "number": 사진 번호(사진만), "name": 상품명(상품카드만)}]
+      tables : 마크다운 표 구간 [{"start_line", "end_line", "rows": 줄 수(구분줄 포함), "h2"}]
+    [표지]·[사진자리] 는 메모 블록이라 h2 를 None 으로 둔다(본문 소제목에 속하지 않음)."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    markers, tables = [], []
+    h2 = None
+    i, n = 0, len(lines)
+    while i < n:
+        raw = lines[i]
+        ln = raw.strip()
+        no = i + 1
+        if raw.startswith("## "):
+            h2 = raw[3:].strip()
+            i += 1
+            continue
+        if _MARK_COVER.match(ln) or _MARK_SLOT.match(ln):
+            j = i + 1
+            while j < n and lines[j].strip():
+                j += 1
+            markers.append({"kind": "표지" if _MARK_COVER.match(ln) else "사진자리", "line": no, "end_line": j, "h2": None})
+            i = j
+            continue
+        m = _MARK_PHOTO.match(ln)
+        if m:
+            markers.append({"kind": "사진", "line": no, "h2": h2, "number": int(m.group(1))})
+        else:
+            m = _MARK_CARD.match(ln)
+            if m:
+                markers.append({"kind": "상품카드", "line": no, "h2": h2, "name": m.group(1)})
+        if ln.startswith("|"):
+            j = i
+            while j < n and lines[j].strip().startswith("|"):
+                j += 1
+            block = [x.strip() for x in lines[i:j]]
+            if len(block) >= 2 and re.fullmatch(r"\|[\s:\-|]+\|?", block[1]) and "-" in block[1]:
+                tables.append({"start_line": no, "end_line": j, "rows": len(block), "h2": h2})
+            i = j
+            continue
+        i += 1
+    return {"markers": markers, "tables": tables}

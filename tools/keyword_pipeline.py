@@ -496,14 +496,32 @@ def stage_score(cands, drops):
 
 # ---------------- 4) 제목 ----------------
 def rules_section(name):
-    txt = RULES_MD.read_text(encoding="utf-8")
-    m = re.search(r"^\[" + re.escape(name) + r"[^\]]*\]\s*\n(.*?)(?=^\[|\Z)", txt, re.S | re.M)
-    return m.group(0).strip() if m else ""
+    """radar_rules.md 에서 '## 번호. 이름…' 소제목 한 칸을 소제목 글자로 찾아 돌려준다(번호는 안 봄).
+    다음 '## ' 줄 앞까지가 한 칸이고, 코드 상자(```) 안의 '## ' 줄은 소제목으로 안 친다.
+    칸을 못 찾으면 빈 값 대신 오류를 내서 멈춘다."""
+    lines = RULES_MD.read_text(encoding="utf-8").splitlines()
+    in_code, start, out = False, None, []
+    for ln in lines:
+        if ln.lstrip().startswith("```"):
+            in_code = not in_code
+        is_head = (not in_code) and ln.startswith("## ")
+        if start is not None:
+            if is_head:
+                break
+            out.append(ln)
+        elif is_head and re.sub(r"^\d+\.\s*", "", ln[3:].strip()).startswith(name):
+            start = ln
+            out.append(ln)
+    if start is None:
+        raise RuntimeError(f"규칙 파일 {RULES_MD.name} 에서 「## … {name}」 칸을 못 찾았어요. 규칙 파일의 소제목을 확인하세요.")
+    return "\n".join(out).strip()
 
 
 def rules_common_bans():
-    ls = [ln for ln in rules_section("공통").splitlines() if ("금지" in ln or "써본" in ln)]
-    return "\n".join(ls)
+    """문장 쓰는 법 칸의 금지·써본 줄 + 피할 표현 칸(소제목 줄 빼고 전부)."""
+    ls = [ln for ln in rules_section("문장 쓰는 법").splitlines() if ("금지" in ln or "써본" in ln)]
+    ls += rules_section("피할 표현").splitlines()[1:]
+    return "\n".join(l for l in ls if l.strip())
 
 
 ENDING_HINT = {

@@ -44,6 +44,11 @@ PICK = 3
 BATCH_KW = 4        # 쇼핑커넥트: 한 번에 읽는 검색어 수(제한 시간을 넘지 않게 나눠서 실행)
 BATCH_CP = 10       # 쿠팡 확인: 한 번에 확인하는 상품 수
 NO_PRICE = "가격 없음(표시 안 됨)"
+ALT_PICK = 3          # 대안 후보 개수
+ALT_RATING_MIN = 4.5  # 대안 평점 기준(느슨하게 하지 않음)
+ALT_PRICE_LOW, ALT_PRICE_HIGH = 0.5, 2.0   # 본상품 가격의 0.5~2배(경곗값 포함)
+BATCH_CAT = 5         # 카테고리 확인: 한 번에 읽는 상품 수
+BRAND_ALIAS_JSON = ROOT / "tools" / "brand_alias.json"
 
 
 # ───────────────────────── 브라우저 실행 ─────────────────────────
@@ -149,6 +154,53 @@ for (const q of Q) {{
   res.push({{ id: q.id, query: q.query, head: r.head, items: r.items }});
   await fs.writeFile({json.dumps(str(out_json).replace(chr(92), "/"))}, JSON.stringify({{ lost, res }}), "utf8");
   console.log("COUPANG", q.query, r.head, r.items.length);
+  await sleep(3000, 5000);
+}}
+await fs.writeFile({json.dumps(str(out_json).replace(chr(92), "/"))}, JSON.stringify({{ lost, res }}), "utf8");
+console.log(lost ? "LOGIN_LOST" : "DONE");
+"""
+
+
+def _js_category(products: list[dict], out_json: Path) -> str:
+    """상품마다 브랜드커넥트 상품 페이지 → '네이버 쇼핑에서 보기' → 스토어 상품 페이지에서 카테고리 글자만 읽습니다(읽기만)."""
+    return f"""
+const fs = await import("node:fs/promises");
+const sleep = (a, b) => new Promise(r => setTimeout(r, a + Math.random() * (b - a)));
+{_space_prefix("product-candidates-run")}
+const P = {json.dumps(products, ensure_ascii=False)};
+const res = [];
+let lost = false;
+for (const p of P) {{
+  const rec = {{ id: p.id, category: "", error: "" }};
+  await page.goto(p.url, {{timeout: 60000}});
+  await page.waitForTimeout(3000);
+  if ((await page.url()).includes("login")) {{ lost = true; break; }}
+  const store = await page.evaluate(() => {{
+    const a = [...document.querySelectorAll("a")].find(e => e.innerText.trim().startsWith("네이버 쇼핑에서 보기"));
+    return a ? a.href : "";
+  }});
+  if (!store) {{ rec.error = "스토어 주소 없음"; }}
+  else {{
+    await sleep(3000, 5000);
+    await page.goto(store, {{timeout: 60000}});
+    await page.waitForTimeout(4000);
+    const u = await page.url();
+    if (/nidlogin|captcha|login/.test(u)) {{ rec.error = "LOGIN OR CAPTCHA: " + u; lost = true; }}
+    else {{
+      rec.category = await page.evaluate(() => {{
+        for (const s of document.querySelectorAll("script")) {{
+          const m = (s.textContent || "").match(/"wholeCategoryName":"([^"]+)"/);
+          if (m) return m[1].replace(/\\\\u002F/g, "/").replace(/\\\\u003E/g, ">");
+        }}
+        return "";
+      }});
+      if (!rec.category) rec.error = "카테고리 못 읽음";
+    }}
+  }}
+  res.push(rec);
+  await fs.writeFile({json.dumps(str(out_json).replace(chr(92), "/"))}, JSON.stringify({{ lost, res }}), "utf8");
+  console.log("CATEGORY", p.id, rec.category || rec.error);
+  if (lost) break;
   await sleep(3000, 5000);
 }}
 await fs.writeFile({json.dumps(str(out_json).replace(chr(92), "/"))}, JSON.stringify({{ lost, res }}), "utf8");
@@ -283,6 +335,119 @@ def brand_or_unknown(name: str, store: str, keyword: str = "") -> str:
 
 def _norm(s: str) -> str:
     return re.sub(r"[\s\-_·]", "", (s or "")).lower()
+
+
+# ───────────────────────── 대안 후보(alt_candidates) ─────────────────────────
+
+_ALIAS_CACHE: dict | None = None
+
+
+def _load_alias() -> dict:
+    """tools/brand_alias.json 을 읽어 {정규화한 이름: 대표 이름} 표로 만듭니다(없거나 깨져 있으면 빈 표)."""
+    global _ALIAS_CACHE
+    if _ALIAS_CACHE is None:
+        table: dict[str, str] = {}
+        seller_words: list[str] = []
+        seller_brands: set[str] = set()
+        try:
+            d = json.loads(BRAND_ALIAS_JSON.read_text(encoding="utf-8-sig"))
+            for g in d.get("groups", []):
+                names = [x for x in g if isinstance(x, str) and x.strip()]
+                for n in names:
+                    table[_norm(n)] = _norm(names[0])
+            seller_words = [_norm(x) for x in d.get("판매처_말", []) if isinstance(x, str)]
+            seller_brands = {_norm(x) for x in d.get("판매처_브랜드", []) if isinstance(x, str)}
+        except Exception:  # noqa: BLE001
+            pass
+        _ALIAS_CACHE = {"table": table, "seller_words": sorted(seller_words, key=len, reverse=True),
+                        "seller_brands": seller_brands}
+    return _ALIAS_CACHE
+
+
+def canon_brand(name: str, store: str = "", keyword: str = "") -> str:
+    """대안 비교용 브랜드. 상품명에서 묶음 표(brand_alias.json)의 이름을 찾아 대표 이름으로 돌려줍니다.
+    대소문자·띄어쓰기는 무시, 한글·영문 표기는 같은 브랜드. 표에 없으면 기존 추정 브랜드를 쓰고,
+    그것도 못 정하면 빈 글자(브랜드 확인 못 함)."""
+    a = _load_alias()
+    nn = _norm(name)
+    for w in a["seller_words"]:
+        nn = nn.replace(w, "")
+    found: list[tuple[int, str]] = []
+    for alias, canon in a["table"].items():
+        if len(alias) < 2:
+            continue
+        i = nn.find(alias)
+        if i >= 0:
+            found.append((i, canon))
+    groups = {c for _, c in found}
+    if len(groups) > 1:
+        groups -= a["seller_brands"]
+        found = [(i, c) for i, c in found if c in groups]
+    if found:
+        return min(found)[1]
+    b = brand_or_unknown(name, store, keyword)
+    return "" if b == UNKNOWN_BRAND else _norm(b)
+
+
+def lowest_category(whole: str) -> str:
+    """'디지털/가전>음향가전>스피커>블루투스스피커' → '블루투스스피커'(가장 아래 단계)."""
+    parts = [x.strip() for x in re.split(r"[>＞]", whole or "") if x.strip()]
+    return parts[-1] if parts else ""
+
+
+def alt_prefilter(main: dict, items: list[dict], keyword: str = "") -> tuple[list[dict], dict]:
+    """조건 ②③④(브랜드 다름·평점 4.5↑·가격 0.5~2배)를 만족하는 것을 리뷰 많은 순으로 돌려줍니다.
+    ① 카테고리는 상품 페이지를 열어야 알 수 있어서 여기서는 보지 않습니다."""
+    info = {"main_brand": canon_brand(main["name"], main.get("store", ""), keyword), "brand_unknown": 0,
+            "same_brand": 0, "low_rating": 0, "price_out": 0}
+    mp = main.get("price")
+    pool: list[dict] = []
+    for x in items:
+        if x["url"] == main["url"]:
+            continue
+        b = canon_brand(x["name"], x.get("store", ""), keyword)
+        if not b:
+            info["brand_unknown"] += 1
+            continue
+        if info["main_brand"] and b == info["main_brand"]:
+            info["same_brand"] += 1
+            continue
+        if x["rating"] is None or x["rating"] < ALT_RATING_MIN:
+            info["low_rating"] += 1
+            continue
+        p = x.get("price")
+        if not mp or not p or not (mp * ALT_PRICE_LOW <= p <= mp * ALT_PRICE_HIGH):
+            info["price_out"] += 1
+            continue
+        y = dict(x)
+        y["alt_brand"] = b
+        pool.append(y)
+    pool.sort(key=lambda x: (x["reviews"] or 0), reverse=True)
+    return pool, info
+
+
+def pick_alt(main_cat: str, pool: list[dict], cat_of) -> list[dict]:
+    """pool(리뷰 많은 순)에서 ① 가장 아래 카테고리가 본상품과 같은 것만, 같은 브랜드는 1개만, 최대 3개.
+    cat_of(x) 는 그 상품의 전체 카테고리 글자를 돌려줍니다(못 읽으면 ''). 3개가 차면 더 읽지 않습니다."""
+    out, brands = [], set()
+    low = lowest_category(main_cat)
+    if not low:
+        return out
+    for x in pool:
+        if x["alt_brand"] in brands:
+            continue
+        whole = cat_of(x)
+        if lowest_category(whole) != low:
+            continue
+        y = dict(x)
+        y["category"] = whole
+        y["reason"] = (f"대안 {len(out) + 1}: 카테고리 {low} 같음 · 브랜드 {x['alt_brand']}(본상품과 다름) · "
+                       f"평점 {x['rating']} · 리뷰 {(x['reviews'] or 0):,}개 · 가격 {x['price']:,}원")
+        out.append(y)
+        brands.add(x["alt_brand"])
+        if len(out) == ALT_PICK:
+            break
+    return out
 
 
 def recommend(items: list[dict]) -> tuple[list[dict], bool]:
@@ -433,6 +598,58 @@ def keywords_from_queue(channel: str) -> tuple[list[str], list[dict]]:
     return out, skipped
 
 
+# ───────────────────────── 대안 후보 계산(카테고리는 필요한 만큼만 읽음) ─────────────────────────
+
+def _pid(x: dict) -> str:
+    return x["url"].rstrip("/").rsplit("/", 1)[-1]
+
+
+def build_alt(keyword: str, items: list[dict], rec: list[dict], cat_dir: Path) -> dict:
+    """본상품(추천 1순위)과 같은 종류·다른 브랜드 대안을 최대 3개 고릅니다. 조건을 느슨하게 하지 않고 찾은 만큼만 냅니다.
+    반환: {"alt_candidates": [...], "alt_note": ""|"대안 없음"|이유, "alt_info": {...}}"""
+    if not rec:
+        return {"alt_candidates": [], "alt_note": "본상품 추천이 없어 대안을 찾지 않음", "alt_info": {}}
+    main = rec[0]
+    pool, info = alt_prefilter(main, items, keyword)
+    info["pool_after_2_3_4"] = len(pool)
+    if not main.get("price"):
+        return {"alt_candidates": [], "alt_note": "본상품 가격이 없어 가격 조건(④)을 확인할 수 없음", "alt_info": info}
+    if not pool:
+        return {"alt_candidates": [], "alt_note": "대안 없음", "alt_info": info}
+
+    def cached(x: dict) -> dict | None:
+        p = _cache_path(cat_dir, _pid(x))
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+    def fetch(prods: list[dict]) -> str:
+        pr = [{"id": _pid(x), "url": x["url"]} for x in prods]
+        return collect_in_batches(pr, lambda q: q["id"], cat_dir, BATCH_CAT,
+                                  lambda part, tmp: _js_category(part, tmp), "category", "카테고리 확인")
+
+    st = fetch([main])
+    mc = cached(main)
+    if st != "ok" or not mc or not mc.get("category"):
+        why = {"lost": "로그인이 풀려 카테고리를 읽지 못함", "incomplete": "카테고리 확인이 덜 끝남(같은 명령으로 이어 가기)"}.get(st, "본상품 카테고리를 읽지 못함")
+        return {"alt_candidates": [], "alt_note": why, "alt_info": info}
+    info["main_category"] = mc["category"]
+    chosen: list[dict] = []
+    done = 0
+    while done < len(pool):
+        done = min(len(pool), done + BATCH_CAT)
+        st = fetch(pool[:done])
+        if st != "ok":
+            info["stopped"] = st
+            break
+        chosen = pick_alt(mc["category"], pool[:done], lambda x: (cached(x) or {}).get("category", ""))
+        if len(chosen) >= ALT_PICK:
+            break
+    info["category_checked"] = min(done, len(pool))
+    note = "" if chosen else "대안 없음"
+    if info.get("stopped") and len(chosen) < ALT_PICK:
+        note = ("로그인이 풀려 일부만 확인함" if info["stopped"] == "lost" else "카테고리 확인이 덜 끝남(같은 명령으로 이어 가기)") + (f" — 찾은 {len(chosen)}개" if chosen else "")
+    return {"alt_candidates": chosen, "alt_note": note, "alt_info": info}
+
+
 # ───────────────────────── summary.md ─────────────────────────
 
 def write_summary(run: Path, data: dict) -> None:
@@ -453,6 +670,14 @@ def write_summary(run: Path, data: dict) -> None:
                 c = r["coupang"]
                 L.append(f"  - 쿠팡: {c['verdict']} ({c['why']})"
                          + (f" · 쿠팡 가격 {c['price']:,}원" if c.get("price") else ""))
+        if "alt_candidates" in k:
+            L += ["", "### 대안 후보(다른 브랜드·같은 종류)", ""]
+            if not k["alt_candidates"]:
+                L.append(f"- {k.get('alt_note') or '대안 없음'}")
+            for r in k["alt_candidates"]:
+                L.append(f"- **{r['name']}** — {r['price']:,}원 · {r['reason']}")
+            if k["alt_candidates"] and k.get("alt_note"):
+                L.append(f"- 참고: {k['alt_note']}")
         L += ["", "### 상위 30개", "", "| 순위 | 상품명 | 브랜드(추정) | 가격 | 수수료 | 리뷰 | 평점 |", "|---|---|---|---|---|---|---|"]
         for x in k["items"]:
             px = f"{x['price']:,}" if x["price"] else NO_PRICE
@@ -486,6 +711,8 @@ def _main() -> int:
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--keywords", help='쉼표로 구분: "키워드1,키워드2"')
     g.add_argument("--from-queue", action="store_true", help="그 채널 대기열의 '찾을 제품 조건'을 읽기만 해서 검색어로 씀")
+    ap.add_argument("--alt-keywords", help='틀 B 검색어(쉼표 구분). 이 검색어에만 대안 후보를 뽑음. 안 쓰면 radar_naver 에서 모델명이 든 검색어에만 뽑음')
+    ap.add_argument("--no-alt", action="store_true", help="대안 후보를 뽑지 않음")
     a = ap.parse_args()
 
     skipped: list[dict] = []
@@ -525,13 +752,21 @@ def _main() -> int:
             "source": "keywords" if a.keywords else "queue",
             "criteria": {"top_n": TOP_N, "rating_min": RATING_MIN, "rating_relaxed": RATING_RELAXED, "pick": PICK},
             "keywords": [], "skipped_no_query": skipped}
+    if a.alt_keywords:
+        alt_kws = {k.strip() for k in a.alt_keywords.split(",") if k.strip()}
+    elif a.channel == "radar_naver":
+        alt_kws = {k for k in kws if model_of(k)}  # 모델명이 든 검색어 = 틀 B 로 봄
+    else:
+        alt_kws = set()
     for ki, r in enumerate(raw["res"], 1):
         items = [parse_naver_item(x, i, r["kw"]) for i, x in enumerate(r["items"][:TOP_N], 1)]
         rec, relaxed = recommend(items)
         for x in rec:  # 대표 이미지: 추천 3개만
             x["image"] = download_image(x["image_url"], run / "img" / f"k{ki}_r{x['rank']}.jpg")
-        data["keywords"].append({"keyword": r["kw"], "total": r["total"], "items": items,
-                                 "recommended": rec, "relaxed": relaxed})
+        entry = {"keyword": r["kw"], "total": r["total"], "items": items, "recommended": rec, "relaxed": relaxed}
+        if not a.no_alt and r["kw"] in alt_kws:
+            entry.update(build_alt(r["kw"], items, rec, run / "raw_category_parts"))
+        data["keywords"].append(entry)
 
     # 2) 쿠팡파트너스(W싼세계만)
     if a.channel == "wp_tips":

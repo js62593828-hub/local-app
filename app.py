@@ -39,6 +39,7 @@ import wp_browser_publisher
 import wp_publisher
 import radar_board
 import radar_cards
+import radar_screen
 import shop_wp_resync
 import source_capture
 import v4_board
@@ -1397,7 +1398,9 @@ def edit_article(article_id):
     if get_channel_config().get("queue_builder") == "shopping":
         can_generate_final = any(e.get("selected") for e in article["shop_image_pool"]["cover"])
     elif get_active_channel_id() in RADAR_CHANNELS:
-        can_generate_final = bool(article["covers"].get("naver"))  # 생활레이더: 표지 1장만 있으면 켜짐(카드는 선택)
+        # N데스크피커: 장부(covers.naver) 대신 그 글 사진 폴더 photos.json 에 표지(cover)가 있으면 켜짐(장부엔 안 씀)
+        _rctx = _radar_desk_context(article_id)
+        can_generate_final = bool(_rctx and radar_screen.has_cover(_rctx[2]))
     else:
         can_generate_final = bool(article["body_images"])
 
@@ -1432,6 +1435,8 @@ def edit_article(article_id):
         show_image_pool=get_channel_config().get("queue_builder") == "shopping" or is_ai_info_channel(),
         lt_cover=_lt_cover_context(item) if get_active_channel_id() == "longterm_wp" else None,
         radar=_radar_info(article) if get_active_channel_id() in RADAR_CHANNELS else None,
+        desk=_radar_desk_view(article_id) if get_active_channel_id() in RADAR_CHANNELS else None,  # N데스크피커 ② 새 화면 값
+        desk_msg=request.args.get("desk_msg", ""),
         # 네이버(naver_tips) 본문 사진 칸: 미리보기는 원본 사진(네이버용 75% 파일 기능은 radar169_nv75off_20261027에 꺼짐)
         naver_body=_naver_body_info(article) if get_active_channel_id() in NV75_CHANNELS else None,
         # 싼세계 "외부 이미지 추가" 칸 (다른 채널은 빈 값)
@@ -4687,6 +4692,127 @@ def _radar_make_cover(article_id: str, scene: str, topic: str, alt: str) -> list
     return ["cover_done"] + codes
 
 
+# ── N데스크피커 ② 사진 화면(새 방식): 원고의 [사진: 번호]·[상품카드: 상품명]·[표지] 를 읽어 보여 주고, 고른 결과를 글 사진 폴더의 photos.json 에 저장 ──
+# 계산·복사는 radar_screen.py 가 하고, 여기는 화면 값 전달과 버튼 길만 이어 줍니다(0원, 이미지 생성 API 안 부름, 대기열·장부 json 에는 안 씀).
+def _radar_desk_context(article_id: str):
+    """(글, 대기열 항목, 사진 폴더) — radar 채널이 아니거나 글이 없으면 None."""
+    if get_active_channel_id() not in RADAR_CHANNELS:
+        return None
+    item = find_queue_item(load_queue(), article_id)
+    if not item:
+        return None
+    article = get_article(article_id)
+    title = next((t for t in article["platform_title"].values() if t), None) or item["keyword"]
+    cfg = get_channel_config()
+    folder = cfg.get("image_folder") or "생활레이더"
+    pdir = radar_screen.photo_dir(folder, image_gen.slugify_for_folder(title))
+    return article, item, pdir
+
+
+def _radar_related_for(article_id: str, item: dict):
+    """"함께 보면 좋은 글" 두 개 고르기(읽기만). 반환 (뽑은 목록, 메모 목록). 기준 날짜는 config.RADAR_RELATED_SINCE."""
+    queue, articles = _read_channel_data("radar_naver")
+    return radar_screen.pick_related(
+        article_id, radar_screen.plan_genre(item), queue, articles, getattr(config, "RADAR_RELATED_SINCE", "2026-11-23")
+    )
+
+
+def _radar_desk_view(article_id: str):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return None
+    article, item, pdir = ctx
+    radar_screen.auto_table_images(article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "", pdir)  # 표 칸에 그림이 없으면 자동으로 만듦(글 사진 폴더에만 씀)
+    return radar_screen.build_screen(article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "", item, pdir)
+
+
+def _radar_upload_view(article_id: str, final_html: str):
+    """③ 화면의 업로드 폴더 목록(읽기만). 글을 못 찾으면 None."""
+    ctx = _radar_desk_context(article_id)
+    return radar_screen.upload_listing(ctx[2], final_html) if ctx else None
+
+
+def _radar_desk_back(article_id: str, ok: bool, msg: str):
+    return redirect(url_for("edit_article", article_id=article_id, desk_msg=("" if ok else "!") + msg) + "#radar-images")
+
+
+@app.route("/radar/file")
+def radar_desk_file():
+    """② 화면 미리보기용: 후보 사진 폴더·글 사진 폴더 안의 그림 파일만 보내 줍니다(그 밖의 경로는 404)."""
+    p = request.args.get("p", "")
+    if get_active_channel_id() not in RADAR_CHANNELS or not radar_screen.is_allowed_file(p):
+        return ("", 404)
+    return send_file(os.path.abspath(p))
+
+
+@app.route("/article/<article_id>/radar/open-upload-folder", methods=["POST"])
+def radar_open_upload_folder(article_id):
+    """③ 화면 [업로드 폴더 열기]: 윈도우 탐색기로 글 사진 폴더 안 naver_upload 를 연다(폴더 위치는 글에서 계산, 화면 입력은 안 씀)."""
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("view_final", article_id=article_id, platform="naver"))
+    target = os.path.abspath(os.path.join(ctx[2], radar_screen.UPLOAD_DIR))
+    if not os.path.isdir(target):
+        msg = "업로드 폴더가 아직 없어요. ③ 최종본 만들기를 먼저 눌러 주세요"
+    elif not hasattr(os, "startfile"):
+        msg = "이 컴퓨터에서는 폴더를 열 수 없어요: " + target
+    else:
+        try:
+            os.startfile(target)
+            msg = ""
+        except OSError as e:
+            msg = "폴더를 열지 못했어요: " + str(e)
+    return redirect(url_for("view_final", article_id=article_id, platform="naver", upload_msg=msg))
+
+
+@app.route("/article/<article_id>/radar/desk/cover", methods=["POST"])
+def radar_desk_cover(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("index"))
+    article, item, pdir = ctx
+    ok, msg = radar_screen.make_cover_file(article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "", item, pdir)
+    return _radar_desk_back(article_id, ok, msg)
+
+
+@app.route("/article/<article_id>/radar/desk/slot", methods=["POST"])
+def radar_desk_slot(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx or not (request.form.get("slot") or "").isdigit():
+        return redirect(url_for("index"))
+    ok, msg = radar_screen.choose_slot(ctx[2], int(request.form["slot"]), request.form.get("src", ""))
+    return _radar_desk_back(article_id, ok, msg)
+
+
+@app.route("/article/<article_id>/radar/desk/table", methods=["POST"])
+def radar_desk_table(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx or not (request.form.get("slot") or "").isdigit():
+        return redirect(url_for("index"))
+    article, _item, pdir = ctx
+    ok, msg = radar_screen.make_table_image_file(article["platform_raw"].get("naver") or "", pdir, int(request.form["slot"]))
+    return _radar_desk_back(article_id, ok, msg)
+
+
+@app.route("/article/<article_id>/radar/desk/gif", methods=["POST"])
+def radar_desk_gif(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("index"))
+    article, _item, pdir = ctx
+    ok, msg = radar_screen.copy_gif(pdir, request.form.get("name", ""), article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "")
+    return _radar_desk_back(article_id, ok, msg)
+
+
+@app.route("/article/<article_id>/radar/desk/product", methods=["POST"])
+def radar_desk_product(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("index"))
+    ok, msg = radar_screen.pick_product(ctx[2], request.form.get("name", ""), request.form.get("product_id", ""))
+    return _radar_desk_back(article_id, ok, msg)
+
+
 @app.route("/article/<article_id>/radar/cover", methods=["POST"])
 def radar_make_cover(article_id):
     """[표지만 다시] — 메모의 표지 장면: 으로 16:9 사진 1장(약 20원) + 카드 제목 얹기(0원). 장면이 없으면 API를 부르지 않고 안내만 합니다."""
@@ -4948,10 +5074,13 @@ def generate_final(article_id):
     # 워드프레스용 최종본(쿠팡 파트너스 대가성 문구 포함)이 눈에 안 보이게 만들어지지 않도록.
     # 워드프레스 일반도 같은 방식으로 자기 플랫폼(워드프레스)만 만듭니다.
     final_platforms = get_active_platforms() if get_active_channel_id() in MANUAL_KEYWORD_CHANNELS else PLATFORMS
+    radar_final_fail = ""  # N데스크피커: 최종본을 못 만든 이유(조용히 넘어가지 않고 화면에 알림)
     for p in final_platforms:
         raw = article["platform_raw"].get(p, "")
         title = article["platform_title"].get(p, "")
         if not raw or not title:
+            if get_active_channel_id() in RADAR_CHANNELS and p == "naver":
+                radar_final_fail = "원고 또는 제목이 비어 있어요"
             continue
 
         cover_path = article["covers"].get(p, "")
@@ -4960,7 +5089,19 @@ def generate_final(article_id):
 
         if get_active_channel_id() in RADAR_CHANNELS:
             # 생활레이더: 네이버용 변환 경로를 재사용하되 대가성·숍 링크·하단 추천은 전부 끔 (기존 채널 분기와 섞이지 않는 새 가지)
-            article["platform_final"][p] = _radar_build_final(article, raw, title, cover_img_tag, seed=article_id)
+            # N데스크피커 새 방식: 사진 폴더 photos.json(표지·사진 칸·GIF)과 원고 표시를 읽어 최종본을 만듭니다(radar_screen.build_final_html).
+            _raw_body, _sources = _radar_split_sources(raw)
+            article["radar_sources"] = _sources
+            _rctx = _radar_desk_context(article_id)
+            if not _rctx:
+                radar_final_fail = "대기열에서 이 글을 찾지 못해 사진 폴더 정보를 얻지 못했어요" if not item else "사진 폴더 정보를 얻지 못했어요"
+                continue
+            _related, _ = _radar_related_for(article_id, _rctx[1])
+            article["platform_final"][p], _final_info = radar_screen.build_final_html(_raw_body, title, _rctx[2], related=_related)
+            if _final_info.get("upload_error"):
+                session["radar_upload_err"] = "업로드 폴더(naver_upload)를 만들지 못했어요: " + _final_info["upload_error"]
+            else:
+                session.pop("radar_upload_err", None)
             _radar_sync(article)
             continue
 
@@ -5118,6 +5259,11 @@ def generate_final(article_id):
             _LINK_REPLACED[(get_active_channel_id(), article_id, p)] = changes
 
     set_article(article_id, article)
+    if get_active_channel_id() in RADAR_CHANNELS:
+        if radar_final_fail:
+            session["radar_final_err"] = "최종본을 만들지 못했습니다: " + radar_final_fail
+            return redirect(url_for("edit_article", article_id=article_id, desk_msg="!최종본을 만들지 못했습니다: " + radar_final_fail) + "#radar-images")
+        session.pop("radar_final_err", None)
     return redirect(url_for("edit_article", article_id=article_id))
 
 
@@ -5249,6 +5395,19 @@ def set_published_date(article_id, platform):
     url_value = request.form.get("published_url", "").strip()
     article = get_article(article_id)
     if platform in PLATFORMS:
+        # N데스크피커(radar_naver) 네이버 글 주소: 바뀔 때만 형식 검사(이미 저장된 주소는 그대로 둠). 맞으면 정해진 모양으로 맞춰 저장.
+        if get_active_channel_id() in RADAR_CHANNELS and platform == "naver":
+            stored_url = (article["platform_published_url"].get(platform) or "").strip()
+            stored_date = article["platform_published_at"].get(platform)
+            if url_value != stored_url:
+                fixed, err = radar_screen.normalize_post_url(url_value)
+                if err and not (not url_value and not date_value):  # 날짜도 주소도 비우는 것(발행 표시 취소)만 허용
+                    session["radar_pub_err"] = "발행 표시를 저장하지 않았어요 — " + err
+                    return redirect(request.referrer or url_for("edit_article", article_id=article_id))
+                url_value = fixed
+            elif date_value and not url_value and not stored_date:
+                session["radar_pub_err"] = "발행 표시를 저장하지 않았어요 — 글 주소가 비어 있어요. 발행한 글의 주소(https://blog.naver.com/guardradar/글번호)를 넣어 주세요."
+                return redirect(request.referrer or url_for("edit_article", article_id=article_id))
         article["platform_published_at"][platform] = date_value or None
         article["platform_published_url"][platform] = url_value or None
     set_article(article_id, article)
@@ -6742,7 +6901,7 @@ def view_final(article_id, platform):
 
     # 네이버 SHOP·네이버 일반: 원고 끝 "태그: #… " 줄(본문에서는 빠짐)을 최종 화면 상단 "추천 태그" 박스로 보여줍니다. 줄이 없으면 메타데이터 메모의 "태그 제안"(최대 5개).
     recommended_tags, tags_source = [], ""
-    if platform == "naver" and get_active_channel_id() in ("shop_naver", "naver_tips", "radar_naver"):
+    if platform == "naver" and get_active_channel_id() in ("shop_naver", "naver_tips"):  # radar_naver 는 아래 radar_meta 칸(태그별 복사)을 씁니다
         _, recommended_tags = shop_formatter.split_tag_line(article["platform_raw"].get("naver") or "")
         tags_source = "원고의 태그 줄"
         if not recommended_tags:
@@ -6769,10 +6928,33 @@ def view_final(article_id, platform):
                 "already": lines[0] in content,
             }
 
+    # N데스크피커 ③ 화면 위쪽: 제목 복사·카테고리·태그별 복사·강조 표시 경고 (읽기만, 아무것도 저장하지 않음)
+    radar_meta = None
+    if get_active_channel_id() in RADAR_CHANNELS and platform == "naver":
+        _raw_all = article["platform_raw"].get("naver") or ""
+        radar_meta = radar_screen.radar_meta_view(
+            article["platform_metadata"].get("naver") or "", _raw_all, radar_screen.plan_genre(item),
+            article["platform_title"].get("naver") or "",
+        )
+        radar_meta["emphasis_warns"] = radar_screen.emphasis_warnings(_radar_split_sources(_raw_all)[0])
+        radar_meta["sub_warns"] = radar_screen.subheading_warnings(_radar_split_sources(_raw_all)[0], article["platform_metadata"].get("naver") or "")  # 제품 소제목(###) 빠진 상품 구간
+        radar_meta["avoid_warns"] = radar_screen.avoid_warnings(_radar_split_sources(_raw_all)[0], article["platform_metadata"].get("naver") or "", article["platform_title"].get("naver") or "")  # 피할 표현(⑨)
+
+    # N데스크피커 ③ 화면용 최종본(⑫): 📷 줄 자리에 naver_upload 안 같은 파일을 그림으로 보여 줌. 복사용(outgoing_content)은 📷 줄 그대로.
+    radar_screen_content, radar_banner_missing = None, []
+    if get_active_channel_id() in RADAR_CHANNELS and platform == "naver":
+        _sctx = _radar_desk_context(article_id)
+        if _sctx:
+            radar_screen_content = radar_screen.screen_html(content, _sctx[2])
+        radar_banner_missing = radar_screen.banner_missing_from(content)
+
     return render_template(
         "final_view.html",
         idx=article_id,
         platform=platform,
+        radar_meta=radar_meta,
+        radar_screen_content=radar_screen_content,
+        radar_banner_missing=radar_banner_missing,
         shop_post=shop_post,
         ext_info=ext_info,
         shop_msg=request.args.get("shop_msg", ""),
@@ -6836,6 +7018,13 @@ def view_final(article_id, platform):
         radar_downloads=_radar_downloads(article) if get_active_channel_id() in RADAR_CHANNELS else None,
         body_downloads=_naver_body_downloads(article) if (get_active_channel_id() in NV75_CHANNELS and platform == "naver") else None,
         radar_sources=(article.get("radar_sources") or []) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_empty_slots=radar_screen.count_empty_slots(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_missing_links=radar_screen.count_missing_card_links(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_no_related=radar_screen.has_no_related_mark(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_upload=_radar_upload_view(article_id, content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_upload_err=(session.pop("radar_upload_err", "") if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else "") or request.args.get("upload_msg", ""),
+        radar_pub_err=session.pop("radar_pub_err", ""),
+        radar_final_err=session.pop("radar_final_err", "") if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else "",
         sc_msg=SOURCE_CAPTURE_MSGS.get(request.args.get("sc_msg", ""), ""),
     )
 

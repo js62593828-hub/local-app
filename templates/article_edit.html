@@ -366,6 +366,134 @@ function fillAllPromoDates(datetimeValue) {
   </details>
 
 {% if active_channel_id == 'radar_naver' and radar %}
+  <!-- 2. N데스크피커 사진(새 화면): 원고의 [표지]·[사진: 번호]·[상품카드: 상품명] 을 읽어 보여 줌. 0원(이미지 생성 API 안 부름). 고른 결과는 글 사진 폴더 안 photos.json 에 저장 -->
+  <div class="section" id="radar-images">
+    <h2 class="section-title">② 사진 — 표지 + 본문 사진 칸 + 상품 GIF</h2>
+    {% if desk_msg %}<div style="color:{{ '#fbbf24' if desk_msg.startswith('!') else '#34d399' }}; font-size:13px; margin-bottom:8px;">{{ desk_msg.lstrip('!') }}</div>{% endif %}
+    {% if not (desk and desk.enabled) %}
+    <p class="sub">원고에 <code>[표지]</code>·<code>[사진: 번호]</code>·<code>[상품카드: 상품명]</code> 표시가 아직 없어요. ①에서 원고와 메모를 붙여넣고 저장하면 여기에 칸이 나타나요. (옛 생활레이더 방식의 AI 사진 버튼은 숨겼어요.)</p>
+    {% else %}
+    {% set sm = desk.summary %}
+    {% if desk.warnings %}
+    <div style="background:#3a2f0d; color:#fbbf24; border-radius:6px; padding:8px 12px; font-size:13px; margin:8px 0;">
+      {% for w in desk.warnings %}<div>⚠ {{ w }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">표지</h3>
+    <div class="cover-gallery" style="align-items:flex-start;">
+      <figure style="width:260px;">
+        {% if desk.cover.made_url %}
+        <img src="/radar/file?p={{ desk.cover.made_url|urlencode }}&amp;v={{ range(1, 1000000000) | random }}" alt="표지 미리보기" style="width:260px; height:260px; object-fit:contain; background:#222; border-radius:6px; display:block;">
+        <figcaption>만든 표지(1080×1080) · {{ desk.cover.made }}</figcaption>
+        {% else %}
+        <div style="width:260px; height:260px; background:#222; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#999; font-size:13px;">아직 안 만들었어요</div>
+        <figcaption>표지를 만들려면 아래 버튼을 누르세요</figcaption>
+        {% endif %}
+      </figure>
+      <div class="sub" style="max-width:420px; line-height:1.7;">
+        큰 제목: <strong>{{ desk.cover.title or '(비어 있음)' }}</strong><br>
+        갈래: {% if desk.cover.genre %}<strong>{{ desk.cover.genre }}</strong>{% else %}<span style="color:#fbbf24;">비어 있음(그 주 plan.json 에 없음)</span>{% endif %}<br>
+        짧은 이름: {% if desk.cover.short %}<strong>{{ desk.cover.short }}</strong>{% else %}<span style="color:#fbbf24;">비어 있음(images.json 에 없음 — 아랫줄 없이 만들어요)</span>{% endif %}<br>
+        표지 사진: {% if desk.cover.photo %}<strong>{{ desk.cover.photo.split('/')[-1] }}</strong> — {{ desk.cover.photo_reason }}{% if desk.cover.product %} ({{ desk.cover.product[:24] }}){% endif %}{% else %}<span style="color:#fbbf24;">없음 — {{ desk.cover.photo_reason }}(글자만 있는 표지)</span>{% endif %}
+        {% if desk.cover.skipped %}<br><span style="color:#999;">뺀 사진: {% for f, why in desk.cover.skipped %}{{ f }}({{ why }}){% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+        <form method="POST" action="/article/{{ idx }}/radar/desk/cover" style="margin-top:8px;">
+          <button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">{{ '표지 다시 만들기' if desk.cover.made_url else '표지 만들기' }} (0원)</button>
+        </form>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px; margin:18px 0 6px;">본문 사진 칸 ({{ sm.slots }}칸, 원고 순서대로)</h3>
+    {% for s in desk.slots %}
+    <div style="border:1px solid #444; border-radius:8px; padding:10px 12px; margin:8px 0;">
+      <div><strong>[사진: {{ s.number }}]</strong>
+        <span class="sub">· 소제목: {% if s.h2 %}<strong>{{ s.h2 }}</strong>{% else %}(소제목 밖){% endif %}{% if s.kind %} · 메모 종류: {{ s.kind }}{% endif %}{% if s.note %} · {{ s.note }}{% endif %}</span></div>
+      {% if s.kind == '표' %}
+      <form method="POST" action="/article/{{ idx }}/radar/desk/table" style="margin:6px 0;"><input type="hidden" name="slot" value="{{ s.number }}"><button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">{{ '표 그림 다시 만들기' if s.chosen else '표 그림 만들기' }} (바로 위 표 → 가로 800)</button></form>
+      {% endif %}
+      {% if s.chosen %}
+      <div style="display:flex; gap:10px; align-items:center; margin:8px 0;">
+        <img src="/radar/file?p={{ s.chosen_url|urlencode }}" alt="고른 사진" style="width:96px; height:96px; object-fit:contain; background:#222; border-radius:6px;">
+        <div class="sub">고른 사진: <strong>{{ s.chosen }}</strong>{% if s.chosen_label %}<br>상품: <strong>{{ s.chosen_label }}</strong>{% endif %}{% if s.chosen_src %}<br>원본: {{ s.chosen_src }}{% endif %}</div>
+        <form method="POST" action="/article/{{ idx }}/radar/desk/slot"><input type="hidden" name="slot" value="{{ s.number }}"><input type="hidden" name="src" value=""><button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">선택 취소</button></form>
+      </div>
+      {% if s.mismatch %}<div style="background:#3a2f0d; color:#fbbf24; border-radius:6px; padding:6px 10px; font-size:13px; margin:4px 0;">⚠ 이 칸 상품과 다른 사진 — 이 칸은 <strong>{{ s.want_label }}</strong> 칸인데 <strong>{{ s.chosen_label }}</strong> 사진을 골랐어요</div>{% endif %}
+      {% else %}
+      <div class="sub" style="margin:6px 0; color:#fbbf24;">{% if s.chosen_missing %}저장된 사진 파일이 없어요 — 다시 골라 주세요{% else %}아직 안 골랐어요{% endif %}</div>
+      {% endif %}
+      {% macro cand_group(g, s) %}
+        <div class="sub" style="margin:8px 0 4px;"><strong>{{ g.label }}</strong> <span style="color:#999;">({{ g.name[:30] }})</span> · 제외 규칙(뱃지·글자 많음·확인 필요)으로 뺀 사진 {{ g.excluded }}장{% if not g['items'] %} · <span style="color:#fbbf24;">쓸 수 있는 후보 없음</span>{% endif %}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          {% for it in g['items'] %}
+          <form method="POST" action="/article/{{ idx }}/radar/desk/slot" style="margin:0;" title="{{ it.label_name }} · {{ it.group }} · {{ it.label }}">
+            <input type="hidden" name="slot" value="{{ s.number }}"><input type="hidden" name="src" value="{{ it.path }}">
+            <button type="submit" style="padding:0; border:2px solid {{ '#34d399' if s.chosen_src == it.path else '#555' }}; background:#222; border-radius:6px; cursor:pointer;">
+              <img src="/radar/file?p={{ it.path|urlencode }}" loading="lazy" alt="{{ it.label }}" style="width:84px; height:84px; object-fit:contain; display:block; border-radius:0;">
+              <span style="display:block; font-size:10px; color:#ddd; width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.label_name }}</span>
+              <span style="display:block; font-size:10px; color:#aaa; width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.kind }}</span>
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      {% endmacro %}
+      <details>
+        <summary class="sub" style="cursor:pointer;">후보 사진 보기 (눌러서 고르기){% if s.want_label %} — 이 칸 상품: {{ s.want_label }}{% endif %}</summary>
+        {% if s.want_pid %}
+          {% for g in desk.groups if g.id == s.want_pid %}{{ cand_group(g, s) }}{% endfor %}
+          {% if desk.groups|length > 1 %}
+          <details style="margin-top:10px;">
+            <summary class="sub" style="cursor:pointer;">다른 상품 사진 ({{ desk.groups|length - 1 }}개 상품)</summary>
+            {% for g in desk.groups if g.id != s.want_pid %}{{ cand_group(g, s) }}{% endfor %}
+          </details>
+          {% endif %}
+        {% else %}
+          {% for g in desk.groups %}{{ cand_group(g, s) }}{% endfor %}
+        {% endif %}
+        {% if not desk.groups %}<div class="sub" style="color:#fbbf24;">후보를 찾을 상품이 없어요(아래 상품 칸에서 '확인 필요' 상품을 먼저 고르세요)</div>{% endif %}
+      </details>
+    </div>
+    {% endfor %}
+
+    <h3 style="font-size:14px; margin:18px 0 6px;">상품별 GIF ({{ sm.cards }}개, GIF 는 사진 수에 안 넣어요)</h3>
+    {% for g in desk.gifs %}
+    <div style="border:1px solid #444; border-radius:8px; padding:10px 12px; margin:8px 0;">
+      <div><strong>[상품카드: {{ g.name }}]</strong> <span class="sub">· 소제목: {{ g.h2 or '(없음)' }}</span></div>
+      {% if g.prod %}
+      <div class="sub" style="margin-top:4px;">상품 id <strong>{{ g.prod.id }}</strong> · {{ g.status }}({{ g.note }})</div>
+      {% else %}
+      <div class="sub" style="margin-top:4px; color:#fbbf24;">확인 필요 — {{ g.note }}</div>
+      {% endif %}
+      <form method="POST" action="/article/{{ idx }}/radar/desk/product" style="margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <input type="hidden" name="name" value="{{ g.name }}">
+        <select name="product_id" style="max-width:360px;">
+          <option value="">{{ '(지정 취소)' if g.status == '고름' else '(상품 고르기)' }}</option>
+          {% for pr in desk.all_products %}<option value="{{ pr.id }}" {{ 'selected' if g.prod and g.prod.id == pr.id and g.status == '고름' }}>{{ pr.name[:40] }} ({{ pr.id }})</option>{% endfor %}
+        </select>
+        <button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">이 상품으로</button>
+      </form>
+      {% if g.prod and g.gif_src %}
+      <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+        <img src="/radar/file?p={{ (g.gif_copied_url or g.gif_src)|urlencode }}" loading="lazy" alt="GIF 미리보기" style="width:120px; height:120px; object-fit:contain; background:#222; border-radius:6px;">
+        <div class="sub">{% if g.gif_copied %}글 사진 폴더로 가져왔어요: <strong>{{ g.gif_copied }}</strong>{% else %}GIF 가 있어요(아직 글 사진 폴더로 안 가져옴){% endif %}</div>
+        <form method="POST" action="/article/{{ idx }}/radar/desk/gif"><input type="hidden" name="name" value="{{ g.name }}"><button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">{{ 'GIF 다시 가져오기' if g.gif_copied else 'GIF 가져오기' }}</button></form>
+      </div>
+      {% elif g.prod %}
+      <div class="sub" style="margin-top:8px; color:#999;">GIF 없음</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <h3 style="font-size:14px; margin:18px 0 6px;">요약</h3>
+    <div class="sub" style="line-height:1.8;">
+      사진 칸 <strong>{{ sm.slots }}</strong>개 · 채운 칸 <strong>{{ sm.filled }}</strong>개 · 본문 사진 권장 <strong>{{ sm.recommend }}</strong>장(공백 뺀 글자 수 ÷ 400, 5~8장)<br>
+      GIF <strong>{{ sm.gifs }}</strong>개 가져옴 (사진 수에 안 넣음{% if sm.gif_missing %} · GIF 없는 상품 {{ sm.gif_missing }}개{% endif %}) · 확인 필요 <strong>{{ sm.need_check }}</strong>개(상품을 못 찾은 상품카드)
+      {% if sm.slots != sm.recommend %}<br><span style="color:#fbbf24;">사진 칸 수({{ sm.slots }})가 권장 수({{ sm.recommend }})와 달라요.</span>{% endif %}
+      <br>저장 위치: {{ desk.photo_dir }}/photos.json
+    </div>
+    {% endif %}
+  </div>
+  {# 옛 생활레이더 방식(유료 AI 사진 4장·16:9 표지·1:1 글자 카드) 화면: 숨김. 코드는 지우지 않고 남겨 둡니다. #}
+  {% if false %}
   <!-- 2. N데스크피커 이미지: 표지 1(16:9, 카드 제목 얹음) + 본문 AI 사진 3(16:9) + 본문 카드(글자 카드 1:1, 선택) -->
   <div class="section" id="radar-images">
     <h2 class="section-title">② 이미지 — 표지 1 + 본문 사진 {{ radar.body_max }} (16:9, 1536×864) + 카드(선택, 1:1)</h2>
@@ -445,6 +573,7 @@ function fillAllPromoDates(datetimeValue) {
     </div>
     {% endif %}
   </div>
+  {% endif %}
   {% elif not is_shopping_channel %}
   <!-- 2. 이미지 생성 -->
   <div class="section">

@@ -1,3 +1,91 @@
+## 다음 작업자가 바로 이어갈 것 (11/17 마무리)
+- 오늘 끝난 것: 원고지침 v2.4·v2.5 반영, 시험 3편 다시 쓰기, radar_check 표 칸 검사(k·l) 추가, 대안 후보(alt_candidates)·브랜드 묶음 표 추가
+- 하다 만 것: 맥세이프 비교표(확정 상품 3개뿐), 사진 준비·대기열 넣기, 후보 수집 전체 실행은 안 함
+- 앱 코드 바뀐 것이 있으니 앱을 껐다 켜야 반영됨. 실제 데이터 파일은 건드리지 않음
+- 내일 첫 할 일: 맥세이프 상품 보충 여부 정할 것 → 시험 원고 3편 사진 준비 후 radar_import 미리보기
+
+완료 (11/17): tools/product_candidates.py 에 대안 후보(alt_candidates) 추가 + tools/brand_alias.json(같은 브랜드 묶음 표). 가짜 자료로 조건 시험 통과, 카테고리 읽기 2건 실제 시험 통과. 실제 후보 수집 전체 실행은 안 함
+
+완료 (11/17): 원고지침 v2.4 반영·시험 3편 다시 씀(pipeline/drafts_test_1123/). radar_check 폴더 전체 위반 0. 앱 데이터·radar_import·발행·링크 발급은 안 함
+남은 것: 맥세이프 비교표는 확정 상품이 3개뿐이라 3개 제품(지침 4~5개). 사진 준비·대기열 넣기는 아직
+
+
+## 완료 (2026-11-17) — radar-writer 서브에이전트 + 시험 3편
+- 바뀐 것: .claude/agents/radar-writer.md(제목 그대로·파일 이름 규칙), pipeline/drafts_test_1123/ 원고 3편(맥세이프 A, JBL GO5 B, 카멜마운트 SMB35 B). radar_check 위반 0
+- 남은 것: JBL GO5 는 방수 자료 없음(제목 제안 있음). 앱 대기열 넣기·사진 준비·발행은 하지 않았음
+
+## 완료 (2026-11-17) — 표 그림 업로드 크기 검사 예외·② 열 때 표 그림 자동 만들기
+- 바뀐 것: radar_screen.py(upload_listing 가로 800이면 통과, auto_table_images 새로 추가), app.py(_radar_desk_view 가 ② 열 때 auto_table_images 호출). 글 사진 폴더에만 씀
+- 남은 것: 앱 껐다 켜기. radar_import 는 읽기만 보고(고치지 않음)
+
+## 완료 (2026-11-17) — radar_rules.md v2.2 교체·표 그림 ② 연결(가로 800)·표 검사 추가
+- 바뀐 것: tools/radar_rules.md(v2.2), radar_images.py(table_image 가로 800·세로 표 길이대로·10행 초과 경고), radar_screen.py(table_slot_map·make_table_image_file, ③에서 표 그림 있으면 HTML 표 생략), app.py·templates/article_edit.html(표 그림 만들기 버튼), tools/radar_check.py(j 항목: 표 개수·표 아래 [사진: n]·10행 경고)
+- 남은 것: 앱을 껐다 켜야 새 코드 적용. 실제 글에서 ②의 '표 그림 만들기'를 눌러 보고 ③ 다시 만들기. 옛 naver_upload 는 다시 만들어야 반영
+
+## 완료 (2026-11-17) — radar_rules.md v2.1 교체·제목 단계 규칙 읽기 고침·지점 위반·형광펜 2~3곳
+- 바뀐 것: tools/radar_rules.md(v2.1 원문+맨 위 "원본" 한 줄), tools/keyword_pipeline.py(rules_section 이 「문장 쓰는 법·제목·피할 표현」 소제목으로 찾고 못 찾으면 오류), tools/radar_check.py(형광펜 2~3곳), tools/radar_banned.json(지점 → 위반). 앞 주의(공통·제목 칸 없음)는 해결됨
+- 남은 것: 표 그림을 ② 사진 단계에 연결(계획만 보고, 코드 안 고침) — 시험 원고 6개 위반 합계 7→11(형광펜 1곳짜리가 새로 걸림)
+
+## 완료 (2026-11-17) — radar_rules.md v2.0 교체·상품카드 검사 범위 좁힘·테두리 2배
+- 집 PC 에서 커밋 필요: radar_images.py, radar_screen.py, tools/radar_gif.py, tools/radar_check.py, tools/radar_import.py, tools/radar_rules.md (이 PC 커밋 fb24ea9·a17a62d·058a813). 근거 preview/radar_rules_v2_20261117/verify.md
+- radar_import 사용법: ① 미리보기 `python -I tools/radar_import.py pipeline/radar_drafts/<주 시작일>` (아무것도 안 고침) ② 넣기 `… --apply` (새 원고만, 백업 후) ③ 고친 원고 바꾸기 `… --update --apply` (이미 있는 항목, 백업 후)
+- 주의: tools/keyword_pipeline.py 가 radar_rules.md 의 [공통]·[제목] 칸을 읽는데 새 파일엔 없음 — 제목 단계 돌리기 전에 확인
+
+## 완료 (2026-11-17) — N데스크피커 ⑫ ③ 화면용/복사용 최종본·형광펜 조건·가격 확인 배너
+- 집 PC 에서 커밋 필요: app.py, config.py, radar_screen.py, templates/final_view.html (이 PC 커밋 70081a7). 근거 preview/editor_radar_step12/verify.md
+- 남은 것: ③ 다시 눌러 새 방식 적용, 배너 링크는 네이버에서 직접 넣기. 끄기: config RADAR_BANNER=False
+
+## 완료 (2026-11-17) — N데스크피커 ⑪ 필수 표기 14px 줄이기·숫자+단위 자동 굵게·결론 자동 형광펜
+- 집 PC 에서 커밋 필요: config.py, radar_screen.py, templates/final_view.html (이 PC 커밋 c6e5932). 근거 preview/editor_radar_step11/verify.md
+- 남은 것: compare.html·paste_test.html 눈으로 확인, ③ 다시 눌러 새 방식 적용. 끄기: config RADAR_AUTO_EM_NUMBERS / RADAR_AUTO_HL_CONCLUSION
+
+## 완료 (2026-11-17) — N데스크피커 ⑧ 필수표기 이미지·제품 소제목(###)·강조 글자색/형광펜·가운데 정렬·사진 800×800 통일
+- 집 PC 에서 커밋 필요: app.py, config.py, radar_screen.py, templates/final_view.html (이 PC 커밋 5467f71). 근거 preview/editor_radar_step8/verify.md
+- 남은 것: 사람이 paste_test.html 로 네이버 붙여넣기 시험, 대상 글 원고에 ### 제품 소제목 넣기, ③ 다시 눌러 새 방식 적용. 필수 표기 이미지는 static/radar/notice_shoppingconnect.jpg.jpg (git 에 안 올라감)
+
+## 완료 (2026-11-17) — N데스크피커 ⑦ 복사: 제목 빼기·문장마다 줄바꿈·굵게/형광펜 강조·카테고리/태그 칸·제목 복사
+- 집 PC 에서 커밋 필요: app.py, config.py, radar_screen.py, templates/final_view.html (이 PC 커밋 264794c). 근거 preview/editor_radar_step7/verify.md
+- 남은 것: 사람이 paste_test_style.html 로 네이버 붙여넣기 시험(굵기·형광펜), 대상 글 ③ 다시 눌러 새 방식 적용, config RADAR_CATEGORY_MAP 을 실제 카테고리 이름으로
+
+## 완료 (2026-11-17) — ③ 번호 붙은 업로드 폴더(naver_upload)·업로드 폴더 열기·GIF 갈래 plan.json 읽기·붙여넣기 시험 파일
+- 집 PC 에서 커밋 필요: app.py, radar_screen.py, templates/final_view.html, tools/radar_gif.py (이 PC 커밋 8a709ce). 근거 preview/editor_radar_step6/verify.md
+- 남은 것: 사람이 paste_test_datauri.html 붙여넣기 시험, 실제 글에서 ③ 눌러 naver_upload 만들기
+
+## 완료 (2026-11-17) — ② 사진 화면 상품 이름표·묶음 + 이어맥·벨킨 캐러셀 받기·GIF
+- 집 PC 에서 커밋 필요: radar_screen.py, templates/article_edit.html (이 PC 커밋 d94fc1f). 근거 preview/editor_radar_step5/verify.md
+- 남은 것: 이어맥·벨킨 짧은 이름 비어 있음, 프레임 B 확인.
+
+## 완료 (2026-11-17) — ④ 보완: 함께 보면 좋은 글 미래 날짜 제외 + 최종본 못 만들면 빨간 안내
+- 집 PC 에서 커밋 필요: app.py, radar_screen.py, templates/final_view.html (이 PC 커밋 b32bf93). 근거 preview/editor_radar_step4b/verify.md
+
+## 완료 (2026-11-17) — N데스크피커 ④ 발행 주소 칸 검사·함께 보면 좋은 글·상품카드 링크·표 굵게
+- 집 PC 에서 커밋 필요: app.py, radar_screen.py, config.py, templates/final_view.html (이 PC 커밋 8055a69). 근거 preview/editor_radar_step4/verify.md
+- 안 한 것: 옛 생활레이더 코드 정리, 실제 발행 글로 붙여넣기 확인. 기준 날짜는 config.py RADAR_RELATED_SINCE.
+
+## 완료 (2026-11-17) — N데스크피커 ③ 최종본 새 방식
+- 집 PC 에서 커밋 필요: app.py, radar_screen.py, templates/final_view.html (이 PC 커밋 fce5343). 근거 preview/editor_radar_step3/verify.md
+- 안 한 것: 발행 표시·글 주소 칸·함께 보면 좋은 글, [상품카드] 링크 연결.
+
+## 완료 (2026-11-17) — 편집기 ② 사진 화면 radar_naver 새 화면
+- 바뀐 파일: app.py(길 5개+화면 값), templates/article_edit.html(radar 블록), radar_screen.py(새). 이 PC 커밋 e825654. 집 PC 에서 커밋 필요: 위 3개 파일. 근거 preview/editor_radar_step2/verify.md
+- 안 한 것: ③ 최종본·발행 표시·함께 보면 좋은 글. 새 화면은 표지를 articles 에 안 써서 ③ 버튼 조건(covers.naver)은 다음 단계에서 맞춰야 함.
+
+## 완료 (2026-11-17) — 맥세이프 출시연월 되살림 + 짧은 이름·갈래 채우기 + 표지·GIF 다시 만들기(코드 수정 없음)
+- 실제 데이터(research 12개 파일) 바뀜·백업 *.backup_before_fill_20261117.*. 남은 것: 키보드 손목받침대 짧은 이름(모델명 없음). 근거 preview/badge_test4/verify.md
+
+이 PC(TK-X1e) 정션 설정 완료 (C:\local-app-git -> %LOCALAPPDATA%\local-app-git, 2026-11-17)
+
+## 완료 (2026-11-17) 뱃지 4개 추가 이미지 받기 + 뱃지 모아보기 + GIF 이름 버그
+- 지금 PC 에서 커밋 필요 없음(이 PC 커밋 278e055·93902d7·10ef39a). 근거 preview/badge_test3/verify.md
+- 주의: 맥세이프 보조배터리(821021110570951) research .md 가 바뀜(후기 재수집·출시연월 사라짐). 새로 받을 때는 --refresh-images --images-only 사용
+
+## 완료 (2026-11-17) — 뱃지 판정 실제 반영 + 표지 기준 GIF와 맞춤
+- 집 PC 에서 커밋 필요: radar_images.py, tools/collect_research.py (이 PC 커밋 428e4a5). 근거 preview/badge_test2/verify.md
+
+## 완료 (2026-11-17) — 뱃지 있는 상품 이미지 GIF·표지에서 빼기
+- 집 PC 에서 커밋 필요: tools/collect_research.py, tools/radar_gif.py, radar_images.py (이 PC 의 %LOCALAPPDATA%\local-app-git 에는 커밋함, C:\local-app-git 연결이 이 PC 에서 끊겨 있음)
+- 근거 preview/badge_test/verify.md. 실제 images.json 갱신은 안 함(--rejudge-images 는 사용자가 실행). 편집기 연결 안 함.
+
 ## 완료 (2026-11-17) — N데스크피커 GIF 프레임 F2 확정 + 추가 이미지 수집(앱 코드 수정 없음)
 - 바뀐 것: tools/radar_gif.py(F2·디더링 기본, 갈래·짧은 이름 글자), tools/collect_research.py·collect_research_ego.mjs(추가 이미지 10장·images.json·짧은 이름·--gif·--refresh-images). 사용: python -I tools/collect_research.py --run <실행> --ids <상품id> --gif (받은 상품은 이미지를 다시 받지 않음)
 - 남은 것: 편집기(앱) 연결, 발행 글 주소 칸. 글자 많음·제품 보임은 자동 추정이라 틀릴 수 있어 research/_img/<id>/overrides.json 으로 고침. 근거 preview/radar_gif_final/verify.md

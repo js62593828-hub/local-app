@@ -8,7 +8,7 @@
 
   --src      이미지 폴더. 안에 images.json 이 있으면 그 기록으로 장을 고른다(없으면 파일 이름 순서).
   --out      출력 경로(확장자 없이). 만드는 것: <out>.gif, <out>_first.png, <out>_gif_log.json
-  --genre    위 줄 오른쪽에 쓰는 갈래 이름. 값이 없으면 그 칸을 비운다(지어내지 않음).
+  --genre    위 줄 오른쪽에 쓰는 갈래 이름. 안 주면 images.json 의 '갈래', 그것도 없으면 그 주 plan.json 에서 읽고, 그래도 없으면 그 칸을 비운다(지어내지 않음).
   --name     아래 줄에 쓰는 짧은 이름(14자 안). 값이 없으면 그 칸을 비운다.
   --frame    F2(기본) | F1 | F3 | 프레임 PNG 경로(옆에 같은 이름 .json 이 있으면 읽음)
   --no-dither  디더링 끔(기본은 켬)
@@ -17,8 +17,9 @@
 규격: 정사각 800x800(흰 여백, 자르지 않음), 장당 1.2초, 무한 반복, 4~5장(대표 이미지가 첫 장).
 3MB 넘으면 장 수(→4장) 먼저, 그다음 크기(720)를 줄이고 log 에 기록한다.
 
-고르는 기준: images.json 에서 '확인 필요'(제품이 일부만 보이거나 작음)와 '글자 많음' 이미지는 뺀다.
-남은 것이 4장보다 적거나 대표 이미지가 빠지면 GIF 를 만들지 않고 log 에 "GIF 없음(...)" 으로 기록한다.
+고르는 기준: images.json 에서 '뱃지'(판매처 뱃지·로고)·'글자 많음'·'확인 필요'(제품이 일부만 보이거나 작음, 뱃지 의심 포함) 중
+하나라도 true 인 이미지는 첫 장·뒷장 모두 뺀다(뺀 이미지는 이유와 함께 한 줄씩 출력). 첫 장은 남은 이미지 중 대표 이미지(01_rep)가 있으면
+그것, 없으면 캐러셀 순서의 첫 이미지. 남은 것이 4장보다 적으면 GIF 를 만들지 않고 log 에 "GIF 없음(...)" 으로 기록한다.
 """
 import argparse
 import glob
@@ -28,6 +29,9 @@ import os
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from radar_images import FRAME_BORDER_COLOR, FRAME_BORDER_PX, FRAME_INSET, FRAME_RADIUS  # 테두리 값은 한 곳(radar_images.py)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT_PATH = os.path.join(ROOT, "fonts", "Pretendard-Medium.otf")
@@ -76,8 +80,8 @@ def frame_f2(genre, name, total):
     S = BASE * ss
     im = Image.new("RGB", (S, S), BG_A)
     d = ImageDraw.Draw(im)
-    d.rounded_rectangle([24 * ss, 24 * ss, (BASE - 24) * ss, (BASE - 24) * ss], radius=24 * ss,
-                        fill=(255, 255, 255), outline=LINE_A, width=ss)
+    d.rounded_rectangle([FRAME_INSET * ss, FRAME_INSET * ss, (BASE - FRAME_INSET) * ss, (BASE - FRAME_INSET) * ss],
+                        radius=FRAME_RADIUS * ss, fill=(255, 255, 255), outline=FRAME_BORDER_COLOR, width=FRAME_BORDER_PX * ss)
     # 위 줄
     cx, cy, rr = 24 + 28 + 17, 24 + 35, 17
     d.ellipse([(cx - rr) * ss, (cy - rr) * ss, (cx + rr) * ss, (cy + rr) * ss], outline=GOLD_A, width=2 * ss)
@@ -142,8 +146,21 @@ def list_images(src):
     return sorted(f for f in glob.glob(os.path.join(src, "*")) if f.lower().endswith(IMG_EXT))
 
 
-def select_images(src, pick):
-    """(고른 파일 목록, 뺀 이유 {파일: 이유}, 중단 사유 또는 None)"""
+def exclude_reasons(m):
+    """images.json 한 줄에서 GIF·표지에 쓰면 안 되는 이유 목록(비어 있으면 깨끗함). 뱃지·글자 많음·확인 필요 중 하나라도 true 면 뺀다."""
+    why = []
+    if m.get("뱃지"):
+        why.append("뱃지")
+    if m.get("글자 많음"):
+        why.append("글자 많음")
+    if m.get("확인 필요") or m.get("뱃지 확인 필요"):
+        why.append("확인 필요(" + (m.get("확인 필요 이유") or m.get("뱃지 근거") or "제품이 일부만 보이거나 작음") + ")")
+    return why
+
+
+def select_images(src, pick, meta_path=""):
+    """(고른 파일 목록, 뺀 이유 {파일: 이유}, 중단 사유 또는 None)
+    meta_path: images.json 위치(기본 <src>/images.json). 시험용으로 다른 판정 파일을 쓸 때만 지정."""
     files = list_images(src)
     if pick:
         out = []
@@ -153,31 +170,65 @@ def select_images(src, pick):
                 raise SystemExit(f"이미지를 못 찾음: {key}")
             out.append(hit[0])
         return out, {}, None
-    meta_path = os.path.join(src, "images.json")
+    meta_path = meta_path or os.path.join(src, "images.json")
     if not os.path.exists(meta_path):
         return files[:MAX_FRAMES], {}, None
     with open(meta_path, encoding="utf-8") as f:
         meta = json.load(f)
     excluded, ok = {}, []
     for m in meta.get("images", []):
-        path = os.path.join(src, m["file"])
-        if not os.path.exists(path):
+        path = os.path.join(src, m["file"]) if m.get("file") else ""
+        if not path or not os.path.exists(path):
             continue
-        if m.get("확인 필요"):
-            excluded[m["file"]] = "확인 필요(" + (m.get("확인 필요 이유") or "제품이 일부만 보이거나 작음") + ")"
-        elif m.get("글자 많음"):
-            excluded[m["file"]] = "글자 많음"
+        why = exclude_reasons(m)
+        if why:
+            excluded[m["file"]] = " + ".join(why)
         else:
             ok.append(m)
+    if not ok:
+        return [], excluded, "GIF 없음(쓸 수 있는 이미지 0장)"
+    # 첫 장: 남은 이미지 중 대표 이미지(파일 이름에 rep)가 있으면 그것, 없으면 캐러셀 순서(순번)의 첫 이미지
     rep = next((m for m in ok if "rep" in m["file"]), None)
-    if rep is None:
-        return [], excluded, "GIF 없음(대표 이미지 부적합 또는 없음)"
-    rest = [m for m in ok if m is not rep]
-    rest.sort(key=lambda m: (bool(m.get("순서 확인 필요")), m["file"]))  # 순서가 흐린 이미지는 뒤로
-    chosen = [rep] + rest
+    ok.sort(key=lambda m: (m.get("순번") or 999, m["file"]))
+    first = rep or ok[0]
+    rest = [m for m in ok if m is not first]
+    rest.sort(key=lambda m: (bool(m.get("순서 확인 필요")), m.get("순번") or 999, m["file"]))  # 순서가 흐린 이미지는 뒤로
+    chosen = [first] + rest
     if len(chosen) < MIN_FRAMES:
         return [], excluded, f"GIF 없음(이미지 부족: 쓸 수 있는 것 {len(chosen)}장 < {MIN_FRAMES}장)"
     return [os.path.join(src, m["file"]) for m in chosen[:MAX_FRAMES]], excluded, None
+
+
+# ---------- 갈래 찾기 ----------
+def _nospace(t):
+    return "".join((t or "").split())  # approved.json 은 "맥세이프 보조배터리", plan.json 은 "맥세이프보조배터리" 처럼 띄어쓰기가 다를 수 있다
+
+
+def lookup_genre(src):
+    """갈래 값이 안 넘어왔을 때 찾는 순서: ① <src>/images.json 의 '갈래' ② 그 주 plan.json(pipeline/keyword_run/*_radar_naver/plan.json, 최신 우선).
+    ②는 src 가 .../<실행 폴더>/research/_img/<상품id> 모양일 때, 실행 폴더 approved.json 에서 상품id 가 든 키워드를 찾아 plan 의 같은 키워드 갈래를 쓴다.
+    못 찾으면 ''(지어내지 않음). 파일은 읽기만 한다."""
+    def _load(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+    g = ((_load(os.path.join(src, "images.json")) or {}).get("갈래") or "").strip()
+    if g:
+        return g
+    pid = os.path.basename(os.path.normpath(src))
+    run_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(src))))
+    appr = _load(os.path.join(run_dir, "approved.json")) or {}
+    kws = [_nospace(k.get("keyword")) for k in appr.get("keywords") or []
+           if any(str(pk.get("url") or "").rstrip("/").endswith("/" + pid) for pk in k.get("picks") or [])]
+    if not kws:
+        return ""
+    for pp in sorted(glob.glob(os.path.join(ROOT, "pipeline", "keyword_run", "*_radar_naver", "plan.json")), reverse=True):
+        for pl in (_load(pp) or {}).get("plans") or []:
+            if _nospace(pl.get("keyword")) in kws and (pl.get("radar") or {}).get("갈래"):
+                return pl["radar"]["갈래"]
+    return ""
 
 
 # ---------- 그리기 ----------
@@ -256,9 +307,12 @@ def build(images, frame_kind, genre, name, size, dither, out_path):
     return len(data)
 
 
-def make_gif(src, out, frame="F2", genre="", name="", pick="", max_mb=3.0, dither=True):
+def make_gif(src, out, frame="F2", genre="", name="", pick="", max_mb=3.0, dither=True, meta=""):
     """GIF 1개를 만들고 log(dict)를 돌려준다. 못 만들면 log['status'] 가 'GIF 없음(...)'."""
-    images, excluded, stop = select_images(src, pick)
+    if out.lower().endswith(".gif"):  # --out 에 .gif 를 붙여 줘도 <이름>.gif.gif 가 되지 않게 확장자를 뗀다
+        out = out[:-4]
+    genre = genre or lookup_genre(src)
+    images, excluded, stop = select_images(src, pick, meta)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     log = {"src": src, "frame": frame, "genre": genre, "name": name, "dither": dither,
            "excluded": excluded, "limit_bytes": int(max_mb * 1024 * 1024)}
@@ -301,9 +355,12 @@ def main():
     ap.add_argument("--name", default="")
     ap.add_argument("--pick", default="")
     ap.add_argument("--max-mb", type=float, default=3.0)
+    ap.add_argument("--meta", default="", help="images.json 위치(시험용). 기본은 <src>/images.json")
     ap.add_argument("--no-dither", action="store_true")
     a = ap.parse_args()
-    log = make_gif(a.src, a.out, a.frame, a.genre, a.name, a.pick, a.max_mb, not a.no_dither)
+    log = make_gif(a.src, a.out, a.frame, a.genre, a.name, a.pick, a.max_mb, not a.no_dither, a.meta)
+    for fn, why in log["excluded"].items():  # 뺀 이미지는 이유와 함께 한 줄씩
+        print(f"  뺀 이미지 {fn}: {why}")
     if log["status"] != "만듦":
         print(log["status"])
         return

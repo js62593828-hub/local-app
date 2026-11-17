@@ -10,11 +10,11 @@
 - 앱 데이터(content_queue*·articles*)·links.json 은 읽지도 고치지도 않는다(links.json 은 읽기만).
 - 추가 이미지: 이미 여는 상품 페이지의 넘겨 보는 목록(캐러셀)에서 최대 10장을 research/_img/<상품id>/ 에 01_rep, 02… 로 저장하고
   images.json 에 크기·글자 많음·제품 보임·확인 필요를 적는다(자동 추정 + 같은 폴더 overrides.json 으로 사람이 고친 판정 덮어쓰기).
-  이미 받은 상품은 다시 받지 않는다(--refresh-images 때만). --gif 를 주면 수집 뒤 tools/radar_gif.py 로 <상품id>.gif 도 만든다.
+  이미 받은 상품은 다시 받지 않는다(--refresh-images 때만). 판정만 다시 하려면 --rejudge-images(받지 않음). 뱃지(판매처 뱃지·로고)는 images.json 의 `뱃지`·`뱃지 확인 필요` 칸. --gif 를 주면 수집 뒤 tools/radar_gif.py 로 <상품id>.gif 도 만든다.
 - research/<상품id>.md 에 `짧은 이름:`(브랜드+모델명 14자 안, 못 만들면 비우고 '확인 필요') 칸이 있다.
 """
 import argparse, glob, json, os, re, shutil, subprocess, sys, tempfile
-from collections import Counter, OrderedDict
+from collections import Counter, OrderedDict, deque
 from urllib.parse import unquote
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -465,6 +465,71 @@ def to_md(o):
 
 
 # ---------- 추가 이미지 기록 (images.json) ----------
+def detect_badge(im):
+    """판매처 뱃지·로고 상자 자동 추정. 반환 (뱃지, 확인 필요, 근거).
+    이미지 모서리·위아래 띠 안에서, 한 색으로 칠해진 작은 덩어리가 둘레와 뚜렷이 다르고(대비), 안에 글자·그림이 있으면 뱃지/로고로 본다.
+    덩어리가 너무 얇거나 작아 확신이 없으면 '확인 필요'. 아무것도 없으면 깨끗함. 글자만 있고 상자가 없는 워터마크는 못 잡는다(overrides.json 으로 고친다)."""
+    sm = im.convert("RGB")
+    sm.thumbnail((200, 200))
+    W, H = sm.size
+    px = sm.load()
+    N = W * H
+
+    def diff(a, b):
+        return max(abs(a[0] - b[0]), abs(a[1] - b[1]), abs(a[2] - b[2]))
+
+    flat = [[False] * W for _ in range(H)]
+    for y in range(H - 1):
+        for x in range(W - 1):
+            p = px[x, y]
+            flat[y][x] = diff(p, px[x + 1, y]) <= 14 and diff(p, px[x, y + 1]) <= 14
+    seen = [[False] * W for _ in range(H)]
+    strong, weak = [], []
+    for y0 in range(H):
+        for x0 in range(W):
+            if not flat[y0][x0] or seen[y0][x0]:
+                continue
+            q = deque([(x0, y0)])
+            seen[y0][x0] = True
+            bx0 = bx1 = x0
+            by0 = by1 = y0
+            area = 0
+            while q:
+                x, y = q.popleft()
+                area += 1
+                bx0, bx1, by0, by1 = min(bx0, x), max(bx1, x), min(by0, y), max(by1, y)
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < W and 0 <= ny < H and flat[ny][nx] and not seen[ny][nx] and diff(px[x, y], px[nx, ny]) <= 14:
+                        seen[ny][nx] = True
+                        q.append((nx, ny))
+            bw, bh = bx1 - bx0 + 1, by1 - by0 + 1
+            if area < 0.006 * N or area > 0.20 * N or bw > 0.45 * W or bh > 0.30 * H or area / (bw * bh) < 0.6:
+                continue
+            cy = (by0 + by1) / 2
+            if not (cy < 0.22 * H or cy > 0.78 * H) or min(bx0, W - 1 - bx1, by0, H - 1 - by1) > 0.10 * min(W, H):
+                continue
+            col = px[x0, y0]
+            ring = [px[x, y] for x in range(max(0, bx0 - 3), min(W, bx1 + 4)) for y in (by0 - 3, by1 + 3) if 0 <= y < H]
+            ring += [px[x, y] for y in range(max(0, by0 - 3), min(H, by1 + 4)) for x in (bx0 - 3, bx1 + 3) if 0 <= x < W]
+            if not ring:
+                continue
+            contrast = sum(diff(col, r) for r in ring) / len(ring)
+            ring_share = sum(1 for r in ring if diff(col, r) >= 40) / len(ring)
+            if ring_share < 0.85 or contrast < 100:
+                continue
+            inner = sum(1 for y in range(by0, by1) for x in range(bx0, bx1) if not flat[y][x]) / max(1, bw * bh)
+            box = "(%d%%,%d%%)~(%d%%,%d%%)" % (100 * bx0 // W, 100 * by0 // H, 100 * bx1 // W, 100 * by1 // H)
+            if bw >= 0.07 * W and bh >= 0.07 * H and inner >= 0.04:
+                strong.append(box)
+            else:
+                weak.append(box)
+    if strong:
+        return True, False, "모서리·띠 안에 글자·로고가 든 상자 %d개 %s(자동 추정)" % (len(strong), strong[0])
+    if weak:
+        return False, True, "모서리·띠 안에 뱃지 비슷한 작은 덩어리 %s(자동 추정)" % weak[0]
+    return False, False, "모서리·띠 안에 뱃지·로고 상자 없음(자동 추정)"
+
+
 def analyze_image(path):
     """Pillow 만으로 하는 거친 자동 추정. 사진 속 제품이 보이는지는 배경이 한 색일 때만 판단하고, 아니면 '판정 불가'로 둔다.
     정확하지 않으므로 같은 폴더 overrides.json 으로 사람이 고친 판정이 우선한다."""
@@ -505,6 +570,7 @@ def analyze_image(path):
     res["글자 칸 비율"] = round(tshare, 2)
     res["글자 많음"] = bool(bg_share >= 0.30 and tshare >= 0.40)
     res["글자 많음 근거"] = "자동 추정(가장자리 밀도)"
+    res["뱃지"], res["뱃지 확인 필요"], res["뱃지 근거"] = detect_badge(im)
     # 제품 보임: 배경이 한 색일 때만
     if flat:
         xs, ys, ex = [], [], 0
@@ -531,7 +597,7 @@ def analyze_image(path):
     return res
 
 
-def write_images_json(item, raw, genre, short):
+def write_images_json(item, raw, genre, short, out_dir=None):
     """수집 결과(raw['images'])로 research/_img/<상품id>/images.json 을 만든다. overrides.json 이 있으면 덮어쓴다."""
     d = item["img_dir"]
     rows = []
@@ -552,14 +618,56 @@ def write_images_json(item, raw, genre, short):
         fix = (ov.get("by_url") or {}).get(r["url"]) or (ov.get("by_file") or {}).get(r["file"])
         if fix:
             row.update(fix)
+            if "뱃지" in fix:  # 사람이 뱃지 값을 정했으면 자동 추정의 '뱃지 확인 필요'는 접는다
+                row["뱃지 확인 필요"] = False
+                row["뱃지 근거"] = "사람이 지정(overrides.json)"
             row["판정 방법"] = "사람이 지정(overrides.json)"
         rows.append(row)
     out = OrderedDict([("상품id", item["product_id"]), ("갈래", genre or ""), ("짧은 이름", short.get("값", "")),
                        ("캐러셀 이미지 수", raw.get("carousel_total")), ("받은 이미지 수", sum(1 for r in rows if r.get("file") and not r.get("받기 실패"))),
                        ("대표 이미지를 목록에서 찾음", raw.get("rep_found_in_carousel")), ("수집 시각", raw.get("collected_at", "")),
-                       ("주의", "글자 많음·제품 보임은 자동 추정이라 틀릴 수 있음. 고치려면 overrides.json 에 적는다."), ("images", rows)])
-    jsave(os.path.join(d, "images.json"), out)
+                       ("주의", "뱃지·글자 많음·제품 보임은 자동 추정이라 틀릴 수 있음. 고치려면 overrides.json 에 적는다(뱃지: true/false)."), ("images", rows)])
+    jsave(os.path.join(out_dir or d, "images.json"), out)
     return out
+
+
+# ---------- 이미지 판정만 다시 (--rejudge-images) ----------
+def rejudge_images(items, run_dir, out_dir=""):
+    """이미 받은 이미지는 그대로 두고 판정(뱃지·글자 많음·제품 보임)만 다시 한다. 브라우저·네트워크 안 씀.
+    - research/_img/<상품id>/images.json 을 새 판정으로 다시 쓴다(overrides.json 반영). 같은 폴더에 *.backup_before_rejudge_<날짜>.json 백업을 남긴다.
+    - 후보 img/ 의 대표 이미지(k<번호>_r<순위>.jpg 또는 <상품id>.jpg)도 같은 기준으로 판정해 img/rep_badge.json 에 남긴다.
+    out_dir 를 주면 원본 대신 그 폴더(<out_dir>/_img/<상품id>/images.json, <out_dir>/rep_badge.json)에만 쓴다(시험용). 반환: 한 줄 요약 목록."""
+    from datetime import date
+    lines = []
+    reps = OrderedDict()
+    for it in items:
+        pid = it["product_id"]
+        d = it["img_dir"]
+        rep = it["existing_image"] or (it["save_image_to"] if it["save_image_to"] and os.path.exists(it["save_image_to"]) else "")
+        if rep and os.path.exists(rep):
+            r = analyze_image(rep)
+            r = OrderedDict((k, r[k]) for k in ("width", "height", "글자 많음", "뱃지", "뱃지 확인 필요", "뱃지 근거", "확인 필요") if k in r)
+            r["file"] = os.path.basename(rep)
+            reps[pid] = r
+        ip = os.path.join(d, "images.json")
+        if not os.path.exists(ip):
+            lines.append("%s 추가 이미지 폴더 없음 — 판정 건너뜀" % pid)
+            continue
+        old = jload(ip)
+        raw = {"images": [{"n": r.get("순번"), "file": r.get("file", ""), "url": r.get("원본 주소", ""), "order_uncertain": r.get("순서 확인 필요"),
+                           "error": r.get("받기 실패", "")} for r in old.get("images", [])],
+               "carousel_total": old.get("캐러셀 이미지 수"), "rep_found_in_carousel": old.get("대표 이미지를 목록에서 찾음"), "collected_at": old.get("수집 시각", "")}
+        tgt = os.path.join(out_dir, "_img", pid) if out_dir else d
+        if not out_dir:
+            bk = os.path.join(d, "images.backup_before_rejudge_%s.json" % date.today().strftime("%Y%m%d"))
+            if not os.path.exists(bk):
+                shutil.copyfile(ip, bk)
+        ij = write_images_json(it, raw, old.get("갈래", ""), {"값": old.get("짧은 이름", "")}, out_dir=tgt)
+        bad = [r["file"] for r in ij["images"] if r.get("뱃지")]
+        sus = [r["file"] for r in ij["images"] if r.get("뱃지 확인 필요")]
+        lines.append("%s 다시 판정 %d장: 뱃지 %s / 뱃지 확인 필요 %s" % (pid, len(ij["images"]), bad or "없음", sus or "없음"))
+    jsave(os.path.join(out_dir or os.path.join(run_dir, "img"), "rep_badge.json"), reps)
+    return lines
 
 
 def load_genre_map():
@@ -707,6 +815,8 @@ def main():
     ap.add_argument("--fill-detail", action="store_true", help="브라우저·수집 없이, research/detail_values.json(상세 이미지를 읽어 적은 값)으로 '없음' 사양만 채우고 .md 를 다시 만듦")
     ap.add_argument("--gif", action="store_true", help="수집 뒤 tools/radar_gif.py 로 research/_img/<상품id>/<상품id>.gif 를 만든다(기본 꺼짐)")
     ap.add_argument("--refresh-images", action="store_true", help="이미 받은 추가 이미지도 다시 받는다(기본은 받은 상품은 건너뜀)")
+    ap.add_argument("--rejudge-images", action="store_true", help="브라우저·다운로드 없이, 이미 받은 이미지의 판정(뱃지·글자 많음·제품 보임)만 다시 하고 images.json 갱신(백업 남김). 후보 img/ 대표 이미지는 img/rep_badge.json 에 기록")
+    ap.add_argument("--judge-out", default="", help="--rejudge-images 결과를 원본 대신 이 폴더에만 쓴다(시험용)")
     ap.add_argument("--parse-only", action="store_true", help="브라우저 없이 research/_raw 로 요약 파일만 다시 만듦")
     a = ap.parse_args()
     run_dir = a.run if os.path.isdir(a.run) else os.path.join(ROOT, "pipeline", "candidates_run", a.run)
@@ -722,6 +832,10 @@ def main():
     if not items:
         sys.exit("대상 상품이 없습니다.")
     print("대상 %d개: %s" % (len(items), [i["product_id"] for i in items]))
+    if a.rejudge_images:
+        for ln in rejudge_images(items, run_dir, a.judge_out):
+            print(ln)
+        return
     for it in items:
         done = os.path.exists(os.path.join(it["img_dir"], "images.json"))
         it["skip_images"] = bool(done and not a.refresh_images)

@@ -168,3 +168,61 @@ MISSING_NAVER_BLOG_BROWSER_VARS = [
 #   "manual_promo"         : 글 편집 ⑤ 수동 홍보 체크리스트 + 주간 승인 화면의 "오늘 할 일" 배너
 #                            (2026-09 쓰레드 계정 정지 뒤로 계속 숨겨 둔 상태 그대로)
 HIDDEN_FEATURES = ["plan_export", "weekly_final_export", "manual_promo"]
+
+# ---------- N데스크피커(radar_naver) "함께 보면 좋은 글" 기준 날짜 ----------
+# 이 날짜(포함) 이후에 발행 표시된 글만 "함께 보면 좋은 글" 후보가 됩니다.
+RADAR_RELATED_SINCE = "2026-11-23"
+
+# ---------- N데스크피커(radar_naver) 최종본 줄 띄움 · 블로그 카테고리 ----------
+# 일반 문단을 어떻게 줄바꿈할지: "sentence"(문장마다, 기본) / "two_sentences"(두 문장마다) / "off"(그대로).
+RADAR_LINE_BREAK = "sentence"
+# 메모에 "카테고리:" 줄이 없을 때 쓰는 표: 갈래(그 주 plan.json 의 갈래) → 네이버 블로그 카테고리 이름.
+# 지금은 갈래 이름을 그대로 적어 두었습니다. 실제 블로그 카테고리 이름이 다르면 오른쪽 값만 바꾸세요.
+RADAR_CATEGORY_MAP = {
+    "충전·전원": "충전·전원",
+    "음향": "음향",
+    "입력": "입력",
+    "책상꾸미기·정리": "책상꾸미기·정리",
+    "조명": "조명",
+    "모니터·노트북": "모니터·노트북",
+    "몸편한것": "몸편한것",
+    "겨울제철": "겨울제철",
+}
+
+# ---------- N데스크피커(radar_naver) 최종본 모양 (⑧) ----------
+# 쇼핑커넥트 필수 표기 이미지(글자 대신 이미지로 넣음). 같은 이름 뒤에 .jpg 가 한 번 더 붙은 파일(윈도우 숨김 확장자)도 찾아 씁니다.
+RADAR_NOTICE_IMAGE = "static/radar/notice_shoppingconnect.jpg"
+# 강조 모양: **글자** → 굵게 + 이 글자색 / ==글자== → 이 배경색 + 굵게
+RADAR_EM_BOLD_COLOR = "#8A6A1F"
+RADAR_EM_HL_BG = "#FFF1B8"
+# 본문 정렬: "center"(가운데, 기본) / "justify"(양쪽 맞춤, 예전 방식). 표 칸 안 글자는 항상 왼쪽.
+RADAR_ALIGN = "center"
+# naver_upload 로 복사할 때 사진·GIF 한 변 크기(정사각형). 비율이 다르면 자르지 않고 흰색 여백으로 채움. 필수 표기 이미지는 제외.
+RADAR_UPLOAD_SIZE = 800
+# 본문 사진(📷 NN_사진n)만 프레임을 씌움: 전체 800×800, 바깥 바탕 RADAR_FRAME_BG, 안쪽 사진 칸은 사방 PAD px 안쪽·모서리 RADIUS px 둥글게,
+# 사진은 자르지 않고 칸 안에 맞추고 남는 곳은 FILL. False 면 예전 방식(흰 여백 800×800). 표지·GIF·필수 표기 이미지는 해당 없음.
+RADAR_PHOTO_FRAME = True
+RADAR_FRAME_BG = "#F4F1EC"
+RADAR_FRAME_PAD = 27
+RADAR_FRAME_RADIUS = 16
+RADAR_FRAME_FILL = "#FFFFFF"
+
+# ---------- N데스크피커(radar_naver) 최종본 ⑪: 필수 표기 크기·자동 강조 ----------
+# 필수 표기 이미지는 네이버에서 원래 크기로 보여 글자가 본문보다 커 보이므로, naver_upload 로 복사할 때 줄여서 넣는다.
+# RADAR_NOTICE_TEXT_PX: 이미지 속 한글 글자 줄 높이(윗끝~아랫끝)가 이 px 이 되게 가로·세로를 같이 줄임(본문 15px 보다 약간 작게 14).
+# RADAR_NOTICE_WIDTH: 숫자를 주면 그 가로(px)로 맞춤(둘 다 있으면 WIDTH 우선). None 이면 안 씀.
+RADAR_NOTICE_TEXT_PX = 14
+RADAR_NOTICE_WIDTH = None
+# 숫자+단위 자동 강조(굵게+RADAR_EM_BOLD_COLOR). False 면 끔.
+RADAR_AUTO_EM_NUMBERS = True
+RADAR_AUTO_EM_UNITS = ["mAh", "Wh", "W", "V", "A", "g", "kg", "mm", "cm", "m", "인치", "Hz", "dB", "%", "원", "만원", "점",
+                       "시간", "분", "초", "개", "매", "포트", "단", "년"]
+# 결론 문장 자동 형광펜: 원고의 ==강조==(길이 상관없음)가 RADAR_AUTO_HL_MIN 곳 미만일 때만, 마지막 ## 소제목 아래 첫 문장을 형광펜으로. False 면 끔.
+RADAR_AUTO_HL_CONCLUSION = True
+RADAR_AUTO_HL_MIN = 2
+# ---------- N데스크피커(radar_naver) 최종본 ⑫: 가격 확인 배너 ----------
+# 각 제휴 링크(naver.me 줄) 바로 위에 "네이버에서 가격 확인하기" 배너 이미지(📷 줄)를 넣음. 흰 글씨/검정 글씨를 번갈아.
+# 이미지: static/radar/banner_white.png · banner_black.png (이름 뒤에 .png 가 한 번 더 붙어도 찾음). 가로 RADAR_BANNER_WIDTH px 로 비율 그대로 줄여 naver_upload 에 복사.
+RADAR_BANNER = True
+RADAR_BANNER_START = "white"
+RADAR_BANNER_WIDTH = 430
