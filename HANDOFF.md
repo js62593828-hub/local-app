@@ -1,3 +1,9 @@
+## 완료 (2026-11-18): ③ 별점 띠 그림 50% · ### 제품 소제목 글자 200%
+- radar_images.py: 별점 띠 그림 800×150 → 400×75 (별 56→28, 간격·글자도 절반, 작게 새로 그림). radar_screen.py: ### 글자 17px → 34px (굵기·왼쪽·금색 막대 그대로). ❝ 왼쪽 정렬은 앞서 이미 적용돼 있어 건너뜀.
+- 별점 띠는 [최종본 만들기] 때 다시 그려져 새 크기로 바뀜(복사본 시험 확인). 이미 만든 글은 최종본을 다시 눌러야 반영
+- 금색 막대(약 68px)가 34px 글자보다 짧음 → 길이 조정은 안 함(보고만)
+- 캡처 preview/justify_20261118/capture_badge_title.png, 복사 HTML naver_copy_badge_title.html (shoot_badge_title.py)
+
 ## 완료 (2026-11-18): ③ 소제목 위 따옴표(❝) 왼쪽 정렬
 - radar_screen.py 의 _left_headings 목록에 ❝ 줄 한 줄 추가(radar_naver 최종본 만들 때만 적용, 공유 파일 안 건드림). 본문 양끝·사진·카드·별점 띠 가운데는 그대로. 앱 데이터·원고 수정 없음
 - 캡처: preview/justify_20261118/capture_quote_left.png, 복사 HTML: naver_copy_quote_left.html (shoot_quote.py)

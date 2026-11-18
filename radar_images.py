@@ -930,12 +930,12 @@ def parse_photo_markers(text):
 
 
 # ── 별점 띠 (v2.6: 제품 소제목 ### 바로 아래에 앱이 자동으로 넣는 그림) ─────────────────
-BADGE_W = 800
-BADGE_H = 150
+BADGE_W = 400
+BADGE_H = 75
 BADGE_GRAY = (0xE3, 0xE0, 0xDA)
-BADGE_STAR = 56      # 별 하나 지름(px)
-BADGE_GAP = 8        # 별 사이 간격
-BADGE_NUM_GAP = 22   # 별 다섯 개와 평점 숫자 사이 간격
+BADGE_STAR = 28      # 별 하나 지름(px)
+BADGE_GAP = 4        # 별 사이 간격
+BADGE_NUM_GAP = 11   # 별 다섯 개와 평점 숫자 사이 간격
 
 
 def review_floor(n):
@@ -982,7 +982,7 @@ def _star_layer(size, fill_ratio, ss=4):
 
 
 def rating_badge_image(rating_text, reviews, date_text, out_path):
-    """가로 800·흰 배경·가운데 정렬 별점 띠. 별 5개(금색, 평점만큼 채움·부분 채움) + 평점 숫자 / 아래 줄 '리뷰 ○○개 이상 · 날짜 기준'. 글꼴은 표지와 같은 Pretendard.
+    """가로 400(옛 800의 절반)·흰 배경·가운데 정렬 별점 띠. 별 5개(금색, 평점만큼 채움·부분 채움) + 평점 숫자 / 아래 줄 '리뷰 ○○개 이상 · 날짜 기준'. 글꼴은 표지와 같은 Pretendard.
     반환 {"width","height","rating","line2"}. 평점이 0~5 밖이면 ValueError."""
     r = float(rating_text)
     if not 0 <= r <= 5:
@@ -990,16 +990,16 @@ def rating_badge_image(rating_text, reviews, date_text, out_path):
     num_text, line2 = badge_texts(rating_text, reviews, date_text)
     canvas = Image.new("RGB", (BADGE_W, BADGE_H), WHITE)
     d = ImageDraw.Draw(canvas)
-    nf = font(True, 50)
+    nf = font(True, 25)
     stars_w = 5 * BADGE_STAR + 4 * BADGE_GAP
     total = stars_w + BADGE_NUM_GAP + text_w(nf, num_text)
     x0 = (BADGE_W - total) / 2
-    cy = 56
+    cy = 28
     for i in range(5):
         lay = _star_layer(BADGE_STAR, r - i)
         canvas.paste(lay, (round(x0 + i * (BADGE_STAR + BADGE_GAP)), cy - BADGE_STAR // 2), lay.getchannel("A"))
-    d.text((x0 + stars_w + BADGE_NUM_GAP, cy + 1), num_text, font=nf, fill=INK, anchor="lm")
-    d.text((BADGE_W / 2, 118), line2, font=font(False, 26), fill=MUTED, anchor="mm")
+    d.text((x0 + stars_w + BADGE_NUM_GAP, cy + 0.5), num_text, font=nf, fill=INK, anchor="lm")
+    d.text((BADGE_W / 2, 59), line2, font=font(False, 13), fill=MUTED, anchor="mm")
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     if out_path.lower().endswith(".png"):
         canvas.save(out_path, optimize=True)

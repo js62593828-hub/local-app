@@ -1031,7 +1031,7 @@ _LEFT_HEAD_RES = [
     re.compile(r'<p style="text-align:center;">(<strong style="color:#aaaaaa; font-size:26px;)'),   # ## 소제목 위 ❝
     re.compile(r'<p style="text-align:center;">(<strong style="color:#111111; font-size:19px;)'),   # ## 소제목 글자
     re.compile(r'<p style="text-align:center;">(<span style="color:#cccccc;">─)'),                  # ## 소제목 아래 줄
-    re.compile(r'<p style="text-align:center;">(<strong style="color:#22262B; font-size:17px;)'),   # ### 제품 소제목 글자
+    re.compile(r'<p style="text-align:center;">(<strong style="color:#22262B; font-size:34px;)'),   # ### 제품 소제목 글자
     re.compile(r'<p style="text-align:center;">(<span style="color:#C9A227; font-size:17px;">)'),   # ### 아래 금색 막대
 ]
 
@@ -1414,8 +1414,8 @@ def banner_small_copy(src, dst):
 
 
 def radar_sub_html(text):
-    """"### 글자" 제품 소제목: 굵게·17px·#22262B + 아래 금색 짧은 막대(글자 "━" 라서 네이버에 붙여도 남음). 정렬은 finish_final 이 맞춘다."""
-    return ('<p style="text-align:left;"><strong style="color:#22262B; font-size:17px; font-weight:bold;">' + _html.escape(text) + "</strong></p>"
+    """"### 글자" 제품 소제목: 굵게·34px·#22262B + 아래 금색 짧은 막대(글자 "━" 라서 네이버에 붙여도 남음). 정렬은 finish_final 이 맞춘다."""
+    return ('<p style="text-align:left;"><strong style="color:#22262B; font-size:34px; font-weight:bold;">' + _html.escape(text) + "</strong></p>"
             '<p style="text-align:left;"><span style="color:#C9A227; font-size:17px;">━━━━</span></p>')
 
 
