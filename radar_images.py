@@ -913,3 +913,82 @@ def parse_photo_markers(text):
             continue
         i += 1
     return {"markers": markers, "tables": tables}
+
+
+# ── 별점 띠 (v2.6: 제품 소제목 ### 바로 아래에 앱이 자동으로 넣는 그림) ─────────────────
+BADGE_W = 800
+BADGE_H = 150
+BADGE_GRAY = (0xE3, 0xE0, 0xDA)
+BADGE_STAR = 56      # 별 하나 지름(px)
+BADGE_GAP = 8        # 별 사이 간격
+BADGE_NUM_GAP = 22   # 별 다섯 개와 평점 숫자 사이 간격
+
+
+def review_floor(n):
+    """리뷰 수: 앞 두 자리만 남기고 내림(2254→2200, 369→360, 12345→12000). 10 미만(두 자리 이하)은 그대로."""
+    n = int(n)
+    s = str(n)
+    if len(s) <= 2:
+        return n
+    return int(s[:2]) * 10 ** (len(s) - 2)
+
+
+def badge_texts(rating_text, reviews, date_text):
+    """별점 띠에 쓰는 글자 둘. 평점은 받은 글자 그대로(4.9 는 4.9). date_text 는 'YYYY-MM-DD…' 또는 'YYYY.MM.DD'."""
+    m = re.match(r"(\d{4})[-.](\d{2})[-.](\d{2})", str(date_text))
+    d = f"{m.group(1)}.{m.group(2)}.{m.group(3)}" if m else str(date_text)
+    return str(rating_text), f"리뷰 {review_floor(reviews):,}개 이상 · {d} 기준"
+
+
+def _star_points(cx, cy, r, ratio=0.5):
+    import math
+    pts = []
+    for i in range(10):
+        ang = -math.pi / 2 + i * math.pi / 5
+        rr = r if i % 2 == 0 else r * ratio
+        pts.append((cx + rr * math.cos(ang), cy + rr * math.sin(ang)))
+    return pts
+
+
+def _star_layer(size, fill_ratio, ss=4):
+    """별 하나(size×size, RGBA). 연한 회색 별 위에 금색을 왼쪽에서 fill_ratio(0~1)만큼만 덮는다."""
+    S = size * ss
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).polygon(_star_points(S / 2, S / 2 + S * 0.03, S / 2 * 0.98), fill=255)
+    gray = Image.new("RGBA", (S, S), BADGE_GRAY + (255,))
+    layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    layer.paste(gray, (0, 0), mask)
+    fw = round(S * max(0.0, min(1.0, fill_ratio)))
+    if fw > 0:
+        gold = Image.new("RGBA", (S, S), GOLD + (255,))
+        cut = Image.new("L", (S, S), 0)
+        ImageDraw.Draw(cut).rectangle((0, 0, fw - 1, S), fill=255)
+        layer.paste(gold, (0, 0), ImageChops.multiply(mask, cut))
+    return layer.resize((size, size), Image.LANCZOS)
+
+
+def rating_badge_image(rating_text, reviews, date_text, out_path):
+    """가로 800·흰 배경·가운데 정렬 별점 띠. 별 5개(금색, 평점만큼 채움·부분 채움) + 평점 숫자 / 아래 줄 '리뷰 ○○개 이상 · 날짜 기준'. 글꼴은 표지와 같은 Pretendard.
+    반환 {"width","height","rating","line2"}. 평점이 0~5 밖이면 ValueError."""
+    r = float(rating_text)
+    if not 0 <= r <= 5:
+        raise ValueError(f"평점 범위 밖: {rating_text}")
+    num_text, line2 = badge_texts(rating_text, reviews, date_text)
+    canvas = Image.new("RGB", (BADGE_W, BADGE_H), WHITE)
+    d = ImageDraw.Draw(canvas)
+    nf = font(True, 50)
+    stars_w = 5 * BADGE_STAR + 4 * BADGE_GAP
+    total = stars_w + BADGE_NUM_GAP + text_w(nf, num_text)
+    x0 = (BADGE_W - total) / 2
+    cy = 56
+    for i in range(5):
+        lay = _star_layer(BADGE_STAR, r - i)
+        canvas.paste(lay, (round(x0 + i * (BADGE_STAR + BADGE_GAP)), cy - BADGE_STAR // 2), lay.getchannel("A"))
+    d.text((x0 + stars_w + BADGE_NUM_GAP, cy + 1), num_text, font=nf, fill=INK, anchor="lm")
+    d.text((BADGE_W / 2, 118), line2, font=font(False, 26), fill=MUTED, anchor="mm")
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+    if out_path.lower().endswith(".png"):
+        canvas.save(out_path, optimize=True)
+    else:
+        canvas.save(out_path, quality=JPG_QUALITY, subsampling=0)
+    return {"width": BADGE_W, "height": BADGE_H, "rating": num_text, "line2": line2}

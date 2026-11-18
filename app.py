@@ -4723,6 +4723,7 @@ def _radar_desk_view(article_id: str):
         return None
     article, item, pdir = ctx
     radar_screen.auto_table_images(article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "", pdir)  # 표 칸에 그림이 없으면 자동으로 만듦(글 사진 폴더에만 씀)
+    radar_screen.auto_badge_images(article["platform_raw"].get("naver") or "", pdir)  # ### 아래 별점 띠 그림 만들기(글 사진 폴더에만 씀)
     return radar_screen.build_screen(article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "", item, pdir)
 
 
@@ -6941,12 +6942,13 @@ def view_final(article_id, platform):
         radar_meta["avoid_warns"] = radar_screen.avoid_warnings(_radar_split_sources(_raw_all)[0], article["platform_metadata"].get("naver") or "", article["platform_title"].get("naver") or "")  # 피할 표현(⑨)
 
     # N데스크피커 ③ 화면용 최종본(⑫): 📷 줄 자리에 naver_upload 안 같은 파일을 그림으로 보여 줌. 복사용(outgoing_content)은 📷 줄 그대로.
-    radar_screen_content, radar_banner_missing = None, []
+    radar_screen_content, radar_banner_missing, radar_badge_missing = None, [], []
     if get_active_channel_id() in RADAR_CHANNELS and platform == "naver":
         _sctx = _radar_desk_context(article_id)
         if _sctx:
             radar_screen_content = radar_screen.screen_html(content, _sctx[2])
         radar_banner_missing = radar_screen.banner_missing_from(content)
+        radar_badge_missing = radar_screen.badge_missing_from(content)
 
     return render_template(
         "final_view.html",
@@ -6955,6 +6957,7 @@ def view_final(article_id, platform):
         radar_meta=radar_meta,
         radar_screen_content=radar_screen_content,
         radar_banner_missing=radar_banner_missing,
+        radar_badge_missing=radar_badge_missing,
         shop_post=shop_post,
         ext_info=ext_info,
         shop_msg=request.args.get("shop_msg", ""),

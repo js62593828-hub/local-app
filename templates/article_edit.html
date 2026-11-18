@@ -403,6 +403,19 @@ function fillAllPromoDates(datetimeValue) {
       </div>
     </div>
 
+    {% if desk.badges %}
+    <h3 style="font-size:14px; margin:18px 0 6px;">별점 띠 (제품 ### 바로 아래에 앱이 자동으로 넣어요 · 본문 사진 번호에는 안 세요)</h3>
+    {% for b in desk.badges %}
+    <div style="border:1px solid #444; border-radius:8px; padding:10px 12px; margin:8px 0;">
+      <div><strong>### {{ b.sub }}</strong> <span class="sub">· 상품카드: {{ b.card }}</span></div>
+      {% if b.ok and b.url %}<img src="/radar/file?p={{ b.url|urlencode }}&amp;v={{ range(1, 1000000000) | random }}" alt="별점 띠" style="width:400px; max-width:100%; background:#fff; border-radius:6px; display:block; margin:8px 0;">
+      <div class="sub">{{ b.text1 }} · {{ b.text2 }}</div>
+      {% elif b.ok %}<div class="sub" style="margin-top:6px;">값은 있어요({{ b.text1 }} · {{ b.text2 }}). 그림은 이 화면을 다시 열면 만들어져요.</div>
+      {% else %}<div style="background:#3a2f0d; color:#fbbf24; border-radius:6px; padding:6px 10px; font-size:13px; margin:6px 0;">⚠ 별점 띠를 넣지 않아요 — 없는 값: {{ b.missing|join(', ') }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
     <h3 style="font-size:14px; margin:18px 0 6px;">본문 사진 칸 ({{ sm.slots }}칸, 원고 순서대로)</h3>
     {% for s in desk.slots %}
     <div style="border:1px solid #444; border-radius:8px; padding:10px 12px; margin:8px 0;">

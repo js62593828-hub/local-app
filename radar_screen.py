@@ -386,7 +386,7 @@ def build_screen(raw, memo, item, pdir):
     return {
         "enabled": True, "cover": cover, "slots": slot_views, "groups": groups, "gifs": gif_views,
         "summary": summary, "warnings": warnings, "all_products": all_products, "photo_dir": _rel(pdir),
-        "tables": parsed["tables"],
+        "tables": parsed["tables"], "badges": badge_views(raw, pdir),
     }
 
 
@@ -895,10 +895,13 @@ def strip_notice(raw):
     return "\n".join(ln for ln in (raw or "").replace("\r\n", "\n").split("\n") if not ln.strip().startswith(_NOTICE_START))
 
 
-def _prepare_raw(raw, subs=None):
+def _prepare_raw(raw, subs=None, sub_cards=None):
     """본문 → (자리표시를 넣은 본문, 표 목록, 사진 번호 목록, GIF 상품명 목록). 메모([표지]·[사진자리]) 블록은 뺀다.
-    "### 글자"(제품 소제목)는 {{RDSUB:n}} 자리표시로 바꾸고 글자는 subs 목록에 담는다(subs 가 None 이면 버림)."""
+    "### 글자"(제품 소제목)는 {{RDSUB:n}} 자리표시로 바꾸고 글자는 subs 목록에 담는다(subs 가 None 이면 버림).
+    sub_cards 목록을 주면 subs 와 같은 순서로 그 ### 구간(다음 ### 나 ## 전까지)의 첫 [상품카드: 이름] 이름(없으면 None)을 담는다."""
     subs = subs if subs is not None else []
+    sub_cards = sub_cards if sub_cards is not None else []
+    cur = None
     lines = (raw or "").replace("\r\n", "\n").split("\n")
     out, tables, photos, cards = [], [], [], []
     i, n = 0, len(lines)
@@ -911,6 +914,8 @@ def _prepare_raw(raw, subs=None):
         m = _SUB_RE.match(ln)
         if m:
             subs.append(m.group(1))
+            sub_cards.append(None)
+            cur = len(subs) - 1
             out += ["", "{{RDSUB:%d}}" % (len(subs) - 1), ""]
             i += 1
             continue
@@ -920,8 +925,12 @@ def _prepare_raw(raw, subs=None):
             out += ["", "{{RDPHOTO:%d}}" % int(m.group(1)), ""]
             i += 1
             continue
+        if ln.startswith("## "):
+            cur = None  # ## 소제목이 나오면 제품 구간 끝
         m = radar_images._MARK_CARD.match(ln)
         if m:
+            if cur is not None and sub_cards[cur] is None:
+                sub_cards[cur] = m.group(1)
             cards.append(m.group(1))
             out += ["", "{{RDGIF:%d}}" % (len(cards) - 1), "", "{{RDLINK:%d}}" % (len(cards) - 1), ""]  # GIF 자리는 상품카드(제휴 링크 한 줄) 바로 위
             i += 1
@@ -940,6 +949,90 @@ def _prepare_raw(raw, subs=None):
         out.append(lines[i])
         i += 1
     return "\n".join(out), tables, photos, cards
+
+
+BADGE_FILE_PREFIX = "badge_"
+BADGE_UPLOAD_NAME = "별점띠"  # naver_upload 파일 이름 가운데 글자(본문 사진 번호에는 안 셈)
+NO_BADGE_MARK = "<!--RD:NO_BADGE:%s-->"  # 별점 띠 값이 없어 못 넣었을 때 최종본 맨 끝의 눈에 안 보이는 표시(③ 화면 노란 경고용)
+_RS_RATING = re.compile(r"^-\s*평점\s+(\d+(?:\.\d+)?)", re.M)
+_RS_REVIEWS = re.compile(r"^-\s*리뷰 수\s+(\d[\d,]*)", re.M)
+_RS_TIME = re.compile(r"^-\s*수집 시각\s*:\s*(\d{4}-\d{2}-\d{2})", re.M)
+
+
+def research_stats(pid, run):
+    """research/<상품id>.md 에서 평점(글자 그대로)·리뷰 수·수집 날짜를 읽는다(읽기만). 반환 (값 dict 또는 None, 빠진 항목 목록/이유)."""
+    path = os.path.join(RUNS_ROOT, run, "research", f"{pid}.md")
+    try:
+        with open(path, encoding="utf-8") as f:
+            t = f.read()
+    except OSError:
+        return None, ["research 파일 없음"]
+    m_r, m_n, m_d = _RS_RATING.search(t), _RS_REVIEWS.search(t), _RS_TIME.search(t)
+    missing = [k for k, m in (("평점", m_r), ("리뷰 수", m_n), ("수집 시각", m_d)) if not m]
+    if missing:
+        return None, missing
+    rating = m_r.group(1)
+    if not 0 <= float(rating) <= 5:
+        return None, ["평점 범위 밖(" + rating + ")"]
+    return {"rating": rating, "reviews": int(m_n.group(1).replace(",", "")), "date": m_d.group(1)}, []
+
+
+def badge_info(card_name, st):
+    """상품카드 이름 → 별점 띠 값. 반환 {"ok","pid","stats","missing"(이유 목록)}. 읽기만."""
+    by_name, by_id = load_products()
+    cp = resolve_cards([{"name": card_name, "line": ""}], st, by_name, by_id)[0]
+    if not cp["prod"]:
+        return {"ok": False, "pid": "", "stats": None, "missing": ["상품 못 찾음(" + cp["note"] + ")"]}
+    stats, missing = research_stats(cp["prod"]["id"], cp["prod"]["run"])
+    return {"ok": bool(stats), "pid": cp["prod"]["id"], "stats": stats, "missing": missing}
+
+
+def make_badge_file(pdir, card_name, st=None):
+    """상품카드 이름의 별점 띠 그림을 글 사진 폴더에 badge_<상품id>.png 로 만든다(Pillow, 0원). 반환 (파일 경로 또는 '', badge_info 결과)."""
+    info = badge_info(card_name, st if st is not None else load_state(pdir))
+    if not info["ok"]:
+        return "", info
+    s = info["stats"]
+    out = os.path.join(pdir, f"{BADGE_FILE_PREFIX}{info['pid']}.png")
+    radar_images.rating_badge_image(s["rating"], s["reviews"], s["date"], out)
+    return out, info
+
+
+def auto_badge_images(raw, pdir):
+    """② 화면을 열 때: 상품카드가 있는 ### 구간마다 별점 띠 그림을 (다시) 만든다. 글 사진 폴더에만 씀. 반환: 만든 개수."""
+    subs, sub_cards = [], []
+    _prepare_raw(strip_notice(raw), subs, sub_cards)
+    st = load_state(pdir)
+    n = 0
+    for name in sub_cards:
+        if name:
+            try:
+                if make_badge_file(pdir, name, st)[0]:
+                    n += 1
+            except Exception:
+                pass
+    return n
+
+
+def badge_views(raw, pdir):
+    """② 화면용: ### 제품 구간마다 별점 띠 상태(읽기만, 파일은 안 만듦). [{sub, card, ok, url, text1, text2, missing}]"""
+    subs, sub_cards = [], []
+    _prepare_raw(strip_notice(raw), subs, sub_cards)
+    st = load_state(pdir)
+    out = []
+    for sub, name in zip(subs, sub_cards):
+        if not name:
+            continue
+        info = badge_info(name, st)
+        v = {"sub": sub, "card": name, "ok": info["ok"], "missing": info["missing"], "url": "", "text1": "", "text2": ""}
+        if info["ok"]:
+            s = info["stats"]
+            v["text1"], v["text2"] = radar_images.badge_texts(s["rating"], s["reviews"], s["date"])
+            fn = f"{BADGE_FILE_PREFIX}{info['pid']}.png"
+            if _exists(pdir, fn):
+                v["url"] = _rel(os.path.join(pdir, fn))
+        out.append(v)
+    return out
 
 
 RADAR_BLOG_ID = "guardradar"
@@ -1340,8 +1433,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
     글 모양을 만든 뒤, 자리표시를 사진·GIF·표·제휴 링크로 바꿔 끼운다. 이미지 생성 API·장부 쓰기 없음.
     related: pick_related 가 뽑은 목록(None 이면 안 붙임, 빈 목록이면 "다른 글 없음" 표시), product_links: 상품id→제휴 링크(None 이면 links.json 을 읽음)."""
     st = load_state(pdir)
-    subs = []  # "### 제품 소제목" 글자들
-    body, tables, photos, cards = _prepare_raw(strip_notice(raw), subs)  # 쇼핑커넥트 안내 문장은 글자 대신 이미지로 넣으므로 원고에서 뺌
+    subs, sub_cards = [], []  # "### 제품 소제목" 글자들 / 각 구간의 상품카드 이름(없으면 None)
+    body, tables, photos, cards = _prepare_raw(strip_notice(raw), subs, sub_cards)  # 쇼핑커넥트 안내 문장은 글자 대신 이미지로 넣으므로 원고에서 뺌
     table_pair = [n for _rows, n in table_slot_map(strip_notice(raw))]  # 표마다 바로 아래 [사진: n] 번호(없으면 None)
     body = _mark_emphasis(body)  # 본문 **굵게**·==형광펜== 임시 표시(소제목·표는 그대로)
     body, _auto = auto_emphasis(body)  # ⑪ 숫자+단위 자동 굵게·결론 문장 자동 형광펜(함께 보면 좋은 글을 붙이기 전에)
@@ -1388,12 +1481,24 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         shop_links=None, strip_link_placeholders=True,
     )
     info = {"slots": len(photos), "empty": [], "gifs": 0, "tables": len(tables), "cards": len(cards), "card_links": 0,
-            "card_missing": [], "related": [r["url"] for r in (related or [])], "subs": len(subs), "notice_image": bool(notice_src), "table_as_image": 0}
+            "card_missing": [], "badges": 0, "badge_missing": [], "related": [r["url"] for r in (related or [])], "subs": len(subs), "notice_image": bool(notice_src), "table_as_image": 0}
 
     def repl(m):
         kind, k = m.group(1), int(m.group(2))
         if kind == "RDSUB":
-            return radar_sub_html(subs[k])
+            html_sub = radar_sub_html(subs[k])
+            card = sub_cards[k] if k < len(sub_cards) else None
+            if not card:
+                return html_sub
+            try:  # 별점 띠: ### 바로 아래(첫 [사진: n] 앞). 값이 하나라도 없으면 넣지 않고 경고만
+                bpath, binfo = make_badge_file(pdir, card, st)
+            except Exception as e:
+                bpath, binfo = "", {"missing": ["그림 만들기 실패: " + str(e)]}
+            if not bpath:
+                info["badge_missing"].append(f"{subs[k]}: " + ", ".join(binfo["missing"]))
+                return html_sub
+            info["badges"] += 1
+            return html_sub + mark(add_upload("", BADGE_UPLOAD_NAME + str(info["badges"]), resize=False, src=bpath))
         if kind == "RDTABLE":
             n = table_pair[k] if k < len(table_pair) else None
             if n is not None and _exists(pdir, st["slots"].get(str(n), "")):
@@ -1444,6 +1549,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         info["upload_error"] = str(e)
     if related is not None and not related:
         final += NO_RELATED_MARK
+    if info["badge_missing"]:  # ③ 화면 노란 경고용 표시(최종본 맨 끝, 눈에 안 보임). "-" "<" ">" 는 표시가 깨지지 않게 바꿈
+        final += NO_BADGE_MARK % "|".join(re.sub(r"[-<>]", " ", x) for x in info["badge_missing"])
     info["banners"] = banner_state["n"]
     info["banner_missing"] = banner_missing
     if banner_missing:
@@ -1463,6 +1570,12 @@ def banner_missing_from(final_html):
     return [c for c in m.group(1).split(",") if c] if m else []
 
 
+def badge_missing_from(final_html):
+    """저장된 최종본 맨 끝 표시에서 별점 띠를 못 넣은 제품 구간 목록(③ 화면 노란 경고용). 없으면 []."""
+    m = re.search(r"<!--RD:NO_BADGE:([^>]*?)-->", final_html or "")
+    return [c.strip() for c in m.group(1).split("|") if c.strip()] if m else []
+
+
 def screen_html(final_html, pdir):
     """③ 화면용 최종본: 📷 줄 자리마다 naver_upload 안 같은 파일을 그림으로 보여 준다(복사용 최종본은 그대로 둠).
     사진·GIF 는 본문 폭 100%(최대 800px), 필수 표기·배너는 원래 픽셀 크기. 그림 아래 작은 회색 글자로 파일 이름.
@@ -1475,13 +1588,13 @@ def screen_html(final_html, pdir):
         w, h = _dims(fp) if os.path.isfile(fp) else (0, 0)
         if not w:
             return f'<p style="text-align:center; color:#D32F2F; font-weight:bold; font-size:16px;">사진 없음: {_html.escape(name)}</p>'
-        if _NOTICE_IMG_MARK in name or _BANNER_MARK in name:
+        if _NOTICE_IMG_MARK in name or _BANNER_MARK in name or BADGE_UPLOAD_NAME in name:
             style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 auto;"
         else:
             style = f"width:100%; max-width:{want}px; height:auto; display:block; margin:0 auto;"
         url = _photo_url(pdir, UPLOAD_DIR + "/" + name) + f"?v={int(os.path.getmtime(fp))}"
         warn = ""
-        if _NOTICE_IMG_MARK not in name and _BANNER_MARK not in name and (w, h) != (want, want):
+        if _NOTICE_IMG_MARK not in name and _BANNER_MARK not in name and BADGE_UPLOAD_NAME not in name and (w, h) != (want, want):
             warn = f' <span style="color:#D32F2F; font-weight:bold;">({w}×{h} — {want}×{want} 아님)</span>'
         return (f'<div style="text-align:center; margin:12px 0;"><img src="{_html.escape(url, quote=True)}" alt="{_html.escape(name, quote=True)}" style="{style}">'
                 f'<div style="color:#999999; font-size:12px; margin-top:4px;">{_html.escape(name)}{warn}</div></div>')
