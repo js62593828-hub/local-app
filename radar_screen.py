@@ -7,6 +7,8 @@ import json
 import os
 import re
 import shutil
+import subprocess
+import sys
 from datetime import datetime
 import html as _html
 from urllib.parse import urlparse, parse_qs
@@ -376,13 +378,15 @@ def build_screen(raw, memo, item, pdir):
         })
 
     gif_views = []
-    for cp in cps:
+    frame_now = cover_frame(item)
+    for k, cp in enumerate(cps):
         gf = st["gifs"].get(cp["name"], "")
         src = product_gif(cp["prod"]["id"], cp["prod"]["run"]) if cp["prod"] else ""
         copied = _exists(pdir, gf)
         gif_views.append({
             **cp, "gif_src": _rel(src) if src else "", "gif_copied": gf if copied else "",
             "gif_copied_url": _rel(os.path.join(pdir, gf)) if copied else "",
+            "role": ("본상품" if k == 0 else "대안") if frame_now == "B" else "",  # 틀 B: 첫 상품카드가 본상품(맨 위에 보여 줌)
         })
 
     ci = _cover_inputs(cps, item, st)
@@ -575,6 +579,51 @@ def choose_slot(pdir, number, src):
     st["slot_sources"][key] = _rel(src)
     save_state(pdir, st)
     return True, f"{number}번 칸에 {base} 를 골랐어요"
+
+
+def make_product_gif(pdir, name, raw, memo):
+    """② '상품별 GIF' 칸의 [GIF 만들기(0원)]: 이미 받아 둔 상품 사진(research/_img/<상품id>/)으로 GIF 를 만든다(Pillow, 이미지 생성 API 없음).
+    갈래·짧은 이름은 그 폴더 images.json 에서 읽는다. 이미 GIF 가 있으면 새로 만들지 않는다. 글 사진 폴더로 가져오는 건 [GIF 가져오기]."""
+    markers = read_markers(raw, memo)["markers"]
+    st = load_state(pdir)
+    by_name, by_id = load_products()
+    cps = resolve_cards([m for m in markers if m["kind"] == "상품카드"], st, by_name, by_id)
+    cp = next((c for c in cps if c["name"] == name), None)
+    if not cp or not cp["prod"]:
+        return False, "이 상품은 아직 확인이 필요해요(상품을 먼저 고르세요)"
+    pid, run = cp["prod"]["id"], cp["prod"]["run"]
+    if product_gif(pid, run):
+        return False, "GIF 가 이미 있어요"
+    d = os.path.join(RUNS_ROOT, run, "research", "_img", pid)
+    if not os.path.exists(os.path.join(d, "images.json")):
+        return False, "상품 사진을 받은 기록(images.json)이 없어서 만들 수 없어요(자료 수집이 먼저 필요해요)"
+    meta = _read_json(os.path.join(d, "images.json")) or {}
+    cmd = [sys.executable, "-I", os.path.join("tools", "radar_gif.py"), "--src", d, "--out", os.path.join(d, pid),
+           "--genre", meta.get("갈래", "") or "", "--name", meta.get("짧은 이름", "") or ""]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+    except Exception as e:
+        return False, "GIF 만들기 실패: " + str(e)
+    if product_gif(pid, run):
+        return True, "GIF 를 만들었어요. [GIF 가져오기]를 눌러 글 사진 폴더로 가져오세요"
+    last = (r.stdout.strip().splitlines() or [r.stderr.strip()[-200:]])[-1]
+    return False, "GIF 를 만들지 못했어요: " + (last or "알 수 없는 이유")
+
+
+def main_gif_warning(raw, memo, item, pdir):
+    """③ 노란 경고: 틀 B 인데 본상품(첫 상품카드) GIF 없이 대안 GIF 만 가져와 있으면 문장 하나, 아니면 ''."""
+    if cover_frame(item) != "B":
+        return ""
+    markers = read_markers(raw, memo)["markers"]
+    st = load_state(pdir)
+    by_name, by_id = load_products()
+    cps = resolve_cards([m for m in markers if m["kind"] == "상품카드"], st, by_name, by_id)
+    if len(cps) < 2:
+        return ""
+    has = [_exists(pdir, st["gifs"].get(cp["name"], "")) for cp in cps]
+    if not has[0] and any(has[1:]):
+        return "틀 B 인데 본상품 GIF 없이 대안 GIF 만 들어가 있어요(본상품: %s). 본상품 GIF 를 먼저 만들어 가져오세요." % cps[0]["name"][:30]
+    return ""
 
 
 def copy_gif(pdir, name, raw, memo):

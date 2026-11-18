@@ -10,7 +10,7 @@
 - 앱 데이터(content_queue*·articles*)·links.json 은 읽지도 고치지도 않는다(links.json 은 읽기만).
 - 추가 이미지: 이미 여는 상품 페이지의 넘겨 보는 목록(캐러셀)에서 최대 10장을 research/_img/<상품id>/ 에 01_rep, 02… 로 저장하고
   images.json 에 크기·글자 많음·제품 보임·확인 필요를 적는다(자동 추정 + 같은 폴더 overrides.json 으로 사람이 고친 판정 덮어쓰기).
-  이미 받은 상품은 다시 받지 않는다(--refresh-images 때만). 판정만 다시 하려면 --rejudge-images(받지 않음). 뱃지(판매처 뱃지·로고)는 images.json 의 `뱃지`·`뱃지 확인 필요` 칸. --gif 를 주면 수집 뒤 tools/radar_gif.py 로 <상품id>.gif 도 만든다.
+  이미 받은 상품은 다시 받지 않는다(--refresh-images 때만). 판정만 다시 하려면 --rejudge-images(받지 않음). 뱃지(판매처 뱃지·로고)는 images.json 의 `뱃지`·`뱃지 확인 필요` 칸. 수집 뒤(기본, --no-gif 로 끔) tools/radar_gif.py 로 <상품id>.gif 도 만든다.
 - research/<상품id>.md 에 `짧은 이름:`(브랜드+모델명 14자 안, 못 만들면 비우고 '확인 필요') 칸이 있다.
 """
 import argparse, glob, json, os, re, shutil, subprocess, sys, tempfile
@@ -813,7 +813,8 @@ def main():
     ap.add_argument("--official", default="", help="공식 페이지 주소 json {상품id: [주소,...]} (기본: <실행>/research/official.json). 있으면 받아서 부족한 사양만 보충")
     ap.add_argument("--refetch-official", action="store_true", help="공식 페이지를 다시 받음(기본은 _raw/official_<id>.json 재사용)")
     ap.add_argument("--fill-detail", action="store_true", help="브라우저·수집 없이, research/detail_values.json(상세 이미지를 읽어 적은 값)으로 '없음' 사양만 채우고 .md 를 다시 만듦")
-    ap.add_argument("--gif", action="store_true", help="수집 뒤 tools/radar_gif.py 로 research/_img/<상품id>/<상품id>.gif 를 만든다(기본 꺼짐)")
+    ap.add_argument("--gif", action=argparse.BooleanOptionalAction, default=True, help="수집 뒤 tools/radar_gif.py 로 research/_img/<상품id>/<상품id>.gif 를 만든다(기본 켜짐, 끄려면 --no-gif)")
+    ap.add_argument("--gif-only", action="store_true", help="브라우저·수집 없이, 이미 받은 이미지(research/_img/<상품id>/)로 --ids 상품의 GIF 만 만든다(0원). 이미 GIF 가 있으면 건너뜀")
     ap.add_argument("--refresh-images", action="store_true", help="이미 받은 추가 이미지도 다시 받는다(기본은 받은 상품은 건너뜀)")
     ap.add_argument("--rejudge-images", action="store_true", help="브라우저·다운로드 없이, 이미 받은 이미지의 판정(뱃지·글자 많음·제품 보임)만 다시 하고 images.json 갱신(백업 남김). 후보 img/ 대표 이미지는 img/rep_badge.json 에 기록")
     ap.add_argument("--judge-out", default="", help="--rejudge-images 결과를 원본 대신 이 폴더에만 쓴다(시험용)")
@@ -823,6 +824,16 @@ def main():
     rdir = os.path.join(run_dir, "research")
     raw_dir = os.path.join(rdir, "_raw")
     os.makedirs(raw_dir, exist_ok=True)
+    if a.gif_only:
+        img_root = os.path.join(rdir, "_img")
+        for pid in a.ids:
+            d = os.path.join(img_root, pid)
+            if os.path.exists(os.path.join(d, pid + ".gif")):
+                print(pid, "GIF 이미 있음 — 건너뜀")
+                continue
+            ij = jload(os.path.join(d, "images.json")) if os.path.exists(os.path.join(d, "images.json")) else {}
+            print(pid, run_gif({"img_dir": d, "product_id": pid}, ij.get("갈래", ""), {"값": ij.get("짧은 이름", "")}))
+        return
     if a.fill_detail:
         rep = fill_detail(rdir, set(a.ids))
         for pid, r in rep.items():

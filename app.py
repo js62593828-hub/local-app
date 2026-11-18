@@ -4814,6 +4814,16 @@ def radar_desk_gif(article_id):
     return _radar_desk_back(article_id, ok, msg)
 
 
+@app.route("/article/<article_id>/radar/desk/gifmake", methods=["POST"])
+def radar_desk_gifmake(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("index"))
+    article, _item, pdir = ctx
+    ok, msg = radar_screen.make_product_gif(pdir, request.form.get("name", ""), article["platform_raw"].get("naver") or "", article["platform_metadata"].get("naver") or "")
+    return _radar_desk_back(article_id, ok, msg)
+
+
 @app.route("/article/<article_id>/radar/desk/product", methods=["POST"])
 def radar_desk_product(article_id):
     ctx = _radar_desk_context(article_id)
@@ -6948,6 +6958,8 @@ def view_final(article_id, platform):
         )
         radar_meta["emphasis_warns"] = radar_screen.emphasis_warnings(_radar_split_sources(_raw_all)[0])
         radar_meta["sub_warns"] = radar_screen.subheading_warnings(_radar_split_sources(_raw_all)[0], article["platform_metadata"].get("naver") or "")  # 제품 소제목(###) 빠진 상품 구간
+        _gctx = _radar_desk_context(article_id)
+        radar_meta["gif_warns"] = [w for w in [radar_screen.main_gif_warning(_raw_all, article["platform_metadata"].get("naver") or "", _gctx[1], _gctx[2]) if _gctx else ""] if w]  # 틀 B 본상품 GIF 없이 대안 GIF 만
         radar_meta["avoid_warns"] = radar_screen.avoid_warnings(_radar_split_sources(_raw_all)[0], article["platform_metadata"].get("naver") or "", article["platform_title"].get("naver") or "")  # 피할 표현(⑨)
 
     # N데스크피커 ③ 화면용 최종본(⑫): 📷 줄 자리에 naver_upload 안 같은 파일을 그림으로 보여 줌. 복사용(outgoing_content)은 📷 줄 그대로.

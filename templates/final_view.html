@@ -301,6 +301,7 @@
   <div class="tags-box" id="radar-meta-box" style="display:block;">
     {% for w in radar_meta.emphasis_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
     {% for w in radar_meta.sub_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
+    {% for w in radar_meta.gif_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
     {% for w in radar_meta.avoid_warns %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ {{ w }}</div>{% endfor %}
     {% if radar_badge_missing %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ 별점 띠를 넣지 못한 제품 구간이 있어요(값이 없어서 띠 없이 만들었어요):{% for b in radar_badge_missing %}<div>· {{ b }}</div>{% endfor %}</div>{% endif %}
     {% if radar_banner_missing %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;">⚠ 가격 확인 배너 이미지를 못 찾았어요(static/radar/banner_{{ radar_banner_missing | join(', ') }}.png). 그래서 배너 없이 만들었어요.</div>{% endif %}

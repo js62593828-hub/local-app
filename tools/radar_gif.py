@@ -158,6 +158,20 @@ def exclude_reasons(m):
     return why
 
 
+def manual_excludes(src):
+    """<src>/gif_exclude.json 에 사람이 적어 둔 '뱃지·글자가 있어 GIF 에 안 쓰는 사진'. 모양: {"제외": {"01_rep.jpg": "이유", ...}}
+    (자동 판정이 놓친 뱃지용. images.json 은 건드리지 않는다.)"""
+    p = os.path.join(src, "gif_exclude.json")
+    if not os.path.exists(p):
+        return {}
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f).get("제외") or {}
+    except Exception:
+        return {}
+    return d if isinstance(d, dict) else {k: "" for k in d}
+
+
 def select_images(src, pick, meta_path=""):
     """(고른 파일 목록, 뺀 이유 {파일: 이유}, 중단 사유 또는 None)
     meta_path: images.json 위치(기본 <src>/images.json). 시험용으로 다른 판정 파일을 쓸 때만 지정."""
@@ -175,12 +189,15 @@ def select_images(src, pick, meta_path=""):
         return files[:MAX_FRAMES], {}, None
     with open(meta_path, encoding="utf-8") as f:
         meta = json.load(f)
+    manual = manual_excludes(src)
     excluded, ok = {}, []
     for m in meta.get("images", []):
         path = os.path.join(src, m["file"]) if m.get("file") else ""
         if not path or not os.path.exists(path):
             continue
         why = exclude_reasons(m)
+        if m.get("file") in manual:
+            why.append("사람이 뺌(" + manual[m["file"]] + ")")
         if why:
             excluded[m["file"]] = " + ".join(why)
         else:
