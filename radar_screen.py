@@ -213,6 +213,7 @@ def load_state(pdir):
     st.setdefault("gifs", {})
     st.setdefault("product_pick", {})  # 상품명 → 사람이 고른 상품 id
     st.setdefault("skip_slots", [])  # 사람이 '안 넣음'으로 뺀 사진 자리 번호(문자열). 원고는 안 바꾸고 최종본·업로드 폴더에서만 뺀다
+    st.setdefault("skip_gifs", [])  # 사람이 '안 넣음'으로 뺀 상품카드 이름(GIF). GIF 파일은 안 지우고 최종본·업로드 폴더에서만 뺀다
     st.setdefault("cover_pick", [])  # 사람이 고른 표지 사진(후보 폴더 안 경로). 비면 자동으로 고름
     return st
 
@@ -388,6 +389,7 @@ def build_screen(raw, memo, item, pdir):
         gif_views.append({
             **cp, "gif_src": _rel(src) if src else "", "gif_copied": gf if copied else "",
             "gif_copied_url": _rel(os.path.join(pdir, gf)) if copied else "",
+            "gif_skipped": cp["name"] in st["skip_gifs"],
             "role": ("본상품" if k == 0 else "대안") if frame_now == "B" else "",  # 틀 B: 첫 상품카드가 본상품(맨 위에 보여 줌)
         })
 
@@ -406,7 +408,7 @@ def build_screen(raw, memo, item, pdir):
     filled = sum(1 for v in slot_views if v["chosen"] and not v["skipped"])
     summary = {
         "slots": len(slot_views), "filled": filled, "skipped": sum(1 for v in slot_views if v["skipped"]), "recommend": radar_images.body_photo_count(raw or ""),
-        "gifs": sum(1 for g in gif_views if g["gif_copied"]), "cards": len(cps),
+        "gifs": sum(1 for g in gif_views if g["gif_copied"] and not g["gif_skipped"]), "gifs_skipped": sum(1 for g in gif_views if g["gif_skipped"]), "cards": len(cps),
         "need_check": sum(1 for cp in cps if not cp["prod"]),
         "gif_missing": sum(1 for g in gif_views if g["prod"] and not g["gif_src"]),
         "cards_ok": n_cards_ok,
@@ -570,6 +572,17 @@ def set_slot_skip(pdir, number, skip):
     return True, f"{number}번 자리를 " + ("'안 넣음'으로 뺐어요(③ 최종본에서 이 자리 줄이 빠져요)" if skip else "다시 넣기로 했어요")
 
 
+def set_gif_skip(pdir, name, skip):
+    """상품 GIF 를 '안 넣음'으로 빼거나(skip=True) 다시 넣는다(False). photos.json 에만 적고, 가져온 GIF 파일은 지우지 않는다."""
+    st = load_state(pdir)
+    lst = [x for x in st["skip_gifs"] if x != name]
+    if skip:
+        lst.append(name)
+    st["skip_gifs"] = lst
+    save_state(pdir, st)
+    return True, f"'{name[:30]}' GIF 를 " + ("'안 넣음'으로 뺐어요(③ 최종본·업로드 폴더에서 빠져요)" if skip else "다시 넣기로 했어요")
+
+
 def choose_slot(pdir, number, src):
     """칸에 사진 하나 고르기: 글 사진 폴더로 복사(slot<번호>_<원래 이름>). src 가 빈 값이면 선택 취소.
     사진을 고르면 그 자리의 '안 넣음'은 풀린다."""
@@ -638,7 +651,7 @@ def main_gif_warning(raw, memo, item, pdir):
     cps = resolve_cards([m for m in markers if m["kind"] == "상품카드"], st, by_name, by_id)
     if len(cps) < 2:
         return ""
-    has = [_exists(pdir, st["gifs"].get(cp["name"], "")) for cp in cps]
+    has = [_exists(pdir, st["gifs"].get(cp["name"], "")) and cp["name"] not in st["skip_gifs"] for cp in cps]
     if not has[0] and any(has[1:]):
         return "틀 B 인데 본상품 GIF 없이 대안 GIF 만 들어가 있어요(본상품: %s). 본상품 GIF 를 먼저 만들어 가져오세요." % cps[0]["name"][:30]
     return ""
@@ -660,6 +673,7 @@ def copy_gif(pdir, name, raw, memo):
     dst_name = cp["prod"]["id"] + ".gif"
     shutil.copyfile(src, os.path.join(pdir, dst_name))
     st["gifs"][name] = dst_name
+    st["skip_gifs"] = [x for x in st["skip_gifs"] if x != name]  # 다시 가져오면 '안 넣음'은 풀린다
     save_state(pdir, st)
     return True, f"GIF 를 가져왔어요({dst_name})"
 
@@ -975,6 +989,59 @@ def _break_paragraph(inner, mode):
     return "<br>".join(sents)
 
 
+def _visible_len(inner):
+    """HTML 조각의 보이는 글자 수(공백 포함): 태그·강조 표시 글자는 빼고, &amp; 같은 건 한 글자로."""
+    t = re.sub(r"<[^>]*>", "", inner)
+    t = "".join(ch for ch in t if ch not in (_EM_B0, _EM_B1, _EM_H0, _EM_H1))
+    return len(_html.unescape(t))
+
+
+def _split_long_paragraph(inner, max_len=None, min_len=None):
+    """공백 포함 max_len(기본 150)자를 넘는 문단을 문장 끝에서 둘로 나눈다. 나누는 자리는 앞 조각 길이가 max_len 에 가장 가까운 문장 끝.
+    어느 한쪽이 min_len(기본 30)자 미만이면 나누지 않는다. 반환: 조각 목록(1개 또는 2개). 강조(**·==) 는 문장 안이라 그대로 한 조각에 남는다."""
+    max_len = max_len or int(_cfg("RADAR_SPLIT_LEN", 150))
+    min_len = min_len or int(_cfg("RADAR_SPLIT_MIN", 30))
+    if "<br" in inner or inner.startswith(_NOTICE_START) or _visible_len(inner) <= max_len:
+        return [inner]
+    sents = split_sentences(inner)
+    if len(sents) < 2:
+        return [inner]
+    best = None
+    for k in range(1, len(sents)):
+        first_len = _visible_len(" ".join(sents[:k]))
+        d = abs(first_len - max_len)
+        if best is None or d < best[0]:  # 같은 거리면 앞쪽(더 짧은 앞 조각) 유지
+            best = (d, k)
+    k = best[1]
+    first, second = " ".join(sents[:k]), " ".join(sents[k:])
+    if _visible_len(first) < min_len or _visible_len(second) < min_len:
+        return [inner]
+    return [first, second]
+
+
+def _paragraphs_mode(final):
+    """문단 방식: 원고 문단 하나가 네이버 문단 하나(문단 안에서 줄을 바꾸지 않음). 긴 문단만 둘로 나누고 사이에 빈 줄 하나."""
+    def sub(m):
+        parts = _split_long_paragraph(m.group(1))
+        return (_GAP).join(_BODY_P_OPEN + x + "</p>" for x in parts)
+    return _BODY_P_RE.sub(sub, final)
+
+
+_LEFT_HEAD_RES = [
+    re.compile(r'<p style="text-align:center;">(<strong style="color:#111111; font-size:19px;)'),   # ## 소제목 글자
+    re.compile(r'<p style="text-align:center;">(<span style="color:#cccccc;">─)'),                  # ## 소제목 아래 줄
+    re.compile(r'<p style="text-align:center;">(<strong style="color:#22262B; font-size:17px;)'),   # ### 제품 소제목 글자
+    re.compile(r'<p style="text-align:center;">(<span style="color:#C9A227; font-size:17px;">)'),   # ### 아래 금색 막대
+]
+
+
+def _left_headings(final):
+    """소제목(##, ###)과 그 아래 줄·막대만 왼쪽 정렬. ❝ 인용 기호는 그대로 가운데."""
+    for rx in _LEFT_HEAD_RES:
+        final = rx.sub(lambda m: '<p style="text-align:left;">' + m.group(1), final)
+    return final
+
+
 def _fix_blank_lines(final):
     """빈 줄은 한 개만. 📷 줄과 naver.me 줄은 앞뒤에 빈 줄 하나(맨 앞·맨 뒤는 제외)."""
     gap = re.escape(_GAP)
@@ -997,13 +1064,18 @@ def _center_all(final):
 
 def finish_final(final, mode="sentence", align=None):
     """build_shop_html 결과를 radar_naver 용으로 다듬는다: 맨 위 제목(<h1>) 빼기 → 문장마다 줄바꿈(mode) → 본문 문단 보통 굵기 → 정렬(align) → 빈 줄 정리 → 강조 임시 표시를 굵게·형광펜으로.
-    align: "center"(가운데, 기본) / "justify"(양쪽 맞춤). None 이면 config RADAR_ALIGN."""
-    align = align or _cfg("RADAR_ALIGN", "center")
+    mode: "paragraph"(기본: 원고 문단 그대로·150자 넘으면 문장 끝에서 둘로) / "sentence" / "two_sentences" / "off".
+    align: "justify"(기본: 본문 양끝 정렬·소제목 왼쪽·나머지 가운데) / "center"(옛 방식 전부 가운데). None 이면 config RADAR_ALIGN."""
+    align = align or _cfg("RADAR_ALIGN", "justify")
     final = re.sub(r"^<h1[^>]*>.*?</h1>", "", final, count=1, flags=re.S)
-    if mode in ("sentence", "two_sentences"):
+    if mode == "paragraph":
+        final = _paragraphs_mode(final)
+    elif mode in ("sentence", "two_sentences"):
         final = _BODY_P_RE.sub(lambda m: _BODY_P_OPEN + _break_paragraph(m.group(1), mode) + "</p>", final)
     final = final.replace(_BODY_P_OPEN, _BODY_P_NEW)
-    if align != "justify":
+    if align == "justify":  # 본문 글만 양끝 정렬, 소제목은 왼쪽, 그 밖(사진·표·별점 띠·상품카드·인용 기호)은 가운데
+        final = _left_headings(_center_all(final))
+    else:
         final = final.replace("text-align:justify !important;", "text-align:center;")
         final = _center_all(final)
     final = _fix_blank_lines(final)
@@ -1341,7 +1413,7 @@ def banner_small_copy(src, dst):
 
 
 def radar_sub_html(text):
-    """"### 글자" 제품 소제목: 가운데·굵게·17px·#22262B + 아래 금색 짧은 막대(글자 "━" 라서 네이버에 붙여도 남음). 정렬은 finish_final 이 맞춘다."""
+    """"### 글자" 제품 소제목: 굵게·17px·#22262B + 아래 금색 짧은 막대(글자 "━" 라서 네이버에 붙여도 남음). 정렬은 finish_final 이 맞춘다."""
     return ('<p style="text-align:left;"><strong style="color:#22262B; font-size:17px; font-weight:bold;">' + _html.escape(text) + "</strong></p>"
             '<p style="text-align:left;"><span style="color:#C9A227; font-size:17px;">━━━━</span></p>')
 
@@ -1606,7 +1678,7 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         bottom_images=None, related_posts=None, disclosure=False, body_images=None,
         shop_links=None, strip_link_placeholders=True,
     )
-    info = {"slots": len(photos), "empty": [], "gifs": 0, "tables": len(tables), "cards": len(cards), "card_links": 0,
+    info = {"slots": len(photos), "empty": [], "gifs": 0, "gifs_skipped": [], "tables": len(tables), "cards": len(cards), "card_links": 0,
             "card_missing": [], "badges": 0, "badge_missing": [], "related": [r["url"] for r in (related or [])], "subs": len(subs), "skipped": [], "table_skipped": [], "notice_image": bool(notice_src), "table_as_image": 0}
 
     def repl(m):
@@ -1636,6 +1708,9 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
             return radar_table_html(tables[k])
         if kind == "RDGIF":
             gf = st["gifs"].get(cards[k], "")
+            if cards[k] in st["skip_gifs"]:
+                info["gifs_skipped"].append(cards[k])  # GIF '안 넣음': 최종본·업로드 폴더에서 뺌(GIF 파일은 그대로)
+                return ""
             if _exists(pdir, gf):
                 info["gifs"] += 1
                 label = gif_file_label(cps[k]["prod"], cards[k])
@@ -1669,10 +1744,10 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
     if line_break is None:
         try:
             import config
-            line_break = getattr(config, "RADAR_LINE_BREAK", "sentence")
+            line_break = getattr(config, "RADAR_LINE_BREAK", "paragraph")
         except Exception:
-            line_break = "sentence"
-    final = finish_final(final, line_break)  # 제목 빼기·문장마다 줄바꿈·보통 굵기·가운데 정렬·빈 줄 정리·강조 적용
+            line_break = "paragraph"
+    final = finish_final(final, line_break)  # 제목 빼기·문단 방식 줄 나눔·보통 굵기·양끝 정렬(소제목 왼쪽)·빈 줄 정리·강조 적용
     info["uploads"] = [u[1] for u in uploads]
     info["upload_error"] = ""
     try:

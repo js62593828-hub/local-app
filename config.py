@@ -174,8 +174,11 @@ HIDDEN_FEATURES = ["plan_export", "weekly_final_export", "manual_promo"]
 RADAR_RELATED_SINCE = "2026-11-23"
 
 # ---------- N데스크피커(radar_naver) 최종본 줄 띄움 · 블로그 카테고리 ----------
-# 일반 문단을 어떻게 줄바꿈할지: "sentence"(문장마다, 기본) / "two_sentences"(두 문장마다) / "off"(그대로).
-RADAR_LINE_BREAK = "sentence"
+# 일반 문단을 어떻게 줄바꿈할지: "paragraph"(원고 문단 그대로, 문단 안 줄바꿈 없음·150자 넘으면 문장 끝에서 둘로, 기본) / "sentence"(문장마다) / "two_sentences"(두 문장마다) / "off"(그대로).
+RADAR_LINE_BREAK = "paragraph"
+RADAR_SPLIT_LEN = 150   # 문단이 이 글자 수(공백 포함)를 넘으면 문장 끝에서 둘로 나눔
+RADAR_SPLIT_MIN = 30    # 나눈 조각이 이보다 짧으면 나누지 않음
+# (본문 정렬 RADAR_ALIGN 은 아래 ⑧ 항목에 있음)
 # 메모에 "카테고리:" 줄이 없을 때 쓰는 표: 갈래(그 주 plan.json 의 갈래) → 네이버 블로그 카테고리 이름.
 # 지금은 갈래 이름을 그대로 적어 두었습니다. 실제 블로그 카테고리 이름이 다르면 오른쪽 값만 바꾸세요.
 RADAR_CATEGORY_MAP = {
@@ -195,8 +198,8 @@ RADAR_NOTICE_IMAGE = "static/radar/notice_shoppingconnect.jpg"
 # 강조 모양: **글자** → 굵게 + 이 글자색 / ==글자== → 이 배경색 + 굵게
 RADAR_EM_BOLD_COLOR = "#8A6A1F"
 RADAR_EM_HL_BG = "#FFF1B8"
-# 본문 정렬: "center"(가운데, 기본) / "justify"(양쪽 맞춤, 예전 방식). 표 칸 안 글자는 항상 왼쪽.
-RADAR_ALIGN = "center"
+# 본문 정렬: "justify"(양끝 정렬, 소제목(##·###)은 왼쪽, 사진·GIF·표·별점 띠·상품카드·인용 기호는 가운데, 기본) / "center"(옛 방식, 전부 가운데). 표 칸 안 글자는 항상 왼쪽.
+RADAR_ALIGN = "justify"
 # naver_upload 로 복사할 때 사진·GIF 한 변 크기(정사각형). 비율이 다르면 자르지 않고 흰색 여백으로 채움. 필수 표기 이미지는 제외.
 RADAR_UPLOAD_SIZE = 800
 # 본문 사진(📷 NN_사진n)만 프레임을 씌움: 전체 800×800, 바깥 바탕 RADAR_FRAME_BG, 안쪽 사진 칸은 사방 PAD px 안쪽·모서리 RADIUS px 둥글게,

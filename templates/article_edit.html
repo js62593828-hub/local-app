@@ -526,13 +526,14 @@ function fillAllPromoDates(datetimeValue) {
         <form method="POST" action="/article/{{ idx }}/radar/desk/gifmake"><input type="hidden" name="name" value="{{ g.name }}"><button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">GIF 만들기(0원)</button></form>
       </div>
       {% endif %}
+      <form method="POST" action="/article/{{ idx }}/radar/desk/gifskip" style="margin:8px 0 0;"><input type="hidden" name="name" value="{{ g.name }}"><input type="hidden" name="skip" value="{{ '0' if g.gif_skipped else '1' }}"><button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">{{ '다시 넣기' if g.gif_skipped else '안 넣음' }}</button>{% if g.gif_skipped %} <span style="color:#fbbf24; font-size:13px;">이 상품 GIF 는 '안 넣음' — ③ 최종본과 업로드 폴더에서 빠져요(GIF 는 안 넣어도 돼요)</span>{% endif %}</form>
     </div>
     {% endfor %}
 
     <h3 style="font-size:14px; margin:18px 0 6px;">요약</h3>
     <div class="sub" style="line-height:1.8;">
       사진 칸 <strong>{{ sm.slots }}</strong>개 · 채운 칸 <strong>{{ sm.filled }}</strong>개 · 안 넣음 <strong>{{ sm.skipped }}</strong>개 · 본문 사진 권장 <strong>{{ sm.recommend }}</strong>장(공백 뺀 글자 수 ÷ 400, 5~8장)<br>
-      GIF <strong>{{ sm.gifs }}</strong>개 가져옴 (사진 수에 안 넣음{% if sm.gif_missing %} · GIF 없는 상품 {{ sm.gif_missing }}개{% endif %}) · 확인 필요 <strong>{{ sm.need_check }}</strong>개(상품을 못 찾은 상품카드)
+      GIF <strong>{{ sm.gifs }}</strong>개 가져옴{% if sm.gifs_skipped %} · 안 넣음 <strong>{{ sm.gifs_skipped }}</strong>개{% endif %} (사진 수에 안 넣음{% if sm.gif_missing %} · GIF 없는 상품 {{ sm.gif_missing }}개{% endif %}) · 확인 필요 <strong>{{ sm.need_check }}</strong>개(상품을 못 찾은 상품카드)
       {% if sm.slots != sm.recommend %}<br><span style="color:#fbbf24;">사진 칸 수({{ sm.slots }})가 권장 수({{ sm.recommend }})와 달라요.</span>{% endif %}
       <br>저장 위치: {{ desk.photo_dir }}/photos.json
     </div>

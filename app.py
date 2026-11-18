@@ -4823,6 +4823,15 @@ def radar_desk_gif(article_id):
     return _radar_desk_back(article_id, ok, msg)
 
 
+@app.route("/article/<article_id>/radar/desk/gifskip", methods=["POST"])
+def radar_desk_gifskip(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx or not request.form.get("name"):
+        return redirect(url_for("index"))
+    ok, msg = radar_screen.set_gif_skip(ctx[2], request.form["name"], request.form.get("skip") == "1")
+    return _radar_desk_back(article_id, ok, msg)
+
+
 @app.route("/article/<article_id>/radar/desk/gifmake", methods=["POST"])
 def radar_desk_gifmake(article_id):
     ctx = _radar_desk_context(article_id)
