@@ -1,3 +1,8 @@
+## 진행 중 (2026-11-18): 배너 410 · 서명 1800판 · 정렬 시험 · rules v3.1 · 원고 20편 아쉬운 점
+- 시작 때 git 깨끗, 기준 커밋 3dd39be (코드 고치기 전)
+- 순서: ①배너 ②서명 ③정렬시험 ④radar_rules v3.1 ⑤원고 20편(백업 _backup/2026-11-23_before_cons/) → radar_check → radar_import --update 미리보기
+- 다음에 할 명령: 이 줄 아래 완료 기록이 없으면 어디까지 했는지 git log·static/radar 확인 후 이어서
+
 ## 완료 (2026-11-18): "네이버에서 가격 확인하기" 배너 새 파일 하나로 통일 · 가로 폭 맞춤
 - 배너: static/radar/banner_naver_price_v3_20261118.png(1798×272, 투명) → static/radar/banner_naver_price.png 로 복사해 씀. 모든 카드에 이 한 파일만(흰·검정 번갈아 없앰: radar_screen.banner_path/banner_order·banner_small_copy 제거, config RADAR_BANNER_START/WIDTH 제거). 옛 banner_white/black.png 는 지우지 않음
 - 업로드 폴더에는 크기 줄이지 않고 1798×272 그대로(05_배너_가격확인.png). ③ 화면은 배너를 본문 폭(800, 화면에선 708px)에 맞춰 보임. 앱에는 네이버 링크카드 폭 정보 없음(링크는 주소 글자 줄, 카드는 네이버가 만듦). 크기 경고에서 배너는 계속 뺌
