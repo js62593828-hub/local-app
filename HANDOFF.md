@@ -1,3 +1,11 @@
+## 완료 (2026-11-18): 글 끝 서명(시안 3 · Shadows Into Light · 금색 밑줄) 앱에 넣기 · 업로드 크기 경고 종류별 기준
+- 서명 그림: static/radar/sign_deskpicker.png (120×36, 흰 배경, 고정 파일) / 만든 스크립트 tools/radar_sign_make.py (120×36 판에 바로 그림, 결 세기 0.3으로 약하게) / 글꼴·라이선스 static/radar/fonts/ShadowsIntoLight.ttf + OFL_ShadowsIntoLight.txt (SIL OFL 1.1)
+- 위치: 본문 마지막 문단 → 빈 줄 → 서명(오른쪽) → "함께 보면 좋은 글". ③ 최종본·네이버용 복사엔 📷 NN_서명.png 오른쪽 정렬 한 줄, 업로드 폴더에 같은 이름 파일(본문 사진 번호엔 안 셈, 별점 띠와 같은 방식)
+- ② 화면 "글 끝 서명" 칸: [안 넣음]/[다시 넣기](/radar/desk/signskip, radar_screen.set_sign_skip, photos.json 의 skip_sign, 기본 넣음)
+- 크기 경고 종류별(radar_screen.size_rule/size_check): 본문 사진·표지 800×800 / 표 그림 가로 800(세로 자유) / 별점 띠 400×75 / GIF·서명·필수 표기·배너는 검사 안 함. 다르면 종류와 기준 크기를 문구에 적어 경고(③ 사진 아래·업로드 목록 위). 옛 코드는 한 줄 주석 안에 is_notice/is_banner 값이 들어가 있던 것도 고침
+- 이미 만든 최종본은 [최종본 만들기]를 다시 눌러야 서명이 들어감. 앱 데이터·원고 수정 없음, reviewer 생략(N데스크피커 전용 파일만)
+- 캡처 preview/radar_sign_20261118/capture_sign_final.png, 복사 HTML naver_copy_sign.html, 시험 스크립트 shoot_sign.py (복사본 데이터만 사용)
+
 ## 완료 (2026-11-18): "함께 보면 좋은 글" 조사(보고만) · 글 끝 서명 "Desk Picker" 시안 3개
 - 조사: 앱 코드·데이터 안 바꿈. 글 끝 = 본문 끝 → "함께 보면 좋은 글"(링크 0~2개, 주소 줄만) → 끝(출처는 화면 아래 칸, 쇼핑커넥트 안내는 표지 바로 아래 위쪽). radar_screen.pick_related / config.RADAR_RELATED_SINCE=2026-11-23. 이미 낸 글에 나중 글 링크 채우는 기능 없음(최종본 만들 때만 계산)
 - 서명 시안: preview/radar_sign_20261118/ (시안 3 × 밑줄 있음/없음 6장 + _투명 6장 + 비교_한눈에.png + 본문끝_미리보기_시안1.png), 글꼴 fonts/ (Caveat·Nanum Pen Script·Shadows Into Light, 모두 SIL OFL 1.1 + 라이선스 파일). 만든 스크립트 tools/radar_sign_mockup.py. 앱에는 적용 안 함(고르면 다음 작업)

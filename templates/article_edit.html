@@ -530,6 +530,15 @@ function fillAllPromoDates(datetimeValue) {
     </div>
     {% endfor %}
 
+    {% if desk.sign and desk.sign.file %}
+    <h3 style="font-size:14px; margin:18px 0 6px;">글 끝 서명</h3>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <img src="/static/radar/sign_deskpicker.png" alt="서명" style="width:120px; height:36px; background:#fff; border-radius:4px;">
+      <form method="POST" action="/article/{{ idx }}/radar/desk/signskip" style="margin:0;"><input type="hidden" name="skip" value="{{ '0' if desk.sign.skipped else '1' }}"><button class="btn secondary" type="submit" style="font-size:12px; padding:4px 10px;">{{ '다시 넣기' if desk.sign.skipped else '안 넣음' }}</button></form>
+      <span class="sub">{% if desk.sign.skipped %}<span style="color:#fbbf24;">서명 '안 넣음' — ③ 최종본과 업로드 폴더에서 빠져요</span>{% else %}본문 마지막 문단 아래 오른쪽에 넣어요(함께 보면 좋은 글 앞){% endif %}</span>
+    </div>
+    {% endif %}
+
     <h3 style="font-size:14px; margin:18px 0 6px;">요약</h3>
     <div class="sub" style="line-height:1.8;">
       사진 칸 <strong>{{ sm.slots }}</strong>개 · 채운 칸 <strong>{{ sm.filled }}</strong>개 · 안 넣음 <strong>{{ sm.skipped }}</strong>개 · 본문 사진 권장 <strong>{{ sm.recommend }}</strong>장(공백 뺀 글자 수 ÷ 400, 5~8장)<br>

@@ -681,7 +681,7 @@
     </form>
     {% if radar_upload.mismatch %}<div style="color:#ff8a80; margin-top:8px;">⚠ 폴더 안 파일이 최종본과 맞지 않아요{% if radar_upload.missing %} (없는 파일: {{ radar_upload.missing | join(', ') }}){% endif %}. ③ 최종본 만들기를 다시 눌러 주세요.</div>{% endif %}
     {% if radar_upload.big_gifs %}<div style="background:#3a2f0d; border:1px solid #8a6d1d; color:#fbbf24; border-radius:8px; padding:8px 12px; margin-top:8px;">⚠ GIF 가 3MB 를 넘어요: {{ radar_upload.big_gifs | join(', ') }}</div>{% endif %}
-    {% if radar_upload.bad_dims %}<div style="color:#ff8a80; margin-top:8px;">⚠ {{ radar_upload.size_want }}×{{ radar_upload.size_want }} 이 아닌 파일이 있어요: {{ radar_upload.bad_dims | join(', ') }}. ③ 최종본 만들기를 다시 눌러 주세요.</div>{% endif %}
+    {% if radar_upload.bad_dims %}<div style="color:#ff8a80; margin-top:8px;">⚠ 크기가 종류별 기준과 다른 파일이 있어요(본문 사진 {{ radar_upload.size_want }}×{{ radar_upload.size_want }} / 표 그림 가로 {{ radar_upload.size_want }} / 별점 띠 400×75): {{ radar_upload.bad_dims | join(', ') }}. ③ 최종본 만들기를 다시 눌러 주세요.</div>{% endif %}
     {% if radar_upload.files %}
     <table style="margin-top:8px; border-collapse:collapse; width:100%;">
       <tr style="color:#999; text-align:left;"><th style="padding:4px 8px; width:56px;">번호</th><th style="padding:4px 8px;">이름</th><th style="padding:4px 8px; width:100px;">크기(가로×세로)</th><th style="padding:4px 8px; width:80px;">용량</th><th style="padding:4px 8px; width:64px;">보기</th></tr>

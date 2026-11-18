@@ -4832,6 +4832,15 @@ def radar_desk_gifskip(article_id):
     return _radar_desk_back(article_id, ok, msg)
 
 
+@app.route("/article/<article_id>/radar/desk/signskip", methods=["POST"])
+def radar_desk_signskip(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("index"))
+    ok, msg = radar_screen.set_sign_skip(ctx[2], request.form.get("skip") == "1")
+    return _radar_desk_back(article_id, ok, msg)
+
+
 @app.route("/article/<article_id>/radar/desk/gifmake", methods=["POST"])
 def radar_desk_gifmake(article_id):
     ctx = _radar_desk_context(article_id)

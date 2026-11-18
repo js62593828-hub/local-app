@@ -214,6 +214,7 @@ def load_state(pdir):
     st.setdefault("product_pick", {})  # 상품명 → 사람이 고른 상품 id
     st.setdefault("skip_slots", [])  # 사람이 '안 넣음'으로 뺀 사진 자리 번호(문자열). 원고는 안 바꾸고 최종본·업로드 폴더에서만 뺀다
     st.setdefault("skip_gifs", [])  # 사람이 '안 넣음'으로 뺀 상품카드 이름(GIF). GIF 파일은 안 지우고 최종본·업로드 폴더에서만 뺀다
+    st.setdefault("skip_sign", False)  # 사람이 '안 넣음'으로 뺀 글 끝 서명(기본 넣음). 서명 파일은 안 지움
     st.setdefault("cover_pick", [])  # 사람이 고른 표지 사진(후보 폴더 안 경로). 비면 자동으로 고름
     return st
 
@@ -418,6 +419,7 @@ def build_screen(raw, memo, item, pdir):
         "enabled": True, "cover": cover, "slots": slot_views, "groups": groups, "gifs": gif_views,
         "summary": summary, "warnings": warnings, "all_products": all_products, "photo_dir": _rel(pdir),
         "tables": parsed["tables"], "badges": badge_views(raw, pdir),
+        "sign": {"file": sign_path(), "skipped": bool(st["skip_sign"]), "url": _rel(sign_path()) if sign_path() else ""},
     }
 
 
@@ -572,6 +574,14 @@ def set_slot_skip(pdir, number, skip):
     return True, f"{number}번 자리를 " + ("'안 넣음'으로 뺐어요(③ 최종본에서 이 자리 줄이 빠져요)" if skip else "다시 넣기로 했어요")
 
 
+def set_sign_skip(pdir, skip):
+    """글 끝 서명(Desk Picker)을 '안 넣음'으로 빼거나(skip=True) 다시 넣는다(False). photos.json 에만 적는다."""
+    st = load_state(pdir)
+    st["skip_sign"] = bool(skip)
+    save_state(pdir, st)
+    return True, "글 끝 서명을 " + ("'안 넣음'으로 뺐어요(③ 최종본·업로드 폴더에서 빠져요)" if skip else "다시 넣기로 했어요")
+
+
 def set_gif_skip(pdir, name, skip):
     """상품 GIF 를 '안 넣음'으로 빼거나(skip=True) 다시 넣는다(False). photos.json 에만 적고, 가져온 GIF 파일은 지우지 않는다."""
     st = load_state(pdir)
@@ -698,7 +708,7 @@ TABLE_BORDER = "#DDD7CC"
 TABLE_HEAD_BG = "#F4F1EC"
 TABLE_TEXT = "#22262B"
 _IMG_STYLE = "width:100%; max-width:720px; border-radius:12px; display:block; margin:16px auto;"
-_RD_PLACEHOLDER_RE = re.compile(r"<p[^>]*>\s*\{\{(RDPHOTO|RDGIF|RDTABLE|RDEMPTY|RDLINK|RDREL|RDSUB):(\d+)\}\}\s*</p>")
+_RD_PLACEHOLDER_RE = re.compile(r"<p[^>]*>\s*\{\{(RDPHOTO|RDGIF|RDTABLE|RDEMPTY|RDLINK|RDREL|RDSUB|RDSIGN):(\d+)\}\}\s*</p>")
 
 
 def has_cover(pdir):
@@ -1146,6 +1156,16 @@ def _prepare_raw(raw, subs=None, sub_cards=None):
         out.append(lines[i])
         i += 1
     return "\n".join(out), tables, photos, cards
+
+
+SIGN_UPLOAD_NAME = "서명"  # naver_upload 파일 이름 가운데 글자(본문 사진 번호에는 안 셈)
+SIGN_STYLE = "text-align:right; color:#1565C0; font-weight:bold; font-size:18px;"
+
+
+def sign_path():
+    """글 끝 서명 그림(static/radar/sign_deskpicker.png, 120×36 고정 파일). 없으면 ''."""
+    p = os.path.join("static", "radar", "sign_deskpicker.png")
+    return p if os.path.isfile(p) else ""
 
 
 BADGE_FILE_PREFIX = "badge_"
@@ -1599,11 +1619,43 @@ def _dims(fp):
         return (0, 0)
 
 
+BADGE_SIZE = (400, 75)
+
+
+def size_rule(name, st):
+    """업로드 파일 한 개의 크기 기준. 반환 None(검사 안 함: GIF·서명·필수 표기·배너) 또는 (종류 이름, 가로, 세로 또는 None=자유).
+    본문 사진·표지 800×800 / 표 그림 가로 800(세로 자유) / 별점 띠 400×75."""
+    if name.lower().endswith(".gif") or any(k in name for k in (SIGN_UPLOAD_NAME, _NOTICE_IMG_MARK, _BANNER_MARK)):
+        return None
+    want = _upload_size()
+    if BADGE_UPLOAD_NAME in name:
+        return ("별점 띠", BADGE_SIZE[0], BADGE_SIZE[1])
+    m = re.search(r"_사진(\d+)\.", name)
+    if m and st:
+        chosen = st.get("slots", {}).get(m.group(1), "")
+        if os.path.basename(chosen).startswith(TABLE_FILE_PREFIX) and st.get("slot_sources", {}).get(m.group(1)) == "표 그림(앱이 만듦)":
+            return ("표 그림", want, None)
+    return ("본문 사진", want, want)
+
+
+def size_check(name, w, h, st):
+    """반환 ('' = 문제 없음/검사 안 함, 아니면 '현재 W×H — 종류 기준 …' 문구)."""
+    rule = size_rule(name, st)
+    if rule is None:
+        return ""
+    label, rw, rh = rule
+    if w == rw and (rh is None and h > 0 or h == rh):
+        return ""
+    want_txt = f"가로 {rw}(세로 자유)" if rh is None else f"{rw}×{rh}"
+    return f"{w}×{h} — {label} 기준 {want_txt} 아님"
+
+
 def upload_listing(pdir, final_html):
     """③ 화면용: naver_upload 안 파일 목록(번호·이름·용량)과, 최종본의 📷 자리표시와 맞는지."""
     d = os.path.join(pdir, UPLOAD_DIR)
     files, big_gifs = [], []
     want = _upload_size()
+    st = load_state(pdir)
     if os.path.isdir(d):
         for name in sorted(os.listdir(d)):
             fp = os.path.join(d, name)
@@ -1615,8 +1667,9 @@ def upload_listing(pdir, final_html):
                 nbytes = os.path.getsize(fp)
                 if name.lower().endswith(".gif") and nbytes > GIF_WARN_BYTES:
                     big_gifs.append(f"{name} ({_fmt_size(nbytes)})")
+                warn = size_check(name, w, h, st)
                 files.append({"no": m.group(1) if m else "", "name": name, "size": _fmt_size(nbytes), "url": _photo_url(pdir, UPLOAD_DIR + "/" + name),
-                              "dim": f"{w}×{h}", "dim_ok": is_notice or is_banner or (w, h) == (want, want) or (w == want and h > 0),  # 표 그림은 가로 800 이면 세로 자유 "is_notice": is_notice, "is_banner": is_banner,
+                              "dim": f"{w}×{h}", "dim_ok": not warn, "size_warn": warn, "is_notice": is_notice, "is_banner": is_banner,
                               "notice_note": ("(줄임)" if (w, h) != _dims(notice_image_path() or fp) else "(그대로)") if is_notice else ""})
     expected = _UPLOAD_MARK_RE.findall(final_html or "")
     have = {f["name"] for f in files}
@@ -1624,7 +1677,7 @@ def upload_listing(pdir, final_html):
     extra = [f["name"] for f in files if f["name"] not in set(expected)]
     return {"dir": os.path.abspath(d), "exists": os.path.isdir(d), "files": files, "expected": expected,
             "missing": missing, "extra": extra, "mismatch": bool(missing or (expected and extra)),
-            "size_want": want, "big_gifs": big_gifs, "bad_dims": [f["name"] for f in files if not f["dim_ok"]]}
+            "size_want": want, "big_gifs": big_gifs, "bad_dims": [f"{f['name']} ({f['size_warn']})" for f in files if not f["dim_ok"]]}
 
 
 def build_final_html(raw, title, pdir, related=None, product_links=None, line_break=None):
@@ -1637,6 +1690,12 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
     table_pair = [n for _rows, n in table_slot_map(strip_notice(raw))]  # 표마다 바로 아래 [사진: n] 번호(없으면 None)
     body = _mark_emphasis(body)  # 본문 **굵게**·==형광펜== 임시 표시(소제목·표는 그대로)
     body, _auto = auto_emphasis(body)  # ⑪ 숫자+단위 자동 굵게·결론 문장 자동 형광펜(함께 보면 좋은 글을 붙이기 전에)
+    sign_src = sign_path()
+    sign_on = bool(sign_src) and not st["skip_sign"]
+    if sign_on:  # 본문 마지막 문단 → 빈 줄 → 서명(오른쪽) → 함께 보면 좋은 글
+        ms = list(shop_formatter.TAG_LINE_RE.finditer(body))
+        pos = ms[-1].start() if ms else len(body)
+        body = body[:pos].rstrip("\n") + "\n\n{{RDSIGN:0}}\n\n" + body[pos:]
     if related:
         ms = list(shop_formatter.TAG_LINE_RE.finditer(body))
         pos = ms[-1].start() if ms else len(body)
@@ -1698,6 +1757,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
                 return html_sub
             info["badges"] += 1
             return html_sub + mark(add_upload("", BADGE_UPLOAD_NAME + str(info["badges"]), resize=False, src=bpath))
+        if kind == "RDSIGN":
+            return mark(add_upload("", SIGN_UPLOAD_NAME, resize=False, src=sign_src))
         if kind == "RDTABLE":
             n = table_pair[k] if k < len(table_pair) else None
             if n is not None and str(n) in st["skip_slots"]:
@@ -1749,6 +1810,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         except Exception:
             line_break = "paragraph"
     final = finish_final(final, line_break)  # 제목 빼기·문단 방식 줄 나눔·보통 굵기·양끝 정렬(소제목 왼쪽)·빈 줄 정리·강조 적용
+    final = re.sub(r'<p style="[^"]*">(📷 \d+_' + SIGN_UPLOAD_NAME + r'\.[^<]*</p>)', lambda m: f'<p style="{SIGN_STYLE}">' + m.group(1), final)  # 서명 📷 줄만 오른쪽 정렬
+    info["sign"] = sign_on
     info["uploads"] = [u[1] for u in uploads]
     info["upload_error"] = ""
     try:
@@ -1792,6 +1855,7 @@ def screen_html(final_html, pdir):
     사진·GIF 는 본문 폭 100%(최대 800px), 필수 표기·배너는 원래 픽셀 크기. 그림 아래 작은 회색 글자로 파일 이름.
     파일이 없거나 못 읽으면 빨간 "사진 없음: 파일 이름"."""
     want = _upload_size()
+    st = load_state(pdir)
 
     def sub(m):
         name = _html.unescape(m.group(1))
@@ -1799,15 +1863,19 @@ def screen_html(final_html, pdir):
         w, h = _dims(fp) if os.path.isfile(fp) else (0, 0)
         if not w:
             return f'<p style="text-align:center; color:#D32F2F; font-weight:bold; font-size:16px;">사진 없음: {_html.escape(name)}</p>'
-        if _NOTICE_IMG_MARK in name or _BANNER_MARK in name or BADGE_UPLOAD_NAME in name:
+        if SIGN_UPLOAD_NAME in name:
+            style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 0 0 auto;"
+        elif _NOTICE_IMG_MARK in name or _BANNER_MARK in name or BADGE_UPLOAD_NAME in name:
             style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 auto;"
         else:
             style = f"width:100%; max-width:{want}px; height:auto; display:block; margin:0 auto;"
         url = _photo_url(pdir, UPLOAD_DIR + "/" + name) + f"?v={int(os.path.getmtime(fp))}"
         warn = ""
-        if _NOTICE_IMG_MARK not in name and _BANNER_MARK not in name and BADGE_UPLOAD_NAME not in name and (w, h) != (want, want):
-            warn = f' <span style="color:#D32F2F; font-weight:bold;">({w}×{h} — {want}×{want} 아님)</span>'
-        return (f'<div style="text-align:center; margin:12px 0;"><img src="{_html.escape(url, quote=True)}" alt="{_html.escape(name, quote=True)}" style="{style}">'
+        wt = size_check(name, w, h, st)
+        if wt:
+            warn = f' <span style="color:#D32F2F; font-weight:bold;">({_html.escape(wt)})</span>'
+        al = "right" if SIGN_UPLOAD_NAME in name else "center"
+        return (f'<div style="text-align:{al}; margin:12px 0;"><img src="{_html.escape(url, quote=True)}" alt="{_html.escape(name, quote=True)}" style="{style}">'
                 f'<div style="color:#999999; font-size:12px; margin-top:4px;">{_html.escape(name)}{warn}</div></div>')
 
     return _SCREEN_MARK_RE.sub(sub, final_html or "")
