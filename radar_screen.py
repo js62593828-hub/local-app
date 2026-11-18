@@ -212,6 +212,7 @@ def load_state(pdir):
     st.setdefault("slot_sources", {})
     st.setdefault("gifs", {})
     st.setdefault("product_pick", {})  # 상품명 → 사람이 고른 상품 id
+    st.setdefault("skip_slots", [])  # 사람이 '안 넣음'으로 뺀 사진 자리 번호(문자열). 원고는 안 바꾸고 최종본·업로드 폴더에서만 뺀다
     st.setdefault("cover_pick", [])  # 사람이 고른 표지 사진(후보 폴더 안 경로). 비면 자동으로 고름
     return st
 
@@ -368,6 +369,7 @@ def build_screen(raw, memo, item, pdir):
         want = slot_product_id(h.get("note", ""), groups) if h.get("kind") == "제품" else ""
         cpid = path_pid.get(src, "") or (_PATH_ID_RE.search(src).group(1) if _PATH_ID_RE.search(src) else "")
         slot_views.append({
+            "skipped": str(n) in st["skip_slots"],
             "want_pid": want, "want_label": label_of.get(want, ""),
             "chosen_pid": cpid if ok else "", "chosen_label": label_of.get(cpid, "") if ok else "",
             "mismatch": bool(ok and want and cpid and cpid != want),
@@ -401,9 +403,9 @@ def build_screen(raw, memo, item, pdir):
     }
 
     n_cards_ok = sum(1 for cp in cps if cp["prod"])
-    filled = sum(1 for v in slot_views if v["chosen"])
+    filled = sum(1 for v in slot_views if v["chosen"] and not v["skipped"])
     summary = {
-        "slots": len(slot_views), "filled": filled, "recommend": radar_images.body_photo_count(raw or ""),
+        "slots": len(slot_views), "filled": filled, "skipped": sum(1 for v in slot_views if v["skipped"]), "recommend": radar_images.body_photo_count(raw or ""),
         "gifs": sum(1 for g in gif_views if g["gif_copied"]), "cards": len(cps),
         "need_check": sum(1 for cp in cps if not cp["prod"]),
         "gif_missing": sum(1 for g in gif_views if g["prod"] and not g["gif_src"]),
@@ -555,10 +557,26 @@ def _table_title(raw, number):
     return h2
 
 
-def choose_slot(pdir, number, src):
-    """칸에 사진 하나 고르기: 글 사진 폴더로 복사(slot<번호>_<원래 이름>). src 가 빈 값이면 선택 취소."""
+def set_slot_skip(pdir, number, skip):
+    """사진 자리를 '안 넣음'으로 빼거나(skip=True) 다시 넣는다(False). 원고는 안 바꾸고 photos.json 에만 적는다.
+    이미 고른 사진이 있으면 그 파일은 지우지 않고(고른 기록만 둠) 최종본에서만 뺀다."""
     st = load_state(pdir)
     key = str(number)
+    lst = [x for x in st["skip_slots"] if x != key]
+    if skip:
+        lst.append(key)
+    st["skip_slots"] = sorted(lst, key=lambda x: int(x) if x.isdigit() else 0)
+    save_state(pdir, st)
+    return True, f"{number}번 자리를 " + ("'안 넣음'으로 뺐어요(③ 최종본에서 이 자리 줄이 빠져요)" if skip else "다시 넣기로 했어요")
+
+
+def choose_slot(pdir, number, src):
+    """칸에 사진 하나 고르기: 글 사진 폴더로 복사(slot<번호>_<원래 이름>). src 가 빈 값이면 선택 취소.
+    사진을 고르면 그 자리의 '안 넣음'은 풀린다."""
+    st = load_state(pdir)
+    key = str(number)
+    if src and key in st["skip_slots"]:
+        st["skip_slots"] = [x for x in st["skip_slots"] if x != key]
     old = st["slots"].get(key)
     if not src:
         if old and _exists(pdir, old):
@@ -1059,6 +1077,8 @@ def _prepare_raw(raw, subs=None, sub_cards=None):
 
 BADGE_FILE_PREFIX = "badge_"
 BADGE_UPLOAD_NAME = "별점띠"  # naver_upload 파일 이름 가운데 글자(본문 사진 번호에는 안 셈)
+NO_TABLE_MARK = "<!--RD:NO_TABLE:%s-->"  # '안 넣음'으로 뺀 표 그림 자리 번호(③ 노란 안내용)
+PHOTOS_MARK = "<!--RD:PHOTOS:%d-->"  # 본문 사진 장수(③ 화면 숫자 표시용, 표지·GIF·별점 띠 제외)
 NO_BADGE_MARK = "<!--RD:NO_BADGE:%s-->"  # 별점 띠 값이 없어 못 넣었을 때 최종본 맨 끝의 눈에 안 보이는 표시(③ 화면 노란 경고용)
 _RS_RATING = re.compile(r"^-\s*평점\s+(\d+(?:\.\d+)?)", re.M)
 _RS_REVIEWS = re.compile(r"^-\s*리뷰 수\s+(\d[\d,]*)", re.M)
@@ -1587,7 +1607,7 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         shop_links=None, strip_link_placeholders=True,
     )
     info = {"slots": len(photos), "empty": [], "gifs": 0, "tables": len(tables), "cards": len(cards), "card_links": 0,
-            "card_missing": [], "badges": 0, "badge_missing": [], "related": [r["url"] for r in (related or [])], "subs": len(subs), "notice_image": bool(notice_src), "table_as_image": 0}
+            "card_missing": [], "badges": 0, "badge_missing": [], "related": [r["url"] for r in (related or [])], "subs": len(subs), "skipped": [], "table_skipped": [], "notice_image": bool(notice_src), "table_as_image": 0}
 
     def repl(m):
         kind, k = m.group(1), int(m.group(2))
@@ -1607,6 +1627,9 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
             return html_sub + mark(add_upload("", BADGE_UPLOAD_NAME + str(info["badges"]), resize=False, src=bpath))
         if kind == "RDTABLE":
             n = table_pair[k] if k < len(table_pair) else None
+            if n is not None and str(n) in st["skip_slots"]:
+                info["table_skipped"].append(n)  # 표 그림을 '안 넣음'으로 뺐으면 표 내용이 글에 안 나온다(③ 노란 안내)
+                return ""
             if n is not None and _exists(pdir, st["slots"].get(str(n), "")):
                 info["table_as_image"] += 1
                 return ""  # 표 그림이 바로 아래 [사진: n] 자리에 들어가므로 HTML 표는 넣지 않음(두 번 나오지 않게)
@@ -1631,6 +1654,9 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
             return f'<p style="text-align:left; color:#D32F2F; font-weight:bold;">상품카드 링크 없음: {_html.escape(cards[k])}</p>'
         if kind == "RDREL":
             return f'<p style="text-align:left;">{_html.escape(related[k]["url"], quote=True)}</p>'
+        if str(k) in st["skip_slots"]:
+            info["skipped"].append(k)  # '안 넣음': 📷 줄도 사진도 넣지 않는다(업로드 번호는 add_upload 가 이어서 매김)
+            return ""
         chosen = st["slots"].get(str(k), "")
         if _exists(pdir, chosen):
             if os.path.basename(chosen).startswith(TABLE_FILE_PREFIX) and st["slot_sources"].get(str(k)) == "표 그림(앱이 만듦)":
@@ -1661,7 +1687,10 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
     info["banner_missing"] = banner_missing
     if banner_missing:
         final += NO_BANNER_MARK % ",".join(banner_missing)
-    info["photos_in"] = len(photos) - len(info["empty"])
+    info["photos_in"] = len(photos) - len(info["empty"]) - len(info["skipped"])
+    if info["table_skipped"]:
+        final += NO_TABLE_MARK % ",".join(str(x) for x in info["table_skipped"])
+    final += PHOTOS_MARK % info["photos_in"]
     info["auto_em"] = _auto
     final += AUTO_EM_MARK % (_auto["numbers"], _auto["conclusion"])
     return final, info
@@ -1715,6 +1744,16 @@ def count_missing_card_links(final_html):
 
 def has_no_related_mark(final_html):
     return NO_RELATED_MARK in (final_html or "")
+
+
+def table_skipped_from(final_html):
+    m = re.search(r"<!--RD:NO_TABLE:([\d,]+)-->", final_html or "")
+    return m.group(1).split(",") if m else []
+
+
+def photos_count_from(final_html):
+    m = re.search(r"<!--RD:PHOTOS:(\d+)-->", final_html or "")
+    return int(m.group(1)) if m else None
 
 
 def count_empty_slots(final_html):

@@ -4794,6 +4794,15 @@ def radar_desk_slot(article_id):
     return _radar_desk_back(article_id, ok, msg)
 
 
+@app.route("/article/<article_id>/radar/desk/skip", methods=["POST"])
+def radar_desk_skip(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx or not (request.form.get("slot") or "").isdigit():
+        return redirect(url_for("index"))
+    ok, msg = radar_screen.set_slot_skip(ctx[2], int(request.form["slot"]), request.form.get("skip") == "1")
+    return _radar_desk_back(article_id, ok, msg)
+
+
 @app.route("/article/<article_id>/radar/desk/table", methods=["POST"])
 def radar_desk_table(article_id):
     ctx = _radar_desk_context(article_id)
@@ -7042,6 +7051,8 @@ def view_final(article_id, platform):
         radar_downloads=_radar_downloads(article) if get_active_channel_id() in RADAR_CHANNELS else None,
         body_downloads=_naver_body_downloads(article) if (get_active_channel_id() in NV75_CHANNELS and platform == "naver") else None,
         radar_sources=(article.get("radar_sources") or []) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_table_skipped=radar_screen.table_skipped_from(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
+        radar_photo_count=radar_screen.photos_count_from(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
         radar_empty_slots=radar_screen.count_empty_slots(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
         radar_missing_links=radar_screen.count_missing_card_links(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
         radar_no_related=radar_screen.has_no_related_mark(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
