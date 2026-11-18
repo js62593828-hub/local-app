@@ -1,3 +1,9 @@
+## 완료 (2026-11-18): "네이버에서 가격 확인하기" 배너 새 파일 하나로 통일 · 가로 폭 맞춤
+- 배너: static/radar/banner_naver_price_v3_20261118.png(1798×272, 투명) → static/radar/banner_naver_price.png 로 복사해 씀. 모든 카드에 이 한 파일만(흰·검정 번갈아 없앰: radar_screen.banner_path/banner_order·banner_small_copy 제거, config RADAR_BANNER_START/WIDTH 제거). 옛 banner_white/black.png 는 지우지 않음
+- 업로드 폴더에는 크기 줄이지 않고 1798×272 그대로(05_배너_가격확인.png). ③ 화면은 배너를 본문 폭(800, 화면에선 708px)에 맞춰 보임. 앱에는 네이버 링크카드 폭 정보 없음(링크는 주소 글자 줄, 카드는 네이버가 만듦). 크기 경고에서 배너는 계속 뺌
+- 서명 미리보기 preview/radar_sign_20261118/preview_pc.png·preview_mobile.png, 캡처 preview/radar_banner_20261118/capture_banner.png, 복사 HTML naver_copy_banner.html (shoot_banner.py, shoot_sign_preview.py). 앱 데이터·원고 수정 없음, reviewer 생략(radar_naver 배너 코드만)
+- 참고: 코드 고친 뒤에 커밋함(고치기 전 커밋을 놓침, 시작 때 git 은 깨끗했음)
+
 ## 완료 (2026-11-18): 글 끝 서명 가로 800 판(B 160×48) 적용 · 배너 새 시안 4개(앱 적용 안 함)
 - 서명: static/radar/sign_deskpicker.png = 800×60 흰 판 + 오른쪽 끝(여백 16)에 시안3(Shadows Into Light, 금색 밑줄) 160×48 직접 그림(B). 120×36 옛 파일은 sign_deskpicker_120x36_old.png. 서명 📷 줄은 가운데 정렬(SIGN_STYLE). 만든 스크립트 tools/radar_sign_make.py [A|B]. 참고: static/ 은 git 제외라 그림 파일은 드라이브로만 동기화됨
 - 시안 A(120×36)/B 미리보기·비교: preview/radar_sign_20261118/ (비교_서명800.png), 캡처 capture_sign_800.png, 복사 HTML naver_copy_sign_800.html

@@ -1397,40 +1397,15 @@ def notice_image_path():
     return ""
 
 
-_BANNER_LABEL = {"white": "흰글씨", "black": "검정글씨"}
+_BANNER_LABEL = "가격확인"
 _BANNER_MARK = "배너"
+_BANNER_FILE = "banner_naver_price.png"  # 모든 카드에 이 한 파일만(1798×272, 투명 배경, 크기 줄이지 않고 그대로 올림)
 
 
-def banner_path(color):
-    """가격 확인 배너 이미지 경로(static/radar/banner_white.png · banner_black.png). 이름 뒤에 .png 가 한 번 더 붙은 파일도 찾는다. 못 찾으면 ''."""
-    base = os.path.join("static", "radar", f"banner_{color}.png")
-    for cand in (base, base + ".png"):
-        if os.path.isfile(cand):
-            return cand
-    return ""
-
-
-def banner_order():
-    """배너 색 순서(첫 번째 색, 두 번째 색). config RADAR_BANNER_START 가 black 이면 검정부터."""
-    first = "black" if str(_cfg("RADAR_BANNER_START", "white")).strip().lower() == "black" else "white"
-    return (first, "white" if first == "black" else "black")
-
-
-def banner_small_copy(src, dst):
-    """배너를 가로 RADAR_BANNER_WIDTH px 로 비율 그대로 줄여 PNG 로 저장(LANCZOS). 원본은 안 바꿈. 이미 그보다 작으면 그대로 복사."""
-    from PIL import Image
-    try:
-        w = int(_cfg("RADAR_BANNER_WIDTH", 430))
-    except (TypeError, ValueError):
-        w = 430
-    with Image.open(src) as im:
-        if w <= 0 or im.size[0] <= w:
-            shutil.copyfile(src, dst)
-            return 1.0
-        nh = max(1, round(im.size[1] * w / im.size[0]))
-        out = im.convert("RGBA").resize((w, nh), Image.LANCZOS)
-    out.save(dst, format="PNG", optimize=True)
-    return w / im.size[0]
+def banner_path():
+    """가격 확인 배너 이미지 경로(static/radar/banner_naver_price.png). 못 찾으면 ''."""
+    p = os.path.join("static", "radar", _BANNER_FILE)
+    return p if os.path.isfile(p) else ""
 
 
 def radar_sub_html(text):
@@ -1595,7 +1570,7 @@ def _write_upload_folder(pdir, uploads):
         elif resize == "notice":
             notice_small_copy(src, dst)
         elif resize == "banner":
-            banner_small_copy(src, dst)
+            shutil.copyfile(src, dst)  # 배너는 크기 줄이지 않고 원본 그대로(네이버가 본문 폭에 맞춰 보여 줌)
         elif resize:
             fit_square_copy(src, dst, size)
         else:
@@ -1720,8 +1695,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         return name
 
     banner_on = bool(_cfg("RADAR_BANNER", True))
-    banner_srcs = {c: banner_path(c) for c in ("white", "black")}
-    banner_missing = [c for c, v in banner_srcs.items() if not v] if banner_on else []
+    banner_src = banner_path()
+    banner_missing = [] if (not banner_on or banner_src) else ["banner_naver_price"]
     banner_state = {"n": 0}
 
     cover_tag = ""
@@ -1782,10 +1757,9 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
             if card_links[k]:
                 info["card_links"] += 1
                 bn = ""
-                if banner_on and not banner_missing:  # 제휴 링크 바로 위 가격 확인 배너(링크가 있는 카드만, 흰/검정 번갈아)
-                    color = banner_order()[banner_state["n"] % 2]
+                if banner_on and not banner_missing:  # 제휴 링크 바로 위 가격 확인 배너(링크가 있는 카드만, 모두 같은 파일)
                     banner_state["n"] += 1
-                    bn = mark(add_upload("", _BANNER_MARK + "_" + _BANNER_LABEL[color], resize="banner", src=banner_srcs[color]))
+                    bn = mark(add_upload("", _BANNER_MARK + "_" + _BANNER_LABEL, resize="banner", src=banner_src))
                 return bn + f'<p style="text-align:left;">{_html.escape(card_links[k], quote=True)}</p>'
             info["card_missing"].append(cards[k])
             return f'<p style="text-align:left; color:#D32F2F; font-weight:bold;">상품카드 링크 없음: {_html.escape(cards[k])}</p>'
@@ -1865,7 +1839,9 @@ def screen_html(final_html, pdir):
             return f'<p style="text-align:center; color:#D32F2F; font-weight:bold; font-size:16px;">사진 없음: {_html.escape(name)}</p>'
         if SIGN_UPLOAD_NAME in name:
             style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 0 0 auto;"
-        elif _NOTICE_IMG_MARK in name or _BANNER_MARK in name or BADGE_UPLOAD_NAME in name:
+        elif _BANNER_MARK in name:
+            style = f"width:100%; max-width:{want}px; height:auto; display:block; margin:0 auto;"  # 배너는 본문 폭(800)에 맞춰 보임(네이버와 같게)
+        elif _NOTICE_IMG_MARK in name or BADGE_UPLOAD_NAME in name:
             style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 auto;"
         else:
             style = f"width:100%; max-width:{want}px; height:auto; display:block; margin:0 auto;"
