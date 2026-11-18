@@ -1,7 +1,10 @@
-## 진행 중 (2026-11-18): GIF '안 넣음' · 본문 양끝 정렬/문단 나눔 · radar_rules v3.0
-- 1번(원고 넣기 미리보기)은 끝: radar_check 20편 위반 0, 새로 4편(1126_1·1126_3·1128_1·1128_2)·나머지 16편 이미 있음. 적용은 안 함
-- 지금: ② GIF 칸 [안 넣음] → ③ 본문 양끝 정렬(문장별 <br> 없애고 문단 단위, 150자 넘으면 문장 끝에서 나눔) → radar_rules v3.0 → reviewer
-- 이어서: git log 로 마지막 커밋 확인, grep -n "skip_slots" radar_screen.py 로 사진 안 넣음 구현을 본떠 GIF 용(skip_gifs) 추가
+## 완료 (2026-11-18): 원고 넣기 미리보기 · ② GIF '안 넣음' · ③ 양끝 정렬/문단 나눔 · radar_rules v3.0
+- 미리보기: radar_check 20편 위반 0. radar_import 미리보기 = 새로 4편(1126_1 발난로 f3d57ac1, 1126_3 PMA2X 37b5083e, 1128_1 무드등 ab88ea7f, 1128_2 툴콘 9244ea99), 16편 이미 있음·같음. 20편 모두 제목·발행 예정일(파일 MMDD) 일치. --apply 는 안 함(사용자가 결정)
+- GIF: ② 상품별 GIF 칸마다 [안 넣음]/[다시 넣기](/radar/desk/gifskip, radar_screen.set_gif_skip). photos.json 의 skip_gifs 에만 저장. 안 넣음이면 ③ 최종본·naver_upload 에서 빠지고 GIF 파일은 안 지움. GIF 0개여도 ③ 로 감. 틀 B 본상품만 빼고 대안만 남으면 기존 노란 경고
+- 정렬: config RADAR_ALIGN="justify", RADAR_LINE_BREAK="paragraph"(문단 안 <br> 없음, 150자 넘으면 가장 가까운 문장 끝에서 둘로, 30자 미만 조각이면 안 나눔, RADAR_SPLIT_LEN/MIN). 소제목(##·###)과 그 아래 줄·막대는 왼쪽, ❝·사진·표·별점 띠·상품카드는 가운데. 옛 방식은 config 두 값(center, sentence)으로 되돌림. 이미 만든 최종본은 [최종본 만들기]를 다시 눌러야 새 모양
+- 시험·캡처: preview/justify_20261118/ (capture_before.png, capture_after.png, naver_copy_*.html, run_test.py 14개 통과). 커밋 73a0de9, reviewer 검수 문제 없음
+- radar_rules.md v3.0 커밋 fc4d63d. radar-writer 에이전트 설명엔 옛 줄바꿈 지시가 없어 그대로
+- 남은 참고: 150자 넘게 남는 문단 17개(나누면 30자 미만 조각이 생기는 경우). 실제 네이버 편집기에서 양끝 정렬이 유지되는지는 붙여 넣어 봐야 확인 가능
 
 ## 완료 (2026-11-18): ② 사진 자리 '안 넣음' · radar_rules v2.9 · 원고 폴더 백업 이동
 - 백업: pipeline/radar_drafts/2026-11-23/1128_1_A_크리스마스-무드등.backup_before_price_cell_20261118.md → pipeline/radar_drafts/_backup/2026-11-23/ (지우지 않음). 원고 폴더 20개 모두 이름 규칙에 맞고, 같은 MMDD_순번 중복 없음
