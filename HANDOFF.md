@@ -1,3 +1,8 @@
+## 완료 (2026-11-18): 11/23 주 새 원고 4편 앱에 넣기 (radar_import --apply, --update 없이)
+- 백업: articles_radar_naver.backup_before_import1123b_20261118.json, content_queue_radar_naver.backup_before_import1123b_20261118.json (radar_import 가 자동 백업 articles_radar_naver.backup_before_radar_import_20261118_211822.json 도 만듦)
+- 미리보기 재확인: 새 4편뿐(1126_1 f3d57ac1, 1126_3 37b5083e, 1128_1 ab88ea7f, 1128_2 9244ea99) → --apply
+- 결과: 글 수 85 → 89, 백업에만 있는 id 0, 새 id 4(모두 2026-11-23_), 바뀐 id 0
+
 ## 완료 (2026-11-18): 원고 넣기 미리보기 · ② GIF '안 넣음' · ③ 양끝 정렬/문단 나눔 · radar_rules v3.0
 - 미리보기: radar_check 20편 위반 0. radar_import 미리보기 = 새로 4편(1126_1 발난로 f3d57ac1, 1126_3 PMA2X 37b5083e, 1128_1 무드등 ab88ea7f, 1128_2 툴콘 9244ea99), 16편 이미 있음·같음. 20편 모두 제목·발행 예정일(파일 MMDD) 일치. --apply 는 안 함(사용자가 결정)
 - GIF: ② 상품별 GIF 칸마다 [안 넣음]/[다시 넣기](/radar/desk/gifskip, radar_screen.set_gif_skip). photos.json 의 skip_gifs 에만 저장. 안 넣음이면 ③ 최종본·naver_upload 에서 빠지고 GIF 파일은 안 지움. GIF 0개여도 ③ 로 감. 틀 B 본상품만 빼고 대안만 남으면 기존 노란 경고
