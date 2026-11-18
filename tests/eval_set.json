@@ -1,0 +1,762 @@
+{
+ "_설명": "중복·같은 글·업체형 판정이 맞는지 재는 정답 세트(초안, 2026-11-10). 11/9~11/10 실제 실행에서 나온 사례 중 답이 분명한 것만 골랐다. 판정 코드를 고칠 때마다 이 세트로 다시 채점한다(tools/eval_judge.py, 1단계에서 작성). 사용자가 틀린 답을 발견하면 여기서 고친다. 애매한 사례는 넣지 않는다.",
+ "dup_existing": {
+  "_설명": "후보 키워드가 이미 쓴 글과 같은 글인가. same=true 면 중복(제외해야 함), false 면 다른 글(남겨야 함).",
+  "cases": [
+   {
+    "keyword": "씽크대막혔을때",
+    "existing": "싱크대 막힘 원인별로 뚫는 법 기름때·음식물·배관",
+    "same": true
+   },
+   {
+    "keyword": "싱크대배수구막힘",
+    "existing": "싱크대 막힘 원인별로 뚫는 법 기름때·음식물·배관",
+    "same": true
+   },
+   {
+    "keyword": "변기가막혔을때",
+    "existing": "변기 막힘 뚫기 전에 물부터 빼야 넘치지 않아요",
+    "same": true
+   },
+   {
+    "keyword": "화장실환풍기청소",
+    "existing": "욕실 환풍기 청소는 차단기부터 내리고 커버만 떼도 냄새가 줄어요",
+    "same": true
+   },
+   {
+    "keyword": "곰팡이벽지제거",
+    "existing": "벽지 곰팡이 제거 후 또 피는 이유는 벽 속 결로예요",
+    "same": true
+   },
+   {
+    "keyword": "욕실유리물때제거",
+    "existing": "욕실 물때 제거, 먼저 확인해야 할 건 타일과 수전의 소재",
+    "same": true
+   },
+   {
+    "keyword": "차량성에제거",
+    "existing": "성에제거, 긁기 전에 히터 바람 방향부터 바꾸세요",
+    "same": true
+   },
+   {
+    "keyword": "싱크대하부장냄새",
+    "existing": "싱크대 냄새제거 끓는 물 부으면 손해, 10분·30분·주말 코스",
+    "same": true
+   },
+   {
+    "keyword": "제습기순위",
+    "existing": "가성비 제습기 추천 3가지, 원룸·욕실·옷장 어디에 둘지부터 정하세요",
+    "same": true
+   },
+   {
+    "keyword": "신발발냄새제거",
+    "existing": "텀블러 냄새 제거, 몸통보다 뚜껑 고무패킹부터 보세요",
+    "same": false
+   },
+   {
+    "keyword": "화장실변기교체",
+    "existing": "변기 막힘 뚫기 전에 물부터 빼야 넘치지 않아요",
+    "same": false
+   },
+   {
+    "keyword": "바퀴벌레퇴치제",
+    "existing": "좀벌레 없애는법, 약보다 습도 50%부터 맞추세요",
+    "same": false
+   },
+   {
+    "keyword": "주차스티커제거",
+    "existing": "성에제거, 긁기 전에 히터 바람 방향부터 바꾸세요",
+    "same": false
+   },
+   {
+    "keyword": "세탁기배관",
+    "existing": "드럼세탁기 세탁조 청소는 전용 클리너로, 표백제를 너무 넣으면 고장 나요",
+    "same": false
+   },
+   {
+    "keyword": "싱크대코브라",
+    "existing": "싱크대 막힘 원인별로 뚫는 법 기름때·음식물·배관",
+    "same": false
+   },
+   {
+    "keyword": "차량용제습제",
+    "existing": "옷장제습제 염화칼슘형 vs 실리카겔형, 옷장 크기로 고르기",
+    "same": false
+   },
+   {
+    "keyword": "구스다운패딩세탁",
+    "existing": "구스다운 패딩 집세탁, 울샴푸 다운워시 하나로 끝내는 순서",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "keyword": "노스페이스패딩세탁",
+    "existing": "패딩 세탁법, 드라이 맡기면 보온력 떨어지는 이유와 집세탁 순서",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "keyword": "싱크대배관막힘",
+    "existing": "싱크대 막힘 원인별로 뚫는 법 기름때·음식물·배관",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "keyword": "벽에곰팡이",
+    "existing": "벽지 곰팡이 제거 후 또 피는 이유는 벽 속 결로예요",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "keyword": "생리혈세제",
+    "existing": "옷 얼룩 제거제 잘못 고르면 얼룩이 굳어요, 혈흔·기름·커피별 고르기",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "keyword": "차량앞유리습기",
+    "existing": "성에제거, 긁기 전에 히터 바람 방향부터 바꾸세요",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "자동차습기제거",
+    "existing": "성에제거, 긁기 전에 히터 바람 방향부터 바꾸세요",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "벽지얼룩제거제",
+    "existing": "옷 얼룩 제거제 잘못 고르면 얼룩이 굳어요, 혈흔·기름·커피별 고르기",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "드럼세탁기고무패킹청소",
+    "existing": "드럼세탁기 세탁조 청소는 전용 클리너로, 표백제를 너무 넣으면 고장 나요",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "아기샤워기헤드",
+    "existing": "온오프샤워기헤드가 물을 아끼는 이유는 버튼 하나예요",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "수압상승샤워기헤드",
+    "existing": "온오프샤워기헤드가 물을 아끼는 이유는 버튼 하나예요",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "제습기공기청정기",
+    "existing": "가성비 제습기 추천 3가지, 원룸·욕실·옷장 어디에 둘지부터 정하세요",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "keyword": "샤워헤드추천",
+    "existing": "온오프샤워기헤드가 물을 아끼는 이유는 버튼 하나예요",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "가정용샤워기",
+    "existing": "온오프샤워기헤드가 물을 아끼는 이유는 버튼 하나예요",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "드레스룸제습기",
+    "existing": "가성비 제습기 추천 3가지, 원룸·욕실·옷장 어디에 둘지부터 정하세요",
+    "same": true,
+    "holdout2": true
+   },
+   {
+    "keyword": "홈쇼핑행거",
+    "existing": "원룸 행거 고르는법을 모르면 겨울옷 무게에 봉이 휘어요",
+    "same": true,
+    "holdout2": true
+   }
+  ]
+ },
+ "same_article": {
+  "_설명": "후보 키워드 둘이 같은 글이 되는가. same=true 면 하나만 남겨야 함.",
+  "cases": [
+   {
+    "a": "세무신발세탁",
+    "b": "스웨이드신발세탁",
+    "same": true
+   },
+   {
+    "a": "욕실수전교체",
+    "b": "화장실수전교체비용",
+    "same": true
+   },
+   {
+    "a": "욕실수전교체",
+    "b": "욕실수전교체방법",
+    "same": true
+   },
+   {
+    "a": "싱크대수전교체",
+    "b": "씽크대수전교체비용",
+    "same": true
+   },
+   {
+    "a": "드럼세탁기세제",
+    "b": "드럼용세제",
+    "same": true
+   },
+   {
+    "a": "절수샤워기",
+    "b": "절수샤워기헤드",
+    "same": true
+   },
+   {
+    "a": "바퀴벌레퇴치약",
+    "b": "바퀴벌레퇴치제",
+    "same": true
+   },
+   {
+    "a": "발냄새없애는법식초",
+    "b": "신발발냄새제거",
+    "same": true
+   },
+   {
+    "a": "차먼지털이개",
+    "b": "자동차먼지떨이개",
+    "same": true
+   },
+   {
+    "a": "욕실수전교체",
+    "b": "싱크대수전교체",
+    "same": false
+   },
+   {
+    "a": "패딩세탁",
+    "b": "패딩수선",
+    "same": false
+   },
+   {
+    "a": "차량스티커제거",
+    "b": "사이드미러습기",
+    "same": false
+   },
+   {
+    "a": "바퀴벌레알",
+    "b": "쥐끈끈이",
+    "same": false
+   },
+   {
+    "a": "세무신발세탁",
+    "b": "신발발냄새제거",
+    "same": false
+   },
+   {
+    "a": "수압샤워기",
+    "b": "수압상승샤워기헤드",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "고압샤워기헤드",
+    "b": "수압센샤워기",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "패딩구멍",
+    "b": "패딩구멍수선",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "패딩충전",
+    "b": "패딩충전재보충",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "세면대배수관교체",
+    "b": "세면대배수구교체",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "몽클레어패딩세탁",
+    "b": "명품패딩세탁",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "바퀴벌레퇴치제",
+    "b": "바퀴벌레약추천",
+    "same": true,
+    "holdout": true
+   },
+   {
+    "a": "절수샤워기헤드",
+    "b": "아기샤워기헤드",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "패딩지퍼수선",
+    "b": "패딩구멍수선",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "싱크대경첩",
+    "b": "싱크대호스교체",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "세면대배수관교체",
+    "b": "화장실세면대교체",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "가루세제",
+    "b": "드럼세탁기세제",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "미세먼지세탁세제",
+    "b": "독일세탁세제",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "차량성에제거",
+    "b": "차량앞유리습기",
+    "same": false,
+    "holdout": true
+   },
+   {
+    "a": "욕실수전교체",
+    "b": "욕조수전교체",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "드라이세제",
+    "b": "아기빨래세제",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "드라이세제",
+    "b": "신발세제",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "운동복세제",
+    "b": "손세탁세제",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "주방용필터",
+    "b": "연수필터",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "지하수필터",
+    "b": "중공사막필터",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "워셔액추천",
+    "b": "유막제거워셔액",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "빨래세제",
+    "b": "캡슐세제순위",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "샤워기부품",
+    "b": "샤워기헤드필터",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "사이드미러발수코팅",
+    "b": "자동차습기제거",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "바퀴벌레알",
+    "b": "날아다니는바퀴벌레",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "수전교체방법",
+    "b": "수전카트리지교체",
+    "same": false,
+    "holdout2": true
+   },
+   {
+    "a": "수압센샤워기",
+    "b": "수압상승샤워헤드",
+    "same": true,
+    "holdout2": true
+   },
+   {
+    "a": "강력한바퀴벌레약",
+    "b": "전문가용바퀴벌레약",
+    "same": true,
+    "holdout2": true
+   },
+   {
+    "a": "싱크대수전교체비용",
+    "b": "싱크대수전설치",
+    "same": true,
+    "holdout2": true
+   },
+   {
+    "a": "씽크대수도꼭지",
+    "b": "씽크대수전",
+    "same": true,
+    "holdout2": true
+   }
+  ]
+ },
+ "service": {
+  "_설명": "업체 시공·공사·수리 의뢰형인가. true 면 제외해야 함, false 면 직접 해결하는 글감이라 남겨야 함.",
+  "cases": [
+   {
+    "keyword": "보일러수리",
+    "service": true
+   },
+   {
+    "keyword": "단열벽지시공",
+    "service": true
+   },
+   {
+    "keyword": "베란다단열시공",
+    "service": true
+   },
+   {
+    "keyword": "정화조처리",
+    "service": true
+   },
+   {
+    "keyword": "정화조설치비용",
+    "service": true
+   },
+   {
+    "keyword": "수도배관공사",
+    "service": true
+   },
+   {
+    "keyword": "싱크대리폼",
+    "service": true
+   },
+   {
+    "keyword": "매립욕조",
+    "service": true
+   },
+   {
+    "keyword": "베란다탄성코트",
+    "service": true
+   },
+   {
+    "keyword": "샤워기녹물제거",
+    "service": false
+   },
+   {
+    "keyword": "세무신발세탁",
+    "service": false
+   },
+   {
+    "keyword": "차량스티커제거",
+    "service": false
+   },
+   {
+    "keyword": "싱크대배수구막힘",
+    "service": false
+   },
+   {
+    "keyword": "드럼세탁기고무패킹청소",
+    "service": false
+   },
+   {
+    "keyword": "푸른곰팡이",
+    "service": false
+   },
+   {
+    "keyword": "싱크대공사",
+    "service": true,
+    "holdout": true
+   },
+   {
+    "keyword": "아파트배관공사",
+    "service": true,
+    "holdout": true
+   },
+   {
+    "keyword": "씽크대교체비용",
+    "service": true,
+    "holdout": true
+   },
+   {
+    "keyword": "수도계량기교체",
+    "service": true,
+    "holdout": true
+   },
+   {
+    "keyword": "싱크대호스교체",
+    "service": false,
+    "holdout": true
+   },
+   {
+    "keyword": "싱크대경첩",
+    "service": false,
+    "holdout": true
+   },
+   {
+    "keyword": "싱크대배수관교체",
+    "service": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "세탁기배관",
+    "service": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "싱크대수도교체",
+    "service": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "세면대설치",
+    "service": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "화장실환풍기교체비용",
+    "service": false,
+    "holdout2": true
+   },
+   {
+    "keyword": "바퀴벌레방역비용",
+    "service": true,
+    "holdout2": true
+   },
+   {
+    "keyword": "욕조보수",
+    "service": true,
+    "holdout2": true
+   },
+   {
+    "keyword": "온수배관교체",
+    "service": true,
+    "holdout2": true
+   }
+  ]
+ },
+ "offtopic": {
+  "_설명": "주제 밖(offtopic)인가. true 면 제외해야 함(취미·운동·낚시 용품 등), false 면 살림 주제라 써도 됨(신발·옷·몸에 배는 냄새와 습기).",
+  "cases": [
+   {
+    "keyword": "발냄새없애는법식초",
+    "offtopic": false
+   },
+   {
+    "keyword": "축구화탈취제",
+    "offtopic": false
+   },
+   {
+    "keyword": "신발제습제",
+    "offtopic": false
+   },
+   {
+    "keyword": "캠핑렉",
+    "offtopic": true
+   },
+   {
+    "keyword": "덤벨거치대",
+    "offtopic": true
+   },
+   {
+    "keyword": "릴보관함",
+    "offtopic": true
+   }
+  ]
+ },
+ "track": {
+  "_설명": "갈래(info 정보글 / money 수익글) 정답. 사려는 물건·도구 이름 키워드면 money(문제 말이 들어 있어도), 문제를 풀려는 행위·증상·방법이면 info. 2.5단계(2026-11-13) 추가.",
+  "cases": [
+   {
+    "keyword": "발냄새스프레이",
+    "track": "money"
+   },
+   {
+    "keyword": "축구화탈취제",
+    "track": "money"
+   },
+   {
+    "keyword": "곰팡이방지페인트",
+    "track": "money"
+   },
+   {
+    "keyword": "싱크대코브라",
+    "track": "money"
+   },
+   {
+    "keyword": "베란다우수관커버",
+    "track": "money"
+   },
+   {
+    "keyword": "세면대트랩",
+    "track": "money"
+   },
+   {
+    "keyword": "신발발냄새제거",
+    "track": "info"
+   },
+   {
+    "keyword": "장판곰팡이제거",
+    "track": "info"
+   },
+   {
+    "keyword": "싱크대배수구막힘",
+    "track": "info"
+   },
+   {
+    "keyword": "수전카트리지교체",
+    "track": "info"
+   },
+   {
+    "keyword": "화장실벌레",
+    "track": "info"
+   },
+   {
+    "keyword": "차량스티커제거",
+    "track": "info"
+   }
+  ]
+ },
+ "solves": {
+  "_설명": "수익글 조건(solves): 집의 물·배수·수전·세탁·청소·냄새·곰팡이·습기·수납·차량 관리에 쓰는 소모품·부품·도구면 true(통과). 자재·가구 부품·진열·업소용이면 false(제외). 3단계 잔손질(2026-11-13) 추가.",
+  "cases": [
+   {
+    "keyword": "절수샤워기헤드",
+    "solves": true
+   },
+   {
+    "keyword": "세탁기수전",
+    "solves": true
+   },
+   {
+    "keyword": "욕실필터",
+    "solves": true
+   },
+   {
+    "keyword": "샤워기호스세트",
+    "solves": true
+   },
+   {
+    "keyword": "절수수전",
+    "solves": true
+   },
+   {
+    "keyword": "세면대수전필터",
+    "solves": true
+   },
+   {
+    "keyword": "역류방지밸브",
+    "solves": true
+   },
+   {
+    "keyword": "ㄱ자앵글",
+    "solves": false
+   },
+   {
+    "keyword": "책상다리",
+    "solves": false
+   },
+   {
+    "keyword": "아크릴진열장",
+    "solves": false
+   },
+   {
+    "keyword": "철제침대프레임",
+    "solves": false
+   },
+   {
+    "keyword": "중량렉",
+    "solves": false
+   }
+  ]
+ },
+ "brand": {
+  "_설명": "브랜드·모델 이름이 든 키워드면 true(유형 brand 로 제외). 일반 낱말(드럼세탁기·수입차·홀아비냄새)은 false. 3단계 잔손질(2026-11-13) 추가.",
+  "cases": [
+   {
+    "keyword": "삼성공기청정기필터교체후리셋",
+    "brand": true
+   },
+   {
+    "keyword": "코웨이필터교체",
+    "brand": true
+   },
+   {
+    "keyword": "벤츠워셔액",
+    "brand": true
+   },
+   {
+    "keyword": "물먹는하마제습제",
+    "brand": true
+   },
+   {
+    "keyword": "드럼세탁기고무패킹청소",
+    "brand": false
+   },
+   {
+    "keyword": "수입차워셔액",
+    "brand": false
+   },
+   {
+    "keyword": "홀아비냄새제거",
+    "brand": false
+   },
+   {
+    "keyword": "다이소하수구트랩",
+    "brand": true
+   },
+   {
+    "keyword": "KCC창호손잡이교체",
+    "brand": true
+   },
+   {
+    "keyword": "삼성공기청정기필터교체주기",
+    "brand": true
+   },
+   {
+    "keyword": "샷시문풍지",
+    "brand": false
+   },
+   {
+    "keyword": "국산LED거실등",
+    "brand": false
+   }
+  ]
+ }
+}

@@ -51,3 +51,8 @@ ego*profile*/
 *.zip
 *.sqlite
 *.db
+
+# 정리 2차: 기록 안 하는 것 (옛 코드 보관·옛 문서·주간 원고 작업물)
+archive/
+docs/archive/
+주간기획/20*/

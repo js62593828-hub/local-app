@@ -1,0 +1,670 @@
+{
+    "_설명": "월별로 시의성이 높은 시드 키워드 목록입니다. 사용자가 자유롭게 추가/삭제/수정하면 됩니다. priority가 높을수록 그 시즌에 더 우선순위를 둡니다 (1~5).",
+    "_category설명": "각 시드의 category는 블로그(워드프레스) 카테고리명과 같은 값입니다: 세금·연말정산 / 4대보험·연금 / 정부지원금·복지 / 서민금융·정책자금. 주간 승인 화면의 클러스터 카테고리 태그와, 큐를 채울 때 카테고리별 최소 클러스터 확보(main.MIN_CLUSTERS_PER_CATEGORY)에 쓰입니다. evergreen(상시) 시드는 매주 전부 쓰지 않고 카테고리별로 main.EVERGREEN_PER_CATEGORY개씩만 돌려가며 뽑습니다(main.SEED_COOLDOWN_WEEKS주 안에 쓴 시드는 뒤로 밀림). 월별 시드는 로테이션 없이 항상 포함됩니다. 시드 이름에 '계산기'·'비교'를 넣지 말 것(롱텀은 그 단어가 든 세부 키워드를 제외).",
+    "1": [
+        {
+            "seed": "연말정산",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "연말정산 환급금",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "부가가치세 신고",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "자동차세 연납",
+            "priority": 4,
+            "category": "세금·연말정산"
+        }
+    ],
+    "2": [
+        {
+            "seed": "연말정산 환급금",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "연말정산 추가납부",
+            "priority": 3,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "근로장려금",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        }
+    ],
+    "3": [
+        {
+            "seed": "근로장려금 반기신청",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "건강보험료 정산",
+            "priority": 3,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "청년도약계좌",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        }
+    ],
+    "4": [
+        {
+            "seed": "건강보험료 정산",
+            "priority": 4,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "종합소득세 신고",
+            "priority": 3,
+            "category": "세금·연말정산"
+        }
+    ],
+    "5": [
+        {
+            "seed": "종합소득세",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "종합소득세 환급",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "근로장려금 정기신청",
+            "priority": 5,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "자녀장려금",
+            "priority": 4,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "프리랜서 종합소득세",
+            "priority": 4,
+            "category": "세금·연말정산"
+        }
+    ],
+    "6": [
+        {
+            "seed": "종합소득세 성실신고",
+            "priority": 3,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "자동차세",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "에너지바우처",
+            "priority": 4,
+            "category": "정부지원금·복지"
+        }
+    ],
+    "7": [
+        {
+            "seed": "재산세",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "부가가치세 신고",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "에너지바우처",
+            "priority": 4,
+            "category": "정부지원금·복지"
+        }
+    ],
+    "8": [
+        {
+            "seed": "근로장려금 지급일",
+            "priority": 4,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "재산세",
+            "priority": 3,
+            "category": "세금·연말정산"
+        }
+    ],
+    "9": [
+        {
+            "seed": "재산세",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "근로장려금 반기신청",
+            "priority": 4,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "추석 지원금",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "청년내일저축계좌",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        }
+    ],
+    "10": [
+        {
+            "seed": "에너지바우처",
+            "priority": 5,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "연말정산 미리보기",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "최저임금",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "국민연금 추납",
+            "priority": 2,
+            "category": "4대보험·연금"
+        }
+    ],
+    "11": [
+        {
+            "seed": "연말정산 미리보기",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "연말정산 소득공제",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "종합부동산세",
+            "priority": 3,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "기부금 세액공제",
+            "priority": 3,
+            "category": "세금·연말정산"
+        }
+    ],
+    "12": [
+        {
+            "seed": "연말정산 세액공제",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "연금저축 절세",
+            "priority": 5,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "IRP계좌",
+            "priority": 4,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "종합부동산세 납부",
+            "priority": 3,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "자동차세",
+            "priority": 3,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "근로장려금 지급일",
+            "priority": 3,
+            "category": "정부지원금·복지"
+        }
+    ],
+    "evergreen": [
+        {
+            "seed": "월세세액공제",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "연금저축세액공제",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "신용카드소득공제",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "의료비세액공제",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "교육비세액공제",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "주택청약 소득공제",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "중소기업 취업자 소득세 감면",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "ISA계좌",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "IRP계좌",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "간이과세자",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "사업자등록",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "3.3% 환급",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "프리랜서 종합소득세",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "종합소득세 경비",
+            "priority": 2,
+            "category": "세금·연말정산"
+        },
+        {
+            "seed": "실업급여",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "고용보험",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "자영업자 고용보험",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "두루누리 지원",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "산재보험",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "국민연금",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "국민연금 추납",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "국민연금 임의가입",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "국민연금 조기수령",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "기초연금",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "주택연금",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "퇴직연금",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "건강보험료",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "건강보험 피부양자",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "건강보험 지역가입자",
+            "priority": 2,
+            "category": "4대보험·연금"
+        },
+        {
+            "seed": "청년월세지원",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "청년내일저축계좌",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "청년도약계좌",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "청년미래적금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "청년내일채움공제",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "청년일자리도약장려금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "K-패스",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "국가장학금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "내일배움카드",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "국민취업지원제도",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "근로장려금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "자녀장려금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "기초생활수급자",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "생계급여",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "주거급여",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "의료급여",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "긴급복지지원",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "에너지바우처",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "문화누리카드",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "부모급여",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "아동수당",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "첫만남이용권",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "출산지원금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "다자녀혜택",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "아이돌봄서비스",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "육아휴직급여",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "출산휴가급여",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "한부모가족지원",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "장애인연금",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "노인일자리",
+            "priority": 2,
+            "category": "정부지원금·복지"
+        },
+        {
+            "seed": "전세자금대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "버팀목전세자금대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "청년버팀목",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "청년전세대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "중기청대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "디딤돌대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "신생아특례대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "전세보증보험",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "주택청약종합저축",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "청약 가점",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "햇살론",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "햇살론유스",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "햇살론15",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "새희망홀씨",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "소액생계비대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "채무조정",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "신용회복",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "소상공인 정책자금",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "소상공인 경영안정자금",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "소상공인 지원금",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "소상공인 전기요금 지원",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "희망리턴패키지",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "폐업지원금",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "노란우산공제",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "자영업자 대출",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        },
+        {
+            "seed": "신용보증재단",
+            "priority": 2,
+            "category": "서민금융·정책자금"
+        }
+    ]
+}

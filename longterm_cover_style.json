@@ -1,0 +1,147 @@
+{
+  "고용보험": {
+    "template": "C",
+    "color": "딥그린",
+    "assigned_at": "2026-10-06"
+  },
+  "근로장려금": {
+    "template": "A",
+    "color": "차콜",
+    "assigned_at": "2026-10-09"
+  },
+  "소상공인 정책자금": {
+    "template": "C",
+    "color": "딥그린",
+    "assigned_at": "2026-10-09"
+  },
+  "건강보험 피부양자": {
+    "template": "B",
+    "color": "딥퍼플",
+    "assigned_at": "2026-10-09"
+  },
+  "국가장학금": {
+    "template": "A",
+    "color": "차콜",
+    "assigned_at": "2026-10-17"
+  },
+  "연말정산 미리보기": {
+    "template": "B",
+    "color": "오션블루",
+    "assigned_at": "2026-10-17"
+  },
+  "청년일자리도약장려금": {
+    "template": "A",
+    "color": "차콜",
+    "assigned_at": "2026-10-19"
+  },
+  "두루누리 지원": {
+    "template": "C",
+    "color": "오션블루",
+    "assigned_at": "2026-10-22"
+  },
+  "청년미래적금": {
+    "template": "A",
+    "color": "네이비",
+    "assigned_at": "2026-10-25"
+  },
+  "최저임금": {
+    "template": "C",
+    "color": "딥그린",
+    "assigned_at": "2026-10-25"
+  },
+  "지역가입자 건강보험료": {
+    "template": "C",
+    "color": "버건디",
+    "assigned_at": "2026-10-27"
+  },
+  "양육비 선지급": {
+    "template": "B",
+    "color": "차콜",
+    "assigned_at": "2026-10-27"
+  },
+  "문화누리카드": {
+    "template": "C",
+    "color": "오션블루",
+    "assigned_at": "2026-10-30"
+  },
+  "노인일자리": {
+    "template": "C",
+    "color": "딥그린",
+    "assigned_at": "2026-11-02"
+  },
+  "종합소득세 중간예납": {
+    "template": "B",
+    "color": "네이비",
+    "assigned_at": "2026-11-02"
+  },
+  "햇살론유스": {
+    "template": "C",
+    "color": "차콜",
+    "assigned_at": "2026-11-03"
+  },
+  "아동수당": {
+    "template": "C",
+    "color": "딥퍼플",
+    "assigned_at": "2026-11-03"
+  },
+  "소상공인 경영안정바우처": {
+    "template": "C",
+    "color": "오션블루",
+    "assigned_at": "2026-11-08"
+  },
+  "청년 생애 첫 연금보험료 지원": {
+    "template": "B",
+    "color": "딥그린",
+    "assigned_at": "2026-11-08"
+  },
+  "연금저축 세액공제 한도": {
+    "template": "A",
+    "color": "차콜",
+    "assigned_at": "2026-11-09"
+  },
+  "노란우산공제": {
+    "template": "B",
+    "color": "네이비",
+    "assigned_at": "2026-11-09"
+  },
+  "청소년지도사 2급": {
+    "template": "A",
+    "color": "딥그린",
+    "assigned_at": "2026-11-09"
+  },
+  "긴급복지 지원금": {
+    "template": "C",
+    "color": "딥그린",
+    "assigned_at": "2026-11-10"
+  },
+  "아이맞이지원금": {
+    "template": "A",
+    "color": "차콜",
+    "assigned_at": "2026-11-14"
+  },
+  "간이과세자": {
+    "template": "C",
+    "color": "버건디",
+    "assigned_at": "2026-11-14"
+  },
+  "2027 기초연금": {
+    "template": "A",
+    "color": "딥그린",
+    "assigned_at": "2026-11-14"
+  },
+  "구직촉진수당": {
+    "template": "C",
+    "color": "오션블루",
+    "assigned_at": "2026-11-14"
+  },
+  "의료비세액공제": {
+    "template": "B",
+    "color": "네이비",
+    "assigned_at": "2026-11-15"
+  },
+  "2027 4대보험 요율": {
+    "template": "C",
+    "color": "버건디",
+    "assigned_at": "2026-11-15"
+  }
+}

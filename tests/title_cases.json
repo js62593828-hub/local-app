@@ -1,0 +1,432 @@
+{
+ "_note": "4단계 제목 규칙 정답 세트. good = 지금까지 내가 쓴 글 중 실제로 좋은 제목 5개(통과해야 함), bad:* = 규칙 위반 예(expect_fail 규칙에서 걸려야 함). 시험: python tools/titles.py --selftest (Claude 호출 없음). 4.5단계: no_pick(수익글 선택 표현)·unspaced(띄어쓰기) 케이스와 pattern_cases(틀 분류) 추가. 4.6단계: 틀은 코드 판정(비교>순서>실수·손해>질문>상황>숫자·결과), awkward_cases(키워드 바로 뒤 어색한 명사 이어붙이기).",
+ "cases": [
+  {
+   "id": "good1",
+   "kind": "good",
+   "keyword": "샷시 실리콘 교체",
+   "title": "샷시 실리콘 교체를 미루면 갈라진 틈으로 찬바람이 들어와요",
+   "title_keyword": "샷시 실리콘 교체",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "good2",
+   "kind": "good",
+   "keyword": "보일러 동파 방지",
+   "title": "보일러 동파 방지는 외출 때 끄지 말고 10~15℃로 두세요",
+   "title_keyword": "보일러 동파 방지",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "good3",
+   "kind": "good",
+   "keyword": "스텐 연마제 제거",
+   "title": "스텐 연마제 제거는 식용유로 닦고 식초물에 15분 끓이면 끝나요",
+   "title_keyword": "스텐 연마제 제거",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "good4",
+   "kind": "good",
+   "keyword": "김치냉장고 청소",
+   "title": "김치냉장고 청소는 김장 전에 해야 묵은 냄새가 빠져요",
+   "title_keyword": "김치냉장고 청소",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "good5",
+   "kind": "good",
+   "keyword": "텀블러 냄새 제거",
+   "title": "텀블러 냄새 제거, 몸통보다 뚜껑 고무패킹부터 보세요",
+   "title_keyword": "텀블러 냄새 제거",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "bad_forbidden1",
+   "kind": "bad:forbidden",
+   "keyword": "욕실 곰팡이 제거",
+   "title": "욕실 곰팡이 제거, 무조건 이 방법만 쓰세요",
+   "title_keyword": "욕실 곰팡이 제거",
+   "platform": "naver",
+   "expect_fail": "forbidden"
+  },
+  {
+   "id": "bad_forbidden2",
+   "kind": "bad:forbidden",
+   "keyword": "창문 결로 방지",
+   "title": "창문 결로 방지 꿀팁 대방출, 충격적인 결과",
+   "title_keyword": "창문 결로 방지",
+   "platform": "naver",
+   "expect_fail": "forbidden"
+  },
+  {
+   "id": "bad_long1",
+   "kind": "bad:too_long",
+   "keyword": "싱크대 배수구 냄새 제거",
+   "title": "주방 싱크대 배수구 냄새 제거 방법을 집에서 직접 해결하는 가장 쉬운 순서와 준비물 총정리",
+   "title_keyword": "싱크대 배수구 냄새 제거",
+   "platform": "naver",
+   "expect_fail": "too_long"
+  },
+  {
+   "id": "bad_long2",
+   "kind": "bad:too_long",
+   "keyword": "싱크대 배수구 냄새 제거",
+   "title": "주방 싱크대 배수구 냄새 제거 방법을 집에서 처음부터 끝까지 직접 해결하는 가장 쉬운 순서와 준비물 그리고 주의할 점 총정리",
+   "title_keyword": "싱크대 배수구 냄새 제거",
+   "platform": "wordpress",
+   "expect_fail": "too_long"
+  },
+  {
+   "id": "bad_nokw1",
+   "kind": "bad:no_keyword",
+   "keyword": "세탁기 통세척",
+   "title": "세탁기 청소는 한 달에 한 번이면 충분해요",
+   "title_keyword": "세탁기 통세척",
+   "platform": "naver",
+   "expect_fail": "no_keyword"
+  },
+  {
+   "id": "bad_nokw2",
+   "kind": "bad:no_keyword",
+   "keyword": "에어컨 필터 청소",
+   "title": "에어컨 냄새 줄이는 필터 관리법 3가지",
+   "title_keyword": "에어컨 필터 청소",
+   "platform": "naver",
+   "expect_fail": "no_keyword"
+  },
+  {
+   "id": "bad_brand1",
+   "kind": "bad:brand",
+   "keyword": "정수기 필터 교체",
+   "title": "삼성 정수기 필터 교체 시기, 3가지 신호",
+   "title_keyword": "정수기 필터 교체",
+   "platform": "naver",
+   "expect_fail": "brand"
+  },
+  {
+   "id": "bad_brand2",
+   "kind": "bad:brand",
+   "keyword": "공기청정기 필터 청소",
+   "title": "공기청정기 필터 청소, WA-5500 모델은 월 1회",
+   "title_keyword": "공기청정기 필터 청소",
+   "platform": "naver",
+   "expect_fail": "brand"
+  },
+  {
+   "id": "bad_top1",
+   "kind": "bad:similar_top",
+   "keyword": "욕실 환풍기 청소",
+   "title": "욕실 환풍기 청소 방법 냄새 줄이는 법",
+   "title_keyword": "욕실 환풍기 청소",
+   "platform": "naver",
+   "expect_fail": "similar_top",
+   "top_titles": [
+    "욕실 환풍기 청소 방법 냄새 줄이는 법 정리",
+    "환풍기 소음 원인"
+   ]
+  },
+  {
+   "id": "bad_top2",
+   "kind": "bad:similar_top",
+   "keyword": "냉장고 냄새 제거",
+   "title": "냉장고 냄새 제거 이렇게 하세요",
+   "title_keyword": "냉장고 냄새 제거",
+   "platform": "naver",
+   "expect_fail": "similar_top",
+   "top_titles": [
+    "냉장고 냄새 제거 이렇게 하세요!"
+   ]
+  },
+  {
+   "id": "bad_own1",
+   "kind": "bad:similar_own",
+   "keyword": "텀블러 냄새 제거",
+   "title": "텀블러 냄새 제거, 뚜껑 고무패킹부터 보세요",
+   "title_keyword": "텀블러 냄새 제거",
+   "platform": "naver",
+   "expect_fail": "similar_own",
+   "own_titles": [
+    "텀블러 냄새 제거, 몸통보다 뚜껑 고무패킹부터 보세요"
+   ]
+  },
+  {
+   "id": "bad_own2",
+   "kind": "bad:similar_own",
+   "keyword": "김치냉장고 온도",
+   "title": "김치냉장고 온도, 담근 날 바로 낮추면 김치가 덜 익어요",
+   "title_keyword": "김치냉장고 온도",
+   "platform": "naver",
+   "expect_fail": "similar_own",
+   "own_titles": [
+    "김치냉장고 온도, 담근 날 바로 낮추면 김치가 덜 익어요"
+   ]
+  },
+  {
+   "id": "bad_nopick1",
+   "kind": "bad:no_pick",
+   "keyword": "씽크대수전",
+   "title": "씽크대수전 물 떨어질 때, 통째로 갈기 전 확인할 것",
+   "title_keyword": "씽크대수전",
+   "platform": "naver",
+   "track": "money",
+   "expect_fail": "no_pick"
+  },
+  {
+   "id": "bad_nopick2",
+   "kind": "bad:no_pick",
+   "keyword": "싱크대호스",
+   "title": "싱크대 호스 누수, 하부장 젖음 확인하는 순서",
+   "title_keyword": "싱크대 호스",
+   "platform": "naver",
+   "track": "money",
+   "expect_fail": "no_pick"
+  },
+  {
+   "id": "good_pick1",
+   "kind": "good",
+   "keyword": "샷시문풍지",
+   "title": "샷시 문풍지 종류 3가지 비교, 틈 모양별로 골라요",
+   "title_keyword": "샷시 문풍지",
+   "platform": "naver",
+   "track": "money",
+   "expect_fail": null
+  },
+  {
+   "id": "good_pick2",
+   "kind": "good",
+   "keyword": "이동식선반",
+   "title": "이동식선반 후회 없이 고르는 기준 5가지, 바퀴부터 확인",
+   "title_keyword": "이동식선반",
+   "platform": "wordpress",
+   "track": "money",
+   "expect_fail": null
+  },
+  {
+   "id": "good_pick3",
+   "kind": "good",
+   "keyword": "주방선반",
+   "title": "주방 선반, 주방용 스테인리스 가격대별로 정리했어요",
+   "title_keyword": "주방 선반",
+   "platform": "naver",
+   "track": "money",
+   "expect_fail": null
+  },
+  {
+   "id": "bad_nopick3",
+   "kind": "bad:no_pick",
+   "keyword": "욕실수전",
+   "title": "욕실 수전 사용 중 물이 샐 때 확인할 3가지",
+   "title_keyword": "욕실 수전",
+   "platform": "naver",
+   "track": "money",
+   "expect_fail": "no_pick"
+  },
+  {
+   "id": "good_space1",
+   "kind": "good",
+   "keyword": "웃풍차단",
+   "title": "웃풍 차단 했는데 춥다면, 놓치기 쉬운 자리 5곳",
+   "title_keyword": "웃풍 차단",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "good_space2",
+   "kind": "good",
+   "keyword": "벽선반설치",
+   "title": "벽 선반 설치 흔한 실수 4가지, 처짐은 고정에서 시작해요",
+   "title_keyword": "벽 선반 설치",
+   "platform": "naver",
+   "expect_fail": null
+  },
+  {
+   "id": "good_space3",
+   "kind": "good",
+   "keyword": "팬트리수납장",
+   "title": "팬트리 수납장 고르는 기준 4가지, 문 열릴 자리부터",
+   "title_keyword": "팬트리 수납장",
+   "platform": "naver",
+   "track": "money",
+   "expect_fail": null
+  }
+ ],
+ "pattern_cases": [
+  [
+   "세면대 설치 순서 6단계, 철거부터 실리콘 마감까지",
+   "순서형"
+  ],
+  [
+   "베란다 벽 곰팡이 제거 흔한 실수, 락스 섞어 쓰면 위험해요",
+   "실수·손해형"
+  ],
+  [
+   "욕실 수전 교체 셀프 vs 업체, 비용 차이 가르는 기준",
+   "비교형"
+  ],
+  [
+   "웃풍 차단 했는데 춥다면, 놓치기 쉬운 자리 5곳",
+   "상황형"
+  ],
+  [
+   "스텐 연마제 제거는 식용유로 닦고 식초물에 15분 끓이면 끝나요",
+   "숫자·결과형"
+  ],
+  [
+   "세면대 설치 셀프로 해도 될까, 먼저 확인할 3가지",
+   "순서형"
+  ],
+  [
+   "화장실 벌레 없애는 순서, 배수구보다 먼저 볼 곳",
+   "순서형"
+  ],
+  [
+   "문 경첩 소리 잡을 때 피해야 할 흔한 실수",
+   "실수·손해형"
+  ],
+  [
+   "이동식 선반 2단 vs 3단 vs 4단, 단수 고르는 기준",
+   "비교형"
+  ],
+  [
+   "창문 실리콘 곰팡이 제거 순서, 락스 쓸 때 지킬 안전 수칙",
+   "순서형"
+  ]
+ ],
+ "spacing_cases": [
+  [
+   "웃풍차단 했는데 춥다면, 놓치기 쉬운 자리 5곳",
+   "웃풍차단",
+   true
+  ],
+  [
+   "벽 선반설치 흔한 실수 4가지",
+   "벽 선반 설치",
+   true
+  ],
+  [
+   "팬트리수납장 고르는 기준 4가지",
+   "팬트리수납장",
+   true
+  ],
+  [
+   "웃풍 차단 했는데 춥다면, 놓치기 쉬운 자리 5곳",
+   "웃풍 차단",
+   false
+  ],
+  [
+   "프라이팬 코팅 벗겨질 때 확인할 것",
+   "프라이팬",
+   false
+  ],
+  [
+   "세탁기 통 세척은 한 달에 한 번이면 충분해요",
+   "세탁기 통세척",
+   true
+  ],
+  [
+   "무향 섬유유연제 고르는 기준 4가지",
+   "무향 섬유유연제",
+   false
+  ],
+  [
+   "드럼세탁기 고무패킹 청소, 곰팡이부터 지우세요",
+   "드럼세탁기 고무패킹 청소",
+   false
+  ],
+  [
+   "화재감지기 설치 위치, 천장 어디가 좋을까",
+   "화재감지기 설치",
+   false
+  ],
+  [
+   "헤파필터 공기청정기 고르는 기준 5가지",
+   "헤파필터 공기청정기",
+   false
+  ],
+  [
+   "푸른곰팡이 핀 음식, 먹어도 될까요",
+   "푸른곰팡이",
+   true
+  ],
+  [
+   "곰팡이제거제 고르는 법, 종류별 차이 4가지",
+   "곰팡이제거제",
+   true
+  ]
+ ],
+ "awkward_cases": [
+  [
+   "홀아비 냄새 제거 방에서 먼저 확인할 5곳",
+   "홀아비 냄새 제거",
+   true
+  ],
+  [
+   "옷 곰팡이 냄새 제거 겨울옷 꺼내기 전 점검 4가지",
+   "옷 곰팡이 냄새 제거",
+   true
+  ],
+  [
+   "텀블러 냄새 제거, 몸통보다 뚜껑 고무패킹부터 보세요",
+   "텀블러 냄새 제거",
+   false
+  ],
+  [
+   "샷시 실리콘 교체를 미루면 갈라진 틈으로 찬바람이 들어와요",
+   "샷시 실리콘 교체",
+   false
+  ],
+  [
+   "스텐 연마제 제거는 식용유로 닦고 식초물에 15분 끓이면 끝나요",
+   "스텐 연마제 제거",
+   false
+  ],
+  [
+   "벽지 곰팡이 제거 순서, 락스보다 먼저 볼 곳",
+   "벽지 곰팡이 제거",
+   false
+  ],
+  [
+   "수전 교체 3분 만에 끝내는 법",
+   "수전 교체",
+   false
+  ],
+  [
+   "욕실 곰팡이 제거 할 때 순서",
+   "욕실 곰팡이 제거",
+   false
+  ]
+ ],
+ "spaced_answers": [
+  [
+   "무향섬유유연제",
+   "무향 섬유유연제"
+  ],
+  [
+   "드럼세탁기고무패킹청소",
+   "드럼세탁기 고무패킹 청소"
+  ],
+  [
+   "화재감지기설치",
+   "화재감지기 설치"
+  ],
+  [
+   "헤파필터공기청정기",
+   "헤파필터 공기청정기"
+  ],
+  [
+   "푸른곰팡이",
+   "푸른곰팡이"
+  ],
+  [
+   "곰팡이제거제",
+   "곰팡이제거제"
+  ]
+ ],
+ "spaced_answers_note": "4.7단계: 띄어쓰기 프롬프트(SPACING_PROMPT)의 정답 예시. 한 낱말로 굳은 말·제품 이름은 붙이고 낱개로 쪼개지 않는다. 푸른곰팡이·곰팡이제거제처럼 한 낱말 그대로인 표기는 is_unspaced 가 true 로 보지만, 제목 단계에서는 '한 낱말 표기'로 확정돼 감점하지 않는다(rules_for)."
+}
