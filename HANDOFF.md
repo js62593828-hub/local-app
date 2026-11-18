@@ -1,3 +1,6 @@
+## 완료 (2026-11-18): 11/23 주 후기 요약 — 상품 26개 전부 research/<id>.md 에 '후기 요약 (문장, 11/17)' 있음(24개 새로 만듦, 2개는 원래 있음). 원고는 안 씀
+- 보류 원인: radar_import 는 대기열 키워드의 picks 로 상품카드를 비교해서, 원고의 '대안' 카드(JBL FLIP7, 카멜 PMA2X)가 위반 처리됨. 고치지 않음
+
 ## 완료 (2026-11-18) — N데스크피커 별점 띠 자동 삽입 (원고지침 v2.6)
 - 바뀐 것: radar_images.py(별점 띠 그림), radar_screen.py(값 읽기·③ 최종본·업로드 폴더·경고 표시), app.py(② 열 때 띠 만들기·③ 경고 전달), templates/article_edit.html(② 별점 띠 칸)·final_view.html(노란 경고), tools/radar_rules.md(v2.6)
 - 앱을 껐다 켜야 반영. 시험 그림 preview/radar_badge_20261118/, 시험 3편 캡처 pipeline/drafts_test_1123/ (실제 데이터·대기열은 안 건드림)
