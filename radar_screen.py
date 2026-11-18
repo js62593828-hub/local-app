@@ -1163,7 +1163,7 @@ SIGN_STYLE = "text-align:center; color:#1565C0; font-weight:bold; font-size:18px
 
 
 def sign_path():
-    """글 끝 서명 그림(static/radar/sign_deskpicker.png, 가로 800×세로 60 흰 판 · 서명은 판 오른쪽 끝 · 고정 파일). 없으면 ''."""
+    """글 끝 서명 그림(static/radar/sign_deskpicker.png, 가로 1800×세로 135 흰 판 · 서명 360×108 은 판 오른쪽 끝 · 고정 파일). 없으면 ''."""
     p = os.path.join("static", "radar", "sign_deskpicker.png")
     return p if os.path.isfile(p) else ""
 
@@ -1399,7 +1399,7 @@ def notice_image_path():
 
 _BANNER_LABEL = "가격확인"
 _BANNER_MARK = "배너"
-_BANNER_FILE = "banner_naver_price.png"  # 모든 카드에 이 한 파일만(1798×272, 투명 배경, 크기 줄이지 않고 그대로 올림)
+_BANNER_FILE = "banner_naver_price.png"  # 모든 카드에 이 한 파일만(1798×272 원본, 업로드 폴더에는 가로 RADAR_BANNER_WIDTH 로 줄여 올림)
 
 
 def banner_path():
@@ -1570,12 +1570,24 @@ def _write_upload_folder(pdir, uploads):
         elif resize == "notice":
             notice_small_copy(src, dst)
         elif resize == "banner":
-            shutil.copyfile(src, dst)  # 배너는 크기 줄이지 않고 원본 그대로(네이버가 본문 폭에 맞춰 보여 줌)
+            banner_small_copy(src, dst)  # 배너는 config RADAR_BANNER_WIDTH(410) 가로로 줄여 저장(링크카드 폭에 맞춤)
         elif resize:
             fit_square_copy(src, dst, size)
         else:
             shutil.copyfile(src, dst)
     return up
+
+
+def banner_small_copy(src, dst):
+    """배너를 가로 RADAR_BANNER_WIDTH(px)로 비율 유지·LANCZOS 로 줄여 저장(투명 유지). 원본은 안 바꿈. 이미 그 폭 이하면 그대로 복사."""
+    from PIL import Image
+    wd = int(_cfg("RADAR_BANNER_WIDTH", 410) or 0)
+    with Image.open(src) as im:
+        if wd <= 0 or im.width <= wd:
+            shutil.copyfile(src, dst)
+            return
+        h = max(1, round(im.height * wd / im.width))
+        im.convert("RGBA").resize((wd, h), Image.LANCZOS).save(dst, "PNG")
 
 
 def _fmt_size(n):
@@ -1838,9 +1850,9 @@ def screen_html(final_html, pdir):
         if not w:
             return f'<p style="text-align:center; color:#D32F2F; font-weight:bold; font-size:16px;">사진 없음: {_html.escape(name)}</p>'
         if SIGN_UPLOAD_NAME in name:
-            style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 0 0 auto;"
+            style = f"width:100%; max-width:{want}px; height:auto; display:block; margin:0 auto;"  # 서명 판(1800×135)은 본문 폭에 꽉 차게(서명은 판 오른쪽 끝)
         elif _BANNER_MARK in name:
-            style = f"width:100%; max-width:{want}px; height:auto; display:block; margin:0 auto;"  # 배너는 본문 폭(800)에 맞춰 보임(네이버와 같게)
+            style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 auto;"  # 배너는 줄인 크기(410) 그대로 = 본문 폭의 약 51%
         elif _NOTICE_IMG_MARK in name or BADGE_UPLOAD_NAME in name:
             style = f"width:{w}px; max-width:100%; height:auto; display:block; margin:0 auto;"
         else:
@@ -1850,7 +1862,7 @@ def screen_html(final_html, pdir):
         wt = size_check(name, w, h, st)
         if wt:
             warn = f' <span style="color:#D32F2F; font-weight:bold;">({_html.escape(wt)})</span>'
-        al = "right" if SIGN_UPLOAD_NAME in name else "center"
+        al = "center"
         return (f'<div style="text-align:{al}; margin:12px 0;"><img src="{_html.escape(url, quote=True)}" alt="{_html.escape(name, quote=True)}" style="{style}">'
                 f'<div style="color:#999999; font-size:12px; margin-top:4px;">{_html.escape(name)}{warn}</div></div>')
 

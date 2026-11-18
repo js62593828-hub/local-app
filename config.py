@@ -225,5 +225,7 @@ RADAR_AUTO_HL_CONCLUSION = True
 RADAR_AUTO_HL_MIN = 2
 # ---------- N데스크피커(radar_naver) 최종본 ⑫: 가격 확인 배너 ----------
 # 각 제휴 링크(naver.me 줄) 바로 위에 "네이버에서 가격 확인하기" 배너 이미지(📷 줄)를 넣음. 모든 카드에 같은 파일 하나.
-# 이미지: static/radar/banner_naver_price.png (1798×272, 투명). 크기 줄이지 않고 그대로 naver_upload 에 복사(옛 banner_white/black.png 는 안 씀, 지우지 않음).
+# 이미지: static/radar/banner_naver_price.png (1798×272, 투명). naver_upload 에는 RADAR_BANNER_WIDTH 가로로 줄여 복사(옛 banner_white/black.png 는 안 씀, 지우지 않음).
 RADAR_BANNER = True
+# 업로드 폴더 배너 가로(px, 비율 유지·LANCZOS로 줄임). 네이버 링크카드 폭(본문의 약 51%)에 맞춤. 원본 파일은 안 바꿈.
+RADAR_BANNER_WIDTH = 410
