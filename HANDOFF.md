@@ -1,7 +1,11 @@
-## 진행 중 (2026-11-18): 배너 410 · 서명 1800판 · 정렬 시험 · rules v3.1 · 원고 20편 아쉬운 점
-- 시작 때 git 깨끗, 기준 커밋 3dd39be (코드 고치기 전)
-- 순서: ①배너 ②서명 ③정렬시험 ④radar_rules v3.1 ⑤원고 20편(백업 _backup/2026-11-23_before_cons/) → radar_check → radar_import --update 미리보기
-- 다음에 할 명령: 이 줄 아래 완료 기록이 없으면 어디까지 했는지 git log·static/radar 확인 후 이어서
+## 완료 (2026-11-18): 배너 410 · 서명 1800×135 판 · 정렬 시험 파일 · 원고지침 v3.1 · 원고 20편 아쉬운 점 고침
+- 배너: 업로드 폴더 배너 가로 410(약 410×62, LANCZOS). config.RADAR_BANNER_WIDTH=410, radar_screen.banner_small_copy. 원본 banner_naver_price.png(1798×272)는 그대로, ③ 화면도 410 그대로(본문 폭 약 51%)
+- 서명: static/radar/sign_deskpicker.png = 1800×135 흰 판 + 서명 360×108 오른쪽 끝(여백 36). 옛 800×60 은 sign_deskpicker_800x60_old.png. tools/radar_sign_make.py 기본 C. ③ 화면은 판을 본문 폭 꽉 차게 보임. 참고: static/ 은 git 제외
+- 정렬 시험: preview/align_test_20261118/align_test.html (A~D 4방식, 문단 양끝·소제목 왼쪽). 네이버에 붙여 넣은 결과를 보고 다음 지시문에서 앱 수정. 메모: 네이버는 붙여 넣은 정렬을 무시함 — align_test 결과 대기
+- tools/radar_rules.md v3.1(아쉬운 점 1~2개·대처법, 불량·낮은 평점 묶음·가격 불만 금지, 별점 띠 400×75·표지 800×800)
+- 원고 20편(pipeline/radar_drafts/2026-11-23/) 아쉬운 점만 고침, 백업 _backup/2026-11-23_before_cons/. radar_check 위반 0. radar_import --update 미리보기: 20편 모두 '고친 판 있음'(적용 안 함). 대기열·articles 수정 없음
+- 남은 일: 메모 [사진자리] 장단점 카드 문구가 본문과 어긋난 글(1123_2·1125_2·1126_2·1126_3·1127_2·1128_2·1128_3·1129_2·1129_3 등), 1128_3 소제목 '불량', 1128_2 대안 구간 '고장 후기' 문장, 1127_2·1126_3 결론 구간 문장 — 지시 범위 밖이라 그대로 둠
+- reviewer 생략(radar_naver 전용 파일만). 코드 고치기 전 커밋 f3844c2, 코드 커밋 0326b8f
 
 ## 완료 (2026-11-18): "네이버에서 가격 확인하기" 배너 새 파일 하나로 통일 · 가로 폭 맞춤
 - 배너: static/radar/banner_naver_price_v3_20261118.png(1798×272, 투명) → static/radar/banner_naver_price.png 로 복사해 씀. 모든 카드에 이 한 파일만(흰·검정 번갈아 없앰: radar_screen.banner_path/banner_order·banner_small_copy 제거, config RADAR_BANNER_START/WIDTH 제거). 옛 banner_white/black.png 는 지우지 않음
