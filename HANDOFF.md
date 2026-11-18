@@ -1,3 +1,10 @@
+## 완료 (2026-11-18): 글 끝 서명 가로 800 판(B 160×48) 적용 · 배너 새 시안 4개(앱 적용 안 함)
+- 서명: static/radar/sign_deskpicker.png = 800×60 흰 판 + 오른쪽 끝(여백 16)에 시안3(Shadows Into Light, 금색 밑줄) 160×48 직접 그림(B). 120×36 옛 파일은 sign_deskpicker_120x36_old.png. 서명 📷 줄은 가운데 정렬(SIGN_STYLE). 만든 스크립트 tools/radar_sign_make.py [A|B]. 참고: static/ 은 git 제외라 그림 파일은 드라이브로만 동기화됨
+- 시안 A(120×36)/B 미리보기·비교: preview/radar_sign_20261118/ (비교_서명800.png), 캡처 capture_sign_800.png, 복사 HTML naver_copy_sign_800.html
+- 표지 실제 크기 800×800(1080 아님) → 크기 경고 기준 그대로 둠
+- 배너: 지금 파일 static/radar/banner_white.png·banner_black.png (1600×242, N데스크피커 전용, 올릴 때 가로 430으로 줄임). 새 시안 A~D(+Light/Regular 둘 다) preview/radar_banner_20261118/ (비교_배너.png), Pretendard Light·Regular + OFL 는 fonts/. 앱 적용 안 함, 만든 스크립트 tools/radar_banner_mockup.py
+- 앱 데이터·원고 수정 없음, reviewer 생략(N데스크피커 전용 파일 + radar_screen 안 서명 줄만)
+
 ## 완료 (2026-11-18): 글 끝 서명(시안 3 · Shadows Into Light · 금색 밑줄) 앱에 넣기 · 업로드 크기 경고 종류별 기준
 - 서명 그림: static/radar/sign_deskpicker.png (120×36, 흰 배경, 고정 파일) / 만든 스크립트 tools/radar_sign_make.py (120×36 판에 바로 그림, 결 세기 0.3으로 약하게) / 글꼴·라이선스 static/radar/fonts/ShadowsIntoLight.ttf + OFL_ShadowsIntoLight.txt (SIL OFL 1.1)
 - 위치: 본문 마지막 문단 → 빈 줄 → 서명(오른쪽) → "함께 보면 좋은 글". ③ 최종본·네이버용 복사엔 📷 NN_서명.png 오른쪽 정렬 한 줄, 업로드 폴더에 같은 이름 파일(본문 사진 번호엔 안 셈, 별점 띠와 같은 방식)

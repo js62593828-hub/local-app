@@ -1159,11 +1159,11 @@ def _prepare_raw(raw, subs=None, sub_cards=None):
 
 
 SIGN_UPLOAD_NAME = "서명"  # naver_upload 파일 이름 가운데 글자(본문 사진 번호에는 안 셈)
-SIGN_STYLE = "text-align:right; color:#1565C0; font-weight:bold; font-size:18px;"
+SIGN_STYLE = "text-align:center; color:#1565C0; font-weight:bold; font-size:18px;"
 
 
 def sign_path():
-    """글 끝 서명 그림(static/radar/sign_deskpicker.png, 120×36 고정 파일). 없으면 ''."""
+    """글 끝 서명 그림(static/radar/sign_deskpicker.png, 가로 800×세로 60 흰 판 · 서명은 판 오른쪽 끝 · 고정 파일). 없으면 ''."""
     p = os.path.join("static", "radar", "sign_deskpicker.png")
     return p if os.path.isfile(p) else ""
 
@@ -1692,7 +1692,7 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
     body, _auto = auto_emphasis(body)  # ⑪ 숫자+단위 자동 굵게·결론 문장 자동 형광펜(함께 보면 좋은 글을 붙이기 전에)
     sign_src = sign_path()
     sign_on = bool(sign_src) and not st["skip_sign"]
-    if sign_on:  # 본문 마지막 문단 → 빈 줄 → 서명(오른쪽) → 함께 보면 좋은 글
+    if sign_on:  # 본문 마지막 문단 → 빈 줄 → 서명(800 폭 판 · 서명은 오른쪽 끝) → 함께 보면 좋은 글
         ms = list(shop_formatter.TAG_LINE_RE.finditer(body))
         pos = ms[-1].start() if ms else len(body)
         body = body[:pos].rstrip("\n") + "\n\n{{RDSIGN:0}}\n\n" + body[pos:]
@@ -1810,7 +1810,7 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         except Exception:
             line_break = "paragraph"
     final = finish_final(final, line_break)  # 제목 빼기·문단 방식 줄 나눔·보통 굵기·양끝 정렬(소제목 왼쪽)·빈 줄 정리·강조 적용
-    final = re.sub(r'<p style="[^"]*">(📷 \d+_' + SIGN_UPLOAD_NAME + r'\.[^<]*</p>)', lambda m: f'<p style="{SIGN_STYLE}">' + m.group(1), final)  # 서명 📷 줄만 오른쪽 정렬
+    final = re.sub(r'<p style="[^"]*">(📷 \d+_' + SIGN_UPLOAD_NAME + r'\.[^<]*</p>)', lambda m: f'<p style="{SIGN_STYLE}">' + m.group(1), final)  # 서명 📷 줄만 가운데 정렬(그림이 800 폭이라 서명이 오른쪽에 보임)
     info["sign"] = sign_on
     info["uploads"] = [u[1] for u in uploads]
     info["upload_error"] = ""

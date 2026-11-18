@@ -1,6 +1,7 @@
 """N데스크피커 글 끝 서명 그림 만들기 (시안 3 · Shadows Into Light · 금색 밑줄 있음). API 비용 0원.
-실행: python tools/radar_sign_make.py [옵션: 결 세기 0~1, 기본 0.3] → static/radar/sign_deskpicker.png (120x36, 흰 배경)
-큰 그림을 줄이는 게 아니라 120x36 크기 판에 바로 그린다(시안 400x120 의 좌표를 0.3배).
+실행: python tools/radar_sign_make.py [A|B, 기본 B] [결 세기 0~1, 기본 0.3] → static/radar/sign_deskpicker.png
+그림 판은 가로 800×세로 60 흰 배경이고, 서명(A 120×36 / B 160×48)은 판 오른쪽 끝(오른쪽 여백 16px, 세로 가운데)에
+줄이지 않고 그 크기로 바로 그린다(시안 400x120 의 좌표를 서명 가로/400 배).
 """
 import os
 import sys
@@ -11,8 +12,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT = os.path.join(ROOT, "static", "radar", "fonts", "ShadowsIntoLight.ttf")
 OUT = os.path.join(ROOT, "static", "radar", "sign_deskpicker.png")
 TEXT = "Desk Picker"
-W, H = 120, 36
-K = W / 400.0  # 시안(400x120) 대비 배율 0.3
+PLATE = (800, 60)  # 그림 판(흰 배경)
+MARGIN_R = 16  # 판 오른쪽 여백
+SIGN_SIZES = {"A": (120, 36), "B": (160, 48)}
 GRAPHITE = (0x3A, 0x3A, 0x3A)
 GOLD = (0xC9, 0xA3, 0x5B)
 
@@ -35,7 +37,10 @@ def pencil(mask, strength, blur_edge=0.45):
     return ImageChops.multiply(soft, tex)
 
 
-def make(strength=0.3, out=OUT):
+def draw_sign(sw, sh, strength=0.3):
+    """서명만 sw×sh 크기에 바로 그려 투명 바탕 RGBA 로 돌려준다."""
+    W, H = sw, sh
+    K = W / 400.0
     size = (W, H)
     fsz = int(60 * K)
     font = ImageFont.truetype(FONT, fsz)
@@ -66,11 +71,19 @@ def make(strength=0.3, out=OUT):
         col = Image.new("RGBA", size, color + (255,))
         col.putalpha(alpha)
         rgba = Image.alpha_composite(rgba, col)
-    white = Image.alpha_composite(Image.new("RGBA", size, (255, 255, 255, 255)), rgba).convert("RGB")
-    white.save(out)
+    return rgba
+
+
+def make(variant="B", strength=0.3, out=OUT):
+    sw, sh = SIGN_SIZES[variant]
+    sign = draw_sign(sw, sh, strength)
+    plate = Image.new("RGBA", PLATE, (255, 255, 255, 255))
+    plate.alpha_composite(sign, (PLATE[0] - MARGIN_R - sw, (PLATE[1] - sh) // 2))
+    plate.convert("RGB").save(out)
     return out
 
 
 if __name__ == "__main__":
-    s = float(sys.argv[1]) if len(sys.argv) > 1 else 0.3
-    print(make(s))
+    v = sys.argv[1].upper() if len(sys.argv) > 1 and sys.argv[1].upper() in SIGN_SIZES else "B"
+    s = float(sys.argv[2]) if len(sys.argv) > 2 else 0.3
+    print(make(v, s))
