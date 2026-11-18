@@ -1,7 +1,13 @@
-## 진행 중 (2026-11-18): 사진 자리 필수 해제(앱) · radar_rules v2.9 · 원고 폴더 백업 이동
-- 끝낸 것: 백업 *.backup_before_price_cell_20261118.md 를 pipeline/radar_drafts/_backup/2026-11-23/ 로 옮김
-- 하는 중: ② 사진 칸 '안 넣음'(photos.json skip_slots) → radar_screen.py·app.py·templates/article_edit.html·final_view.html
-- 다음: radar_rules.md v2.9, 벨킨 GIF 확인, 시험(복사본 폴더) 후 커밋·push
+## 완료 (2026-11-18): ② 사진 자리 '안 넣음' · radar_rules v2.9 · 원고 폴더 백업 이동
+- 백업: pipeline/radar_drafts/2026-11-23/1128_1_A_크리스마스-무드등.backup_before_price_cell_20261118.md → pipeline/radar_drafts/_backup/2026-11-23/ (지우지 않음). 원고 폴더 20개 모두 이름 규칙에 맞고, 같은 MMDD_순번 중복 없음
+- 앱: ② 사진 칸마다 [안 넣음]/[다시 넣기](/radar/desk/skip, radar_screen.set_slot_skip). '안 넣음' 목록은 사진 폴더 photos.json 의 skip_slots 에만 저장(원고·대기열·articles 안 바뀜). 빼면 ③ 최종본과 naver_upload 에서 📷 줄·사진이 빠지고 번호는 이어짐. 표 자리를 빼면 ③ 노란 안내, ③ 에 '본문 사진 n장'. 사진을 하나도 안 골라도 ③ 까지 감(막는 문구 없음). 제품 사진을 빼도 ###·별점 띠·상품카드는 그대로
+- 시험: preview/skip_slots_20261118/(복사본 데이터·photos_root, 실제 사진 폴더 안 건드림), 캡처 capture_slots_skip.png · capture_final_skip.png
+- tools/radar_rules.md v2.9(맨 위 '원본' 줄·제목·무엇이 바뀌었나·10장 2줄). radar_check 는 사진 장수를 검사하지 않아 그대로
+- 벨킨 805575695634997 옛 GIF: 안 지움. GIF 는 ② [GIF 가져오기] 버튼을 눌러야만 들어가고 자동으로 고르는 코드가 없어 손대지 않음
+- 대기열·앱 데이터·radar_import 는 안 건드림
+
+## 다음에 고칠 것 (원고 백업 위치)
+- 앞으로 원고 백업은 원고 폴더(pipeline/radar_drafts/<날짜>/) 밖 pipeline/radar_drafts/_backup/<날짜>/ 에 만든다(원고 폴더에 다른 파일이 있으면 radar_import 가 그 글을 못 넣을 수 있음)
 
 ## 완료 (2026-11-18): 표지 시안 A 기본값 · GIF 만들기 · radar_rules v2.8 · 무드등 가격 칸
 - 표지: radar_images.py 기본값을 시안 A(사진 칸 72%·제품 90%·띠 글자 아래 0.75)로. FLIP7(03.jpg) 표지가 preview/radar_cover_v3_20261118/A72_틀B_FLIP7.jpg 와 픽셀 단위로 같음 확인. 이미 만든 cover.jpg 는 안 건드림(11/23 주 글 중 있는 것: 맥세이프 보조배터리(1123_1), JBL FLIP7(1125_2) — static/generated/생활레이더/). 다시 만들려면 앱 [표지 다시 만들기]
