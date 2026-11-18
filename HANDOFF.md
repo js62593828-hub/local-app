@@ -1,3 +1,8 @@
+## 진행 중 (2026-11-18): 사진 자리 필수 해제(앱) · radar_rules v2.9 · 원고 폴더 백업 이동
+- 끝낸 것: 백업 *.backup_before_price_cell_20261118.md 를 pipeline/radar_drafts/_backup/2026-11-23/ 로 옮김
+- 하는 중: ② 사진 칸 '안 넣음'(photos.json skip_slots) → radar_screen.py·app.py·templates/article_edit.html·final_view.html
+- 다음: radar_rules.md v2.9, 벨킨 GIF 확인, 시험(복사본 폴더) 후 커밋·push
+
 ## 완료 (2026-11-18): 표지 시안 A 기본값 · GIF 만들기 · radar_rules v2.8 · 무드등 가격 칸
 - 표지: radar_images.py 기본값을 시안 A(사진 칸 72%·제품 90%·띠 글자 아래 0.75)로. FLIP7(03.jpg) 표지가 preview/radar_cover_v3_20261118/A72_틀B_FLIP7.jpg 와 픽셀 단위로 같음 확인. 이미 만든 cover.jpg 는 안 건드림(11/23 주 글 중 있는 것: 맥세이프 보조배터리(1123_1), JBL FLIP7(1125_2) — static/generated/생활레이더/). 다시 만들려면 앱 [표지 다시 만들기]
 - GIF: 11/23 주 원고 상품 중 GIF 없던 것을 research/_img/<id>/ 에 만듦(0원). 자동 판정이 놓친 뱃지는 각 폴더 gif_exclude.json 에 적어 빼고 만듦(FLIP7 01_rep, 오디세이·삼성 보조배터리 01_rep, 엘레센스 01_rep(브랜드 글자), GO5 01_rep 포함). GO5 옛 GIF 는 *.backup_before_gifexclude_20261118.gif 로 남김
