@@ -138,8 +138,7 @@ def main():
         body, memo, ferr = rc.split_draft(text)
         title = rc.draft_title(body)
         pair = by_title.get(title, [])
-        kw = pair[0].get("keyword", "") if len(pair) == 1 else ""  # 짝지은 항목의 키워드 안 picks 로만 상품카드 이름을 비교
-        chk = rc.check_draft(text, a.run, kw)
+        chk = rc.check_draft(text, a.run)  # 상품카드 이름: 원고의 실행 폴더 approved.json 의 확정 상품 전체와 비교
         viol = chk["violations"] + len(nerr) + (0 if ferr and chk["violations"] >= len(ferr) else 0)
         viol = chk["violations"] + len(nerr)
         row = {"file": fn, "title": title, "id": "", "status": "", "viol": viol, "why": "", "warn": nwarn, "scope": chk.get("d_scope", "")}

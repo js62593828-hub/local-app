@@ -265,41 +265,48 @@ def _kwnorm(t):
     return re.sub(r"\s+", "", t or "").lower()
 
 
-def radar_product_scope(run_arg="", keyword=""):
-    """상품카드 이름 비교 범위. 돌려주는 값: (상품명 집합 또는 None, 범위 설명 글).
-    - keyword 가 있으면: 그 키워드가 든 실행 폴더(--run 이 있으면 그 폴더만, 없으면 가장 최근 폴더)의 approved.json 에서 그 키워드의 picks 만.
-    - keyword 가 없고 --run 이 있으면: 그 폴더 전체. 둘 다 없으면: 전체 실행 폴더(느슨함).
-    None 은 비교할 approved.json(또는 그 키워드)을 찾지 못했다는 뜻."""
+RUN_IN_TEXT = re.compile(r"candidates_run[/\\]([^/\\\s|]+)")
+
+
+def run_dirs_from_text(text):
+    """원고(메모 [사진자리])에 적힌 이미지 경로 'candidates_run/<실행 폴더>/...' 에서 실행 폴더 이름들을 찾는다(나온 순서, 중복 없음)."""
+    out = []
+    for m in RUN_IN_TEXT.finditer(text or ""):
+        if m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def radar_product_scope(run_arg="", text=""):
+    """상품카드 이름 비교 범위(원고지침 v2.6). 돌려주는 값: (상품명 집합 또는 None, 범위 설명 글).
+    - 기준: 그 원고에 쓰인 실행 폴더 approved.json 안의 모든 확정 상품명(키워드 1개로 좁히지 않는다).
+    - 실행 폴더는 run_arg(폴더 이름 또는 경로)가 있으면 그것, 없으면 text 의 이미지 경로에서 찾는다.
+    - None 은 실행 폴더를 모르거나 approved.json 이 없다는 뜻(= 카드 검사 못 함)."""
     base = os.path.join(ROOT, "pipeline", "candidates_run")
     if run_arg:
-        runs = [run_arg if os.path.isdir(run_arg) else os.path.join(base, run_arg)]
+        dirs = [run_arg if os.path.isdir(run_arg) else os.path.join(base, run_arg)]
     else:
-        runs = [os.path.join(base, d) for d in sorted(os.listdir(base))] if os.path.isdir(base) else []
-        runs = [r for r in runs if r.endswith("_radar_naver")]
-    loaded = []  # (폴더 이름, keywords 목록)
-    for r in runs:
-        fp = os.path.join(r, "approved.json")
-        if os.path.exists(fp):
-            loaded.append((os.path.basename(r.rstrip("/\\")), json.load(open(fp, encoding="utf-8")).get("keywords", [])))
-    if not loaded:
-        return None, ("범위: 실행 폴더 " + os.path.basename(runs[0].rstrip("/\\")) if run_arg and runs else "범위: 전체 실행 폴더(느슨함)") + " · approved.json 없음"
-    if keyword:
-        kn = _kwnorm(keyword)
-        for rn, kws in reversed(loaded):
-            hit = [k for k in kws if _kwnorm(k.get("keyword")) == kn]
-            if hit:
-                names = {pk["name"] for k in hit for pk in k.get("picks", []) if pk.get("name")}
-                return names, f"범위: {rn} · 키워드 '{keyword}' 의 picks {len(names)}개"
-        return None, f"범위: 키워드 '{keyword}' 를 approved.json 에서 찾지 못함"
-    names = {pk["name"] for _, kws in loaded for k in kws for pk in k.get("picks", []) if pk.get("name")}
-    if run_arg:
-        return names, f"범위: 실행 폴더 {loaded[0][0]} 전체 · 상품 {len(names)}개"
-    return names, f"범위: 전체 실행 폴더(느슨함) · 폴더 {len(loaded)}개 · 상품 {len(names)}개"
+        dirs = [os.path.join(base, n) for n in run_dirs_from_text(text)]
+    if not dirs:
+        return None, "실행 폴더를 알 수 없음(--run 도 없고 [사진자리] 이미지 경로에도 없음)"
+    names, used, missing = set(), [], []
+    for d in dirs:
+        label = os.path.basename(d.rstrip("/\\"))
+        fp = os.path.join(d, "approved.json")
+        if not os.path.exists(fp):
+            missing.append(label)
+            continue
+        kws = json.load(open(fp, encoding="utf-8")).get("keywords", [])
+        names |= {pk["name"] for k in kws for pk in k.get("picks", []) if pk.get("name")}
+        used.append(label)
+    if missing or not used:
+        return None, "approved.json 없음: " + ", ".join(missing)
+    return names, f"범위: 실행 폴더 {', '.join(used)} 의 확정 상품 전체 {len(names)}개"
 
 
-def radar_product_names(run_arg="", keyword=""):
-    """(옛 이름 유지) 상품명 집합만. 파일이 없으면 None."""
-    return radar_product_scope(run_arg, keyword)[0]
+def radar_product_names(run_arg="", text=""):
+    """(옛 이름 유지) 상품명 집합만. 알 수 없으면 None."""
+    return radar_product_scope(run_arg, text)[0]
 
 
 def _body_chars(body):
@@ -324,7 +331,7 @@ def _memo_block(memo, name):
     return None
 
 
-def check_draft(text, run_arg="", keyword=""):
+def check_draft(text, run_arg=""):
     """원고 파일 하나 검사. 돌려주는 값: {"title","format_errors","items":{키:{"viol":[...],"warn":[...]}},"violations","warnings"}"""
     body, memo, ferr = split_draft(text)
     title = draft_title(body)
@@ -377,10 +384,10 @@ def check_draft(text, run_arg="", keyword=""):
     # d. 상품카드 이름
     cards = re.findall(r"^\[상품카드: ([^\]\n]+)\]$", plain, re.M)
     if cards:
-        names, scope = radar_product_scope(run_arg, keyword)
+        names, scope = radar_product_scope(run_arg, memo)
         res["d_scope"] = scope
         if names is None:
-            it["d"]["warn"].append("확인 필요 · 비교할 approved.json 상품명을 찾지 못했어요 (" + scope + ")")
+            it["d"]["warn"].append("⚠ 카드 검사 못 함 · " + scope + " → --run <실행 폴더> 를 주세요")
         else:
             for c in cards:
                 if c not in names:
@@ -535,7 +542,7 @@ def main():
     ap.add_argument("--memo", default="", help="--text 와 같이: 메모 파일(메모도 검사)")
     ap.add_argument("--title", action="append", default=[], help="--text 와 같이: 제목(여러 번 가능)")
     ap.add_argument("--save", default="", help="--text 결과를 저장할 파일(UTF-8)")
-    ap.add_argument("--run", default="", help="상품명 목록을 읽을 실행 폴더 이름(없으면 facts.json 출처에서 찾음)")
+    ap.add_argument("--run", default="", help="상품명 목록을 읽을 실행 폴더 이름 또는 경로(원고 검사: 없으면 [사진자리] 이미지 경로에서 찾고, 그래도 모르면 카드 검사 못 함 경고)")
     ap.add_argument("--frame", default="", help="틀 A 또는 B (기본: facts.json 의 post)")
     ap.add_argument("--keyword", default="", help="키워드 (기본: facts.json 의 keyword)")
     ap.add_argument("--out", default="", help="결과를 저장할 폴더(기본: 각 글 폴더)")
