@@ -228,4 +228,4 @@ RADAR_AUTO_HL_MIN = 2
 # 이미지: static/radar/banner_naver_price.png (1798×272, 투명). naver_upload 에는 RADAR_BANNER_WIDTH 가로로 줄여 복사(옛 banner_white/black.png 는 안 씀, 지우지 않음).
 RADAR_BANNER = True
 # 업로드 폴더 배너 가로(px, 비율 유지·LANCZOS로 줄임). 네이버 링크카드 폭(본문의 약 51%)에 맞춤. 원본 파일은 안 바꿈.
-RADAR_BANNER_WIDTH = 410
+RADAR_BANNER_WIDTH = 455
