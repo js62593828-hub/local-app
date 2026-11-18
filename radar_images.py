@@ -416,18 +416,25 @@ def _sub_in_title(title, subtitle):
     return sn == "" or sn in tn
 
 
-def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIANT, frame=None):
+def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIANT, frame=None, top_ratio=None, photo_fill=None, band_shift=None):
     """표지 1080x1080. 위 64% 사진 + 아래 36% 단색 띠. 반환: 메모(글자 크기·넘침 여부·쓴 사진 등).
     photo: 사진 경로 하나, 또는 후보 경로 목록, 또는 None(상품 사진 없이 글자만 — meta["no_photo"]=True, 경고 "표지 상품 사진 없음"). frame="A"(고르는 법) 이고 목록 안에 흰 배경 사진이 2개 이상이면
-    2~3개 모음형으로, 아니면 첫 번째 사진 한 장으로 만든다."""
+    2~3개 모음형으로, 아니면 첫 번째 사진 한 장으로 만든다.
+    시안용 옵션(셋 다 None 이면 지금 표지와 똑같음 — 앱은 쓰지 않음): top_ratio=사진 칸 높이 비율(예 0.72),
+    photo_fill=제품 사진 높이/사진 칸 높이(예 0.90, 가로는 표지 폭 끝까지 허용), band_shift=아래 띠 글자 묶음을 띠 아래쪽으로 내리는 정도(0~1, 0.5 가 가운데)."""
     th = THEMES[variant]
     meta = {"variant": variant, "frame": frame, "category": category, "title": title, "subtitle": subtitle, "warnings": []}
+    top_h = round(SIZE * top_ratio) if top_ratio else COVER_TOP_H
     canvas = Image.new("RGB", (SIZE, SIZE), th["band"])
-    canvas.paste(gradient_bg(SIZE, COVER_TOP_H), (0, 0))
+    canvas.paste(gradient_bg(SIZE, top_h), (0, 0))
 
     cands = [] if not photo else ([photo] if isinstance(photo, str) else list(photo))
     pw = round(SIZE * COVER_PHOTO_RATIO)
-    area = ((SIZE - pw) // 2, 46, (SIZE - pw) // 2 + pw, COVER_TOP_H - 14)
+    area = ((SIZE - pw) // 2, 46, (SIZE - pw) // 2 + pw, top_h - 14)
+    if photo_fill:  # 시안: 사진 칸 높이의 photo_fill 까지 키움(그림자 여유 36px), 가로는 양옆 60px 만 남김
+        ah = round(photo_fill * top_h) + 36
+        y0 = round((top_h - ah) / 2)
+        area = (60, y0, SIZE - 60, y0 + ah)
     whites = white_bg_photos(cands) if frame == "A" and len(cands) > 1 else []
     if not cands:  # 쓸 수 있는 깨끗한 사진이 없음(pick_cover_photo 가 None): 사진 없이 시안 A 의 글자만
         meta["no_photo"] = True
@@ -443,7 +450,7 @@ def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIA
         meta["photo"]["files"] = [cands[0]]
 
     d = ImageDraw.Draw(canvas)
-    band_top = COVER_TOP_H
+    band_top = top_h
     d.line([(0, band_top), (SIZE, band_top)], fill=th["accent"], width=1)  # 강조색 1px 선
 
     # 글자 크기 맞추기: 제목은 띠 안쪽 너비의 85% 안에서 가장 크게(88~56px)
@@ -476,6 +483,9 @@ def make_cover(photo, out_path, category, title, subtitle, variant=DEFAULT_VARIA
     h_cat, h_title, h_sub = COVER_CAT_PX * 0.75, tsize * 0.80, ssize * 0.80
     total = h_cat + gaps[0] + h_title + (0 if sub_hidden else gaps[1] + 4 + gaps[2] + h_sub)
     top = band_top + (SIZE - band_top - total) / 2 - 8
+    if band_shift is not None:  # 시안: 띠 안에서 아래로 내림(아래 여백은 56px 아래로 내려가지 않게)
+        free = SIZE - band_top - total
+        top = band_top + max(free - 56, 0) * band_shift if free > 56 else band_top + free / 2
     y = top + h_cat
     draw_text(d, MARGIN, y, category, cat_f, th["accent"], spacing=5)
     y += gaps[0] + h_title

@@ -1,6 +1,9 @@
-## 진행 중 (2026-11-18): ② 표지 문제 3가지 — 1·2번 원인 확인 끝, 3번 표지 사진 고르기 칸(앱 수정) 작업 중
-- 1번: FLIP7 GIF 파일(825399844522912.gif)이 한 번도 안 만들어짐(수집 때 --gif 안 줌). 2번: 뱃지 자동 판정(detect_badge)이 이 뱃지를 못 잡음.
-- 다음: radar_screen.py·app.py·article_edit.html 에 표지 사진 고르기 → 커밋 → 캡처 → 4번 시안 6장(preview/radar_cover_v3_20261118/, 앱 적용 금지)
+## 완료 (2026-11-18): ② 표지 문제 3가지 — 1·2번 원인 확인, 3번 표지 사진 고르기 칸 추가, 4번 배치 시안 6장(앱 적용 안 함)
+- 1번 FLIP7 GIF: research/_img/825399844522912/ 에 825399844522912.gif 가 한 번도 안 만들어짐(수집 때 --gif 안 줌, 장 부족 아님: 10장 모두 판정 통과). 앱은 파일이 없으면 'GIF 없음'. 고치지 않음.
+- 2번 표지 뱃지: tools/collect_research.py detect_badge 가 이 뱃지를 못 잡음(뱃지 파란 부분이 잘게 나뉘어 최소 크기 0.6% 미만으로 버려지고, 흰 윗부분은 하늘과 이어져 큰 덩어리가 됨). rep_badge.json 에 뱃지 false 로 기록돼 표지에 그대로 씀. 고치지 않음.
+- 3번: radar_screen.py(choose_cover_photo·cover_pick), app.py(/radar/desk/coverpick), templates/article_edit.html. 고른 경로는 photos.json 의 cover_pick 에만 저장. 틀은 대기열 planned_type. 커밋 d2f20cb. 캡처 preview/radar_cover_v3_20261118/capture_cover_pick_FLIP7.png(복사본 폴더에서 시험, 실제 표지 파일·대기열·articles 안 건드림).
+- 4번: radar_images.make_cover 에 시안용 옵션 3개(top_ratio·photo_fill·band_shift, 기본 꺼짐, 안 주면 기존 표지와 픽셀 동일 확인). 앱은 안 씀. 그림 6장+비교_한눈에.jpg: preview/radar_cover_v3_20261118/, 만든 스크립트 make_v3.py
+- 표지·② 화면 코드(radar_screen·radar_images)는 N데스크피커 전용이라 다른 블로그와 공유 없음, reviewer 검수는 안 함(요청 시 가능)
 
 ## 완료 (2026-11-18): 11/23 주 원고 2편(툴콘·무드등) 사실 고침 + 레토 평점 확인
 - 레토 상품 페이지 값: 평점 4.89, 리뷰 56건(research 의 '4.8956 / 8956'은 '4.89'+'56건'이 붙어 읽힌 오류). research/867056176088282.md 고침, 백업 *.backup_before_rating_20261118.md. 다른 research 파일은 평점 소수 셋째 자리 이상 없음
