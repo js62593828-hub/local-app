@@ -1,3 +1,8 @@
+## 완료 (2026-11-18): 원고 20편 옛 단점 문구 정리 → 앱에 넣음(--update --apply)
+- 카드 문구를 본문 아쉬운 점에 맞춤(1123_2·1123_3·1125_2·1126_2·1126_3·1127_2·1128_2·1128_3·1129_2·1129_3), 1128_3 소제목 '불량' 제거, 1128_2 대안 고장 문장·1126_3/1127_2 결론 문장 정리. 1127_3 및 A형 카드는 변경 없음. radar_check 위반 0, 제목·상품카드·[사진: n] 백업과 동일.
+- 앱 글 89→89, 백업에만 0, 새 id 0, 바뀐 id 20. 대기열 변화 없음. 백업: articles_radar_naver.backup_before_update_cons_20261118.json, content_queue_radar_naver.backup_before_update_cons_20261118.json
+- 이미 만든 최종본은 [최종본 만들기]를 다시 눌러야 반영됨
+
 ## 완료 (2026-11-18): 배너 410 · 서명 1800×135 판 · 정렬 시험 파일 · 원고지침 v3.1 · 원고 20편 아쉬운 점 고침
 - 배너: 업로드 폴더 배너 가로 410(약 410×62, LANCZOS). config.RADAR_BANNER_WIDTH=410, radar_screen.banner_small_copy. 원본 banner_naver_price.png(1798×272)는 그대로, ③ 화면도 410 그대로(본문 폭 약 51%)
 - 서명: static/radar/sign_deskpicker.png = 1800×135 흰 판 + 서명 360×108 오른쪽 끝(여백 36). 옛 800×60 은 sign_deskpicker_800x60_old.png. tools/radar_sign_make.py 기본 C. ③ 화면은 판을 본문 폭 꽉 차게 보임. 참고: static/ 은 git 제외
