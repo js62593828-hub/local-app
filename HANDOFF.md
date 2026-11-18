@@ -1,3 +1,7 @@
+## 완료 (2026-11-19): 11/30 주 결과 수정 + 원고지침 v3.2 (대기열엔 안 넣음)
+- radar_rules.md 를 v3.2 로 교체(a7a8d65, docs 파일과 동일). 고친 것: pipeline/keyword_run/2026-11-30_radar_naver/plan.json (백업 plan.json.backup_before_edit_20261119). 교체 2(이룸→베네폼 허리소프트, AMA2→한일 840)·키워드 1(큐브멀티탭)·제목 3·NUPHY 갈래 입력·날짜 재배치
+- push_plan --channel radar_naver dry-run 21편 정상, --apply 안 함. report.md·keywords.json·status.json 은 옛 값 그대로(안 고침). 다음: 사용자 확인 후 push_plan --apply
+
 ## 완료 (2026-11-19): N데스크피커 11/30 주 키워드·제목 21편 만들기(대기열엔 안 넣음)
 - 실행함: python tools/keyword_pipeline.py --week 2026-11-30 (결과 pipeline/keyword_run/2026-11-30_radar_naver/). 대기열 안 넣음(--apply 안 씀)
 - 결과: 승인 21편(A7+B14)·보류 6편, 갈래 부족 '몸편한것' 1편. API 블로그 260·검색광고 37·Claude 3. 다음: 사용자 확인 후 push_plan --apply
