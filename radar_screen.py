@@ -210,6 +210,7 @@ def load_state(pdir):
     st.setdefault("slot_sources", {})
     st.setdefault("gifs", {})
     st.setdefault("product_pick", {})  # 상품명 → 사람이 고른 상품 id
+    st.setdefault("cover_pick", [])  # 사람이 고른 표지 사진(후보 폴더 안 경로). 비면 자동으로 고름
     return st
 
 
@@ -258,8 +259,22 @@ def plan_genre(item):
 
 
 # ── 화면 값 만들기 ───────────────────────────────────────────
-def _cover_inputs(card_products, item):
-    """표지에 쓸 값. 큰 제목 = 글의 검색어, 갈래 = 그 주 plan.json, 짧은 이름 = 표지 사진 상품의 images.json."""
+COVER_PICK_MAX_A = 3  # 틀 A(모음형) 표지에 고를 수 있는 사진 수(2~3개)
+
+
+def cover_frame(item):
+    """그 글의 틀. 대기열 항목의 planned_type 이 'A' 면 A, 아니면 B(한 장)."""
+    return "A" if ((item or {}).get("planned_type") or "").upper() == "A" else "B"
+
+
+def valid_cover_picks(state):
+    """photos.json 에 적힌 사람이 고른 표지 사진 중 지금도 쓸 수 있는 파일만(순서 그대로)."""
+    return [p for p in (state or {}).get("cover_pick", []) if is_allowed_file(p)]
+
+
+def _cover_inputs(card_products, item, state=None):
+    """표지에 쓸 값. 큰 제목 = 글의 검색어, 갈래 = 그 주 plan.json, 짧은 이름 = 표지 사진 상품의 images.json.
+    state(photos.json)에 사람이 고른 표지 사진이 있으면 자동 고르기 대신 그것을 쓴다(paths 에 모두, pick["path"] 는 첫 장)."""
     plan = (item or {}).get("plan") or {}
     title = (plan.get("search_query") or (item or {}).get("keyword") or "").strip()
     genre = plan_genre(item)
@@ -277,7 +292,13 @@ def _cover_inputs(card_products, item):
             short = (meta.get("짧은 이름") or "").strip()
             break
         pick = pk
-    return {"title": title, "genre": genre, "short": short, "pick": pick, "product": who}
+    paths = [pick["path"]] if pick["path"] else []
+    picked = valid_cover_picks(state)
+    if picked:
+        paths = picked
+        pick = {"path": picked[0], "no_photo": False, "reason": "직접 고른 사진 %d장" % len(picked), "skipped": []}
+        who = ""  # 고른 사진의 상품 이름표는 따로 안 찾음(짧은 이름은 자동 고르기 때 값 그대로)
+    return {"title": title, "genre": genre, "short": short, "pick": pick, "product": who, "paths": paths, "frame": cover_frame(item)}
 
 
 def resolve_cards(cards, state, by_name, by_id):
@@ -364,12 +385,14 @@ def build_screen(raw, memo, item, pdir):
             "gif_copied_url": _rel(os.path.join(pdir, gf)) if copied else "",
         })
 
-    ci = _cover_inputs(cps, item)
+    ci = _cover_inputs(cps, item, st)
     cover_ok = _exists(pdir, st["cover"])
     cover = {
         "title": ci["title"], "genre": ci["genre"], "short": ci["short"], "product": ci["product"],
         "photo": _rel(ci["pick"]["path"]) if ci["pick"]["path"] else "", "photo_reason": ci["pick"]["reason"],
         "skipped": ci["pick"]["skipped"], "no_photo": ci["pick"]["no_photo"],
+        "frame": ci["frame"], "picks": valid_cover_picks(st), "pick_max": COVER_PICK_MAX_A if ci["frame"] == "A" else 1,
+        "used": [_rel(x) for x in ci["paths"]],
         "made": st["cover"] if cover_ok else "", "made_url": _rel(os.path.join(pdir, st["cover"])) if cover_ok else "",
     }
 
@@ -398,17 +421,51 @@ def make_cover_file(raw, memo, item, pdir):
     st = load_state(pdir)
     by_name, by_id = load_products()
     cps = resolve_cards(cards, st, by_name, by_id)
-    ci = _cover_inputs(cps, item)
+    ci = _cover_inputs(cps, item, st)
     if not ci["title"]:
         return False, "큰 제목으로 쓸 검색어가 없어요"
-    meta = radar_images.make_cover(ci["pick"]["path"], os.path.join(pdir, COVER_NAME), ci["genre"], ci["title"], ci["short"])
+    picked = valid_cover_picks(st)
+    # 직접 고른 사진: 틀 A 는 모음형(2장 이상일 때), 틀 B 는 한 장. 안 골랐으면 전과 똑같이 자동 한 장.
+    photo = picked if (picked and ci["frame"] == "A") else ci["pick"]["path"]
+    meta = radar_images.make_cover(photo, os.path.join(pdir, COVER_NAME), ci["genre"], ci["title"], ci["short"], frame=(ci["frame"] if picked else None))
     st["cover"] = COVER_NAME
-    st["cover_info"] = {"title": ci["title"], "genre": ci["genre"], "short": ci["short"], "photo": _rel(ci["pick"]["path"] or ""), "warnings": meta.get("warnings", [])}
+    st["cover_info"] = {"title": ci["title"], "genre": ci["genre"], "short": ci["short"], "photo": _rel(ci["pick"]["path"] or ""),
+                        "photos": [_rel(x) for x in ci["paths"]], "warnings": meta.get("warnings", [])}
     save_state(pdir, st)
     msg = "표지를 만들었어요"
     if meta.get("warnings"):
         msg += " (주의: " + ", ".join(meta["warnings"]) + ")"
     return True, msg
+
+
+def choose_cover_photo(pdir, item, src):
+    """표지 사진 고르기(0원, 파일 복사 없음 — 경로만 photos.json 에 적음).
+    틀 B: 누른 사진 한 장으로 바꿈. 틀 A: 누를 때마다 넣고 빼기(최대 3장). src 가 빈 값이면 모두 취소(자동 고르기로 돌아감).
+    표지 그림은 [표지 다시 만들기]를 눌러야 바뀐다."""
+    st = load_state(pdir)
+    if not src:
+        st["cover_pick"] = []
+        save_state(pdir, st)
+        return True, "표지 사진 선택을 모두 취소했어요(자동으로 고름)"
+    if not is_allowed_file(src) or not os.path.realpath(src).startswith(os.path.realpath(RUNS_ROOT) + os.sep):
+        return False, "고를 수 없는 파일이에요"
+    src = _rel(src)
+    cur = valid_cover_picks(st)
+    if cover_frame(item) == "A":
+        if src in cur:
+            cur.remove(src)
+            msg = "표지 사진에서 뺐어요(%d장)" % len(cur)
+        elif len(cur) >= COVER_PICK_MAX_A:
+            return False, "틀 A 표지 사진은 %d장까지예요. 하나를 눌러 빼고 다시 고르세요" % COVER_PICK_MAX_A
+        else:
+            cur.append(src)
+            msg = "표지 사진에 넣었어요(%d장)" % len(cur)
+    else:
+        cur = [src]
+        msg = "표지 사진을 %s 로 골랐어요" % os.path.basename(src)
+    st["cover_pick"] = cur
+    save_state(pdir, st)
+    return True, msg + " — [표지 다시 만들기]를 누르면 반영돼요"
 
 
 def table_slot_map(raw):

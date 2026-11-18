@@ -4776,6 +4776,15 @@ def radar_desk_cover(article_id):
     return _radar_desk_back(article_id, ok, msg)
 
 
+@app.route("/article/<article_id>/radar/desk/coverpick", methods=["POST"])
+def radar_desk_coverpick(article_id):
+    ctx = _radar_desk_context(article_id)
+    if not ctx:
+        return redirect(url_for("index"))
+    ok, msg = radar_screen.choose_cover_photo(ctx[2], ctx[1], request.form.get("src", ""))
+    return _radar_desk_back(article_id, ok, msg)
+
+
 @app.route("/article/<article_id>/radar/desk/slot", methods=["POST"])
 def radar_desk_slot(article_id):
     ctx = _radar_desk_context(article_id)

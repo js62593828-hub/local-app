@@ -403,6 +403,35 @@ function fillAllPromoDates(datetimeValue) {
       </div>
     </div>
 
+    <div style="border:1px solid #444; border-radius:8px; padding:10px 12px; margin:8px 0;">
+      <div><strong>표지 사진 고르기</strong>
+        <span class="sub">· 틀 {{ desk.cover.frame }}{% if desk.cover.frame == 'A' %} — 흰 배경 사진 2~3개를 눌러 넣고 빼요(최대 {{ desk.cover.pick_max }}장){% else %} — 사진 1장을 눌러 골라요{% endif %} · 고른 뒤 위의 [표지 다시 만들기]를 눌러야 표지에 반영돼요</span></div>
+      <div class="sub" style="margin:6px 0;">
+        {% if desk.cover.picks %}직접 고른 사진 {{ desk.cover.picks|length }}장: {% for pk in desk.cover.picks %}<strong>{{ pk.split('/')[-1] }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}
+        <form method="POST" action="/article/{{ idx }}/radar/desk/coverpick" style="display:inline; margin-left:8px;"><input type="hidden" name="src" value=""><button class="btn secondary" type="submit" style="font-size:12px; padding:2px 8px;">모두 취소(자동으로 고름)</button></form>
+        {% else %}직접 고른 사진 없음 — 지금은 자동으로 고른 사진을 써요{% endif %}
+      </div>
+      <details>
+        <summary class="sub" style="cursor:pointer;">후보 사진 보기 (눌러서 고르기) — 대표·추가 이미지</summary>
+        {% for g in desk.groups %}
+        <div class="sub" style="margin:8px 0 4px;"><strong>{{ g.label }}</strong> <span style="color:#999;">({{ g.name[:30] }})</span></div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          {% for it in g['items'] if it.kind in ('대표', '캐러셀') %}
+          <form method="POST" action="/article/{{ idx }}/radar/desk/coverpick" style="margin:0;" title="{{ it.label_name }} · {{ it.group }} · {{ it.label }}">
+            <input type="hidden" name="src" value="{{ it.path }}">
+            <button type="submit" style="padding:0; border:2px solid {{ '#34d399' if it.path in desk.cover.picks else '#555' }}; background:#222; border-radius:6px; cursor:pointer;">
+              <img src="/radar/file?p={{ it.path|urlencode }}" loading="lazy" alt="{{ it.label }}" style="width:84px; height:84px; object-fit:contain; display:block; border-radius:0;">
+              <span style="display:block; font-size:10px; color:#ddd; width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.label_name }}</span>
+              <span style="display:block; font-size:10px; color:#aaa; width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.kind }} · {{ it.label }}</span>
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% if not desk.groups %}<div class="sub" style="color:#fbbf24;">후보를 찾을 상품이 없어요(아래 상품 칸에서 '확인 필요' 상품을 먼저 고르세요)</div>{% endif %}
+      </details>
+    </div>
+
     {% if desk.badges %}
     <h3 style="font-size:14px; margin:18px 0 6px;">별점 띠 (제품 ### 바로 아래에 앱이 자동으로 넣어요 · 본문 사진 번호에는 안 세요)</h3>
     {% for b in desk.badges %}
