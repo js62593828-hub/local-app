@@ -1,3 +1,8 @@
+## 완료 (2026-11-18): ③ 소제목 위 따옴표(❝) 왼쪽 정렬
+- radar_screen.py 의 _left_headings 목록에 ❝ 줄 한 줄 추가(radar_naver 최종본 만들 때만 적용, 공유 파일 안 건드림). 본문 양끝·사진·카드·별점 띠 가운데는 그대로. 앱 데이터·원고 수정 없음
+- 캡처: preview/justify_20261118/capture_quote_left.png, 복사 HTML: naver_copy_quote_left.html (shoot_quote.py)
+- 이미 만든 최종본은 [최종본 만들기]를 다시 눌러야 반영
+
 ## 완료 (2026-11-18): 11/23 주 새 원고 4편 앱에 넣기 (radar_import --apply, --update 없이)
 - 백업: articles_radar_naver.backup_before_import1123b_20261118.json, content_queue_radar_naver.backup_before_import1123b_20261118.json (radar_import 가 자동 백업 articles_radar_naver.backup_before_radar_import_20261118_211822.json 도 만듦)
 - 미리보기 재확인: 새 4편뿐(1126_1 f3d57ac1, 1126_3 37b5083e, 1128_1 ab88ea7f, 1128_2 9244ea99) → --apply

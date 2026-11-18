@@ -1028,6 +1028,7 @@ def _paragraphs_mode(final):
 
 
 _LEFT_HEAD_RES = [
+    re.compile(r'<p style="text-align:center;">(<strong style="color:#aaaaaa; font-size:26px;)'),   # ## 소제목 위 ❝
     re.compile(r'<p style="text-align:center;">(<strong style="color:#111111; font-size:19px;)'),   # ## 소제목 글자
     re.compile(r'<p style="text-align:center;">(<span style="color:#cccccc;">─)'),                  # ## 소제목 아래 줄
     re.compile(r'<p style="text-align:center;">(<strong style="color:#22262B; font-size:17px;)'),   # ### 제품 소제목 글자
@@ -1036,7 +1037,7 @@ _LEFT_HEAD_RES = [
 
 
 def _left_headings(final):
-    """소제목(##, ###)과 그 아래 줄·막대만 왼쪽 정렬. ❝ 인용 기호는 그대로 가운데."""
+    """소제목(##, ###)과 그 위 ❝·아래 줄·막대를 왼쪽 정렬."""
     for rx in _LEFT_HEAD_RES:
         final = rx.sub(lambda m: '<p style="text-align:left;">' + m.group(1), final)
     return final
