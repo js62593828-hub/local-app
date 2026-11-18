@@ -1,3 +1,8 @@
+## 진행 중 (2026-11-18): GIF '안 넣음' · 본문 양끝 정렬/문단 나눔 · radar_rules v3.0
+- 1번(원고 넣기 미리보기)은 끝: radar_check 20편 위반 0, 새로 4편(1126_1·1126_3·1128_1·1128_2)·나머지 16편 이미 있음. 적용은 안 함
+- 지금: ② GIF 칸 [안 넣음] → ③ 본문 양끝 정렬(문장별 <br> 없애고 문단 단위, 150자 넘으면 문장 끝에서 나눔) → radar_rules v3.0 → reviewer
+- 이어서: git log 로 마지막 커밋 확인, grep -n "skip_slots" radar_screen.py 로 사진 안 넣음 구현을 본떠 GIF 용(skip_gifs) 추가
+
 ## 완료 (2026-11-18): ② 사진 자리 '안 넣음' · radar_rules v2.9 · 원고 폴더 백업 이동
 - 백업: pipeline/radar_drafts/2026-11-23/1128_1_A_크리스마스-무드등.backup_before_price_cell_20261118.md → pipeline/radar_drafts/_backup/2026-11-23/ (지우지 않음). 원고 폴더 20개 모두 이름 규칙에 맞고, 같은 MMDD_순번 중복 없음
 - 앱: ② 사진 칸마다 [안 넣음]/[다시 넣기](/radar/desk/skip, radar_screen.set_slot_skip). '안 넣음' 목록은 사진 폴더 photos.json 의 skip_slots 에만 저장(원고·대기열·articles 안 바뀜). 빼면 ③ 최종본과 naver_upload 에서 📷 줄·사진이 빠지고 번호는 이어짐. 표 자리를 빼면 ③ 노란 안내, ③ 에 '본문 사진 n장'. 사진을 하나도 안 골라도 ③ 까지 감(막는 문구 없음). 제품 사진을 빼도 ###·별점 띠·상품카드는 그대로
