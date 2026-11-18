@@ -1,6 +1,6 @@
-## 진행 중 (2026-11-18) — 별점 띠 자동 삽입 (N데스크피커)
-- 단계: radar_rules.md v2.6 교체 완료, 이제 별점 띠 그림·편집기·③·네이버 복사 연결 코드 작성
-- 다음 명령: 시험 그림 5장(preview/radar_badge_20261118/) → 시험 3편 편집기 캡처 → reviewer 검수
+## 완료 (2026-11-18) — N데스크피커 별점 띠 자동 삽입 (원고지침 v2.6)
+- 바뀐 것: radar_images.py(별점 띠 그림), radar_screen.py(값 읽기·③ 최종본·업로드 폴더·경고 표시), app.py(② 열 때 띠 만들기·③ 경고 전달), templates/article_edit.html(② 별점 띠 칸)·final_view.html(노란 경고), tools/radar_rules.md(v2.6)
+- 앱을 껐다 켜야 반영. 시험 그림 preview/radar_badge_20261118/, 시험 3편 캡처 pipeline/drafts_test_1123/ (실제 데이터·대기열은 안 건드림)
 
 ## 다음 작업자가 바로 이어갈 것 (11/17 마무리)
 - 오늘 끝난 것: 원고지침 v2.4·v2.5 반영, 시험 3편 다시 쓰기, radar_check 표 칸 검사(k·l) 추가, 대안 후보(alt_candidates)·브랜드 묶음 표 추가
