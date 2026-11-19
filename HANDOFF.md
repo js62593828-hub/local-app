@@ -2,6 +2,10 @@
 - 확인 필요로 남긴 파일: 없음
 - 다음 작업은 집 PC
 
+## 완료 (2026-11-19): N살림노트(naver_tips) 본문 사진 3장 → 4장
+- app.py: NAVER_TIPS_BODY_IMAGE_COUNT=4 + _info_body_image_count(채널) 추가, gen_images 정보 채널 장수 줄만 교체. INFO_BODY_IMAGE_COUNT=3 그대로(wp_tips 3장), longterm_wp·radar_naver 안 건드림. 채널 판단은 화면 채널(get_active_channel_id) — 글·대기열 데이터가 채널별 파일이라 글 자체에 채널 값이 없음.
+- 장수 계산 시험만 했고 사진 생성·앱 데이터 안 건드림. 커밋 cd1cd4c.
+
 ## 완료 (2026-11-19): 싼세계 원고지침 v1.5 + wp_import 제목 중복 막기
 - tools/wp_rules.md=v1.5(md5 f9f5eeff…)·docs 사본 추가 / wp_import: 한 번 실행에 같은 제목 원고 2편 이상이면 모두 '문제 — 제목 중복'으로 건너뛰고 예약표에서도 뺌(시험 _test/dup_title_check.md)
 - CLAUDE.md: '대시보드를 거친다' 뜻의 싼세계 문장이 없어 고친 곳 없음. 실제 앱 데이터·발행 안 건드림.
