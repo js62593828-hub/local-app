@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""발행 칸 21개: 그 주 월~일, 하루 3칸(아침 07:39~07:51 / 점심 12:20~12:41 / 저녁 17:41~17:55, 끝 분 포함).
+"""발행 칸: 그 주 월~일. --mode review(기본, 애드센스 승인 전) 하루 2칸=14칸(오전 08:21~08:41 / 오후 16:41~17:14),
+--mode full(승인 후) 하루 3칸=21칸(아침 07:39~07:51 / 점심 12:20~12:41 / 저녁 17:41~17:55). 끝 분 포함.
 칸마다 분을 랜덤으로 고르되 같은 주에 같은 '시:분'이 두 번 나오지 않게 한다. 시드는 주차 문자열(다시 돌려도 같은 결과), --reroll 이면 새로.
 이미 그 주에 예약된 혜택주머니 글(articles.json 의 발행일·예약시각, 워드프레스 예약글)이 있으면 그 칸은 '사용 중'으로 표시한다.
 결과: 주간기획/혜택_날짜/05_발행칸.json  (읽기만 하고 앱 데이터는 쓰지 않는다)"""
@@ -10,22 +11,28 @@ from datetime import date, datetime, timedelta
 
 import lt_common as C
 
-BANDS = [("am", "아침", 7, 39, 51), ("noon", "점심", 12, 20, 41), ("pm", "저녁", 17, 41, 55)]
+# (key, 이름, 시작 시, 시작 분, 끝 시, 끝 분)
+BANDS_FULL = [("am", "아침", 7, 39, 7, 51), ("noon", "점심", 12, 20, 12, 41), ("pm", "저녁", 17, 41, 17, 55)]
+BANDS_REVIEW = [("am", "오전", 8, 21, 8, 41), ("pm", "오후", 16, 41, 17, 14)]
+MODES = {"review": (BANDS_REVIEW, "승인 전 14칸"), "full": (BANDS_FULL, "승인 후 21칸")}
 DAYS_KO = "월화수목금토일"
 
 
-def make_slots(week: str, reroll: bool = False) -> list[dict]:
+def make_slots(week: str, reroll: bool = False, mode: str = "review") -> list[dict]:
     rng = random.Random(None if reroll else week)
     monday = date.fromisoformat(week)
+    bands = MODES[mode][0]
     slots, taken = [], set()
     for d in range(7):
         day = monday + timedelta(days=d)
-        for key, label, hh, m0, m1 in BANDS:
-            pool = [m for m in range(m0, m1 + 1) if (hh, m) not in taken]
-            m = rng.choice(pool)
-            taken.add((hh, m))
+        for key, label, h0, m0, h1, m1 in bands:
+            lo, hi = h0 * 60 + m0, h1 * 60 + m1  # 시가 바뀌어도 되게 '하루 중 분'으로 뽑는다
+            pool = [t for t in range(lo, hi + 1) if t not in taken]
+            t = rng.choice(pool)
+            taken.add(t)
             slots.append({"slot_id": f"{day:%m%d}-{key}", "date": day.isoformat(), "weekday": DAYS_KO[d],
-                          "time": f"{hh:02d}:{m:02d}", "label": label, "used_by": None})
+                          "time": f"{t // 60:02d}:{t % 60:02d}", "label": label, "used_by": None,
+                          "start": f"{h0:02d}:{m0:02d}", "end": f"{h1:02d}:{m1:02d}"})
     return slots
 
 
@@ -63,22 +70,24 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--week", required=True, help="월요일 YYYY-MM-DD")
     ap.add_argument("--reroll", action="store_true", help="시드를 새로 잡아 다른 분으로 다시 뽑는다")
+    ap.add_argument("--mode", choices=list(MODES), default="review", help="review=승인 전 14칸(기본), full=승인 후 21칸")
     ap.add_argument("--no-wp", action="store_true", help="워드프레스 예약글 조회를 건너뛴다")
     a = ap.parse_args()
     week = C.check_week(a.week)
     app = C.load_app()
-    slots = make_slots(week, a.reroll)
+    slots = make_slots(week, a.reroll, a.mode)
     used = used_times(app, week)
     note = ""
+    print(f"모드: {MODES[a.mode][1]}")
     if not a.no_wp:
         wpf, why = wp_future(app)
         used.update({k: v for k, v in wpf.items() if k not in used})
         note = f"워드프레스 예약글 {len(wpf)}개 확인" if not why else f"워드프레스 예약글은 못 읽음({why})"
-    # 이미 잡힌 시각이 칸의 시각대(시)와 같으면 그 칸을 '사용 중'으로 본다(시각 정확히 같지 않아도 같은 날 같은 시간대).
+    # 이미 잡힌 예약이 칸의 시작~끝 시각 안에 들면 그 칸을 '사용 중'으로 본다.
     for s in slots:
         for k, v in used.items():
             kd, kt = k.split(" ")
-            if kd == s["date"] and kt[:2] == s["time"][:2]:
+            if kd == s["date"] and s["start"] <= kt[:5] <= s["end"]:
                 s["used_by"] = f"{v} ({kt})"
                 break
     path = os.path.join(C.week_dir(week), "05_발행칸.json")

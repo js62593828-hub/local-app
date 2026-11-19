@@ -1,3 +1,6 @@
+## 완료 (2026-11-19): 발행 칸 승인 전 14칸
+- tools/lt_schedule_slots.py --mode review(기본, 오전 08:21~08:41·오후 16:41~17:14 = 14칸) / --mode full(승인 후 21칸). 사용 중 판정은 칸 시작~끝 시각 안의 예약. SKILL 파일(.claude)은 docs 판과 같게 맞춤. lt_auto_input 은 plan.json 의 slot(YYYY-MM-DDTHH:MM)만 읽어 칸 수와 무관.
+
 ## 완료 (2026-11-19): 자동 프로젝트 1차 — 혜택주머니 도구 6개 + 최종본 화면 수정
 - 스킬: .claude/skills/hyetaek-weekly/SKILL.md (docs/혜택주머니/ 는 .gitignore 라 git 에 안 올라감 — 드라이브로만 동기화)
 - 도구(tools/): lt_perf_report.py(서치콘솔 새로 받기+01_실적분석.md) / lt_export_plan.py / lt_keyword_volume.py / lt_google_check.py(+.mjs, ego lite 실행기 — node 로 직접 못 돌려서 py 가 부름) / lt_schedule_slots.py(21칸, 시드=주차) / lt_auto_input.py(미리보기 기본, --apply 로 넣기, --only·--skip-images) / lt_common.py(공통)

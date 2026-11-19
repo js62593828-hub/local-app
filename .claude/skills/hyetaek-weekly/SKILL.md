@@ -43,7 +43,7 @@ python tools/lt_google_check.py --in 작업폴더/04_구글목록.txt --out 작�
 - 판정은 기획지침 6장. 관련 검색어에서 더 좁은 표현이 나오면 3·4단계를 그 표현으로 한 번 더.
 
 ## 5. 기획표 (1-C) — 여기서 멈춘다
-1. 발행 칸 만들기: `python tools/lt_schedule_slots.py --week YYYY-MM-DD` → 21칸(랜덤 시각) `작업폴더/05_발행칸.json`.
+1. 발행 칸 만들기: `python tools/lt_schedule_slots.py --week YYYY-MM-DD` → 승인 전 14칸(오전 08:21~08:41·오후 16:41~17:14 랜덤), 애드센스 승인 후에는 `--mode full`로 21칸 `작업폴더/05_발행칸.json`.
 2. 기획지침 8장 순서대로 `작업폴더/05_기획표.md`를 쓰고, 화면에도 보여 준다.
 3. **멈추고 사용자에게 [확인] 틀을 보여 준다. 답을 받기 전에는 6단계로 가지 않는다.**
 4. [확인]을 받으면 고칠 것을 반영해 `작업폴더/06_확정.json`(형식은 tools/lt_auto_input.py 설명)을 만든다.
