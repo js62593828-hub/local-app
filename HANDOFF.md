@@ -1,3 +1,8 @@
+## 진행 중: 싼세계 원고지침 v1.4 + wp_import 예약 시각 (2026-11-19, 지시문 v14_예약시각)
+- 단계: 1 지침 교체 → 2 wp_check 보강 → 3 wp_import 예약 시각(먼저 앱 칸 쓰임 확인) → 4 커밋
+- 지금: 1번 시작. 실제 앱 데이터 md5 기록(queue ba2038d5..., articles 9cfadb9a...)
+- 다음: 지시문 파일 pipeline/wp_setup_run/20261119/지시문_20261119_v14_예약시각.md 순서대로
+
 ## 완료 (2026-11-19): 싼세계 원고 흐름 도구
 - 만든 것: tools/wp_rules.md(v1.3, 원본과 cmp 같음, docs 사본) · .claude/agents/wp-writer.md(model: claude-opus-5-5, 실제 Opus 5.5 로 돎 확인) · tools/wp_check.py + wp_banned.json · tools/wp_import.py(--week, --apply, 미리보기 기본). 시험 결과: pipeline/wp_inbox/_test/README_시험결과.md
 - 다음: 실제 11/23 원고는 받은편지함 research 가 있어야 시작. 예약 시각은 안 넣음(앱 platform_published_at+platform_scheduled_time 칸이 있어 가능하나 이번엔 보고만). --update(고친 원고 다시 넣기) 미구현.
