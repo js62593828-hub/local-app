@@ -1,3 +1,11 @@
+## 완료 (2026-11-19): 자동 프로젝트 1차 — 혜택주머니 도구 6개 + 최종본 화면 수정
+- 스킬: .claude/skills/hyetaek-weekly/SKILL.md (docs/혜택주머니/ 는 .gitignore 라 git 에 안 올라감 — 드라이브로만 동기화)
+- 도구(tools/): lt_perf_report.py(서치콘솔 새로 받기+01_실적분석.md) / lt_export_plan.py / lt_keyword_volume.py / lt_google_check.py(+.mjs, ego lite 실행기 — node 로 직접 못 돌려서 py 가 부름) / lt_schedule_slots.py(21칸, 시드=주차) / lt_auto_input.py(미리보기 기본, --apply 로 넣기, --only·--skip-images) / lt_common.py(공통)
+- 앱 수정: view_final 에 _lt_plan_view, templates/final_view.html 혜택주머니 발행 칸(API·브라우저)에 lt_plan 이 있으면 예약 발행 기본·시각·카테고리·태그 미리 채움, 시각 지났으면 빨간 경고+버튼 잠금. lt_plan 없는 글·싼세계 화면은 공백만 다르고 같음
+- 시험: 복사본 데이터(임시 폴더)+이미지 가짜 모드로 글 2편(직접추가·승인) 키워드→붙여넣기→메타→이미지→최종본→예약저장 성공. 실제 content_queue/articles SHA 시험 전후 같음. 구글 경쟁 2개(청년미래적금 3차 모집·근로장려금 신청기간) 성공
+- 주의: 실제 --apply 하면 longterm_cover_accent.json 에 묶음별 표지 색이 새로 기록됨(앱 원래 동작). 구글 경쟁은 로그인 없이 읽기만, 막히면 그 자리에서 저장 후 멈춤
+- 다음: 11/23 주 혜택주간(/hyetaek-weekly) 시작 가능
+
 ## 완료 (2026-11-19): N데스크피커 카테고리 이름 적용 + 11/30 주 대기열 넣기
 - 적용: 11/23 plan.json 갈래 21개(AD500S=충전·멀티탭), 대기열 plan.갈래 16개(AD500S 는 옛 '충전·전원' 그대로 — 글 없음), radar_import --update --apply 16편(바뀐 칸: 메모 카테고리 줄·platform_generated_at, 최종본은 JBL FLIP7 1편만 비워짐), images.json 6개. 사진 선택·안 넣음·표지·GIF 기록(photos.json)은 안 건드림. 이미 만든 표지(cover.jpg)엔 옛 갈래 글자가 박혀 있으니 [표지 다시 만들기] 필요
 - 코드: filter.json theme_order 에서 방꾸미기를 책상 정리 앞으로 + keyword_pipeline.theme_of 가 꺼 둔 갈래에 걸리면 '갈래 미정'(수납장이 책상 정리로 새지 않음). 이어폰·헤드폰 거치대는 원래도 이어폰·스피커. 커밋 c06e525

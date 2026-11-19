@@ -6869,6 +6869,22 @@ def save_metadata(article_id, platform):
     return redirect(request.referrer or url_for("view_final", article_id=article_id, platform=platform))
 
 
+def _lt_plan_view(article: dict) -> dict | None:
+    """article["lt_plan"] = {"scheduled_at": "YYYY-MM-DDTHH:MM", "category", "tag"} (tools/lt_auto_input.py 가 저장)를 화면용으로 풀어 줍니다.
+    없거나 시각 모양이 틀리면 None. past=True 면 예약 시각이 지금보다 이전."""
+    plan = article.get("lt_plan")
+    if not isinstance(plan, dict):
+        return None
+    try:
+        dt = datetime.strptime(str(plan.get("scheduled_at") or "")[:16], "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+    category = str(plan.get("category") or "").strip()
+    tag = str(plan.get("tag") or "").strip()
+    label = f"{dt.month}월 {dt.day}일({'월화수목금토일'[dt.weekday()]}) {dt:%H:%M}" + (f" · {category}" if category else "")
+    return {"scheduled_at": dt.strftime("%Y-%m-%dT%H:%M"), "category": category, "tag": tag, "label": label, "past": dt < datetime.now()}
+
+
 @app.route("/article/<article_id>/final/<platform>")
 def view_final(article_id, platform):
     queue = load_queue()
@@ -6998,10 +7014,14 @@ def view_final(article_id, platform):
         radar_banner_missing = radar_screen.banner_missing_from(content)
         radar_badge_missing = radar_screen.badge_missing_from(content)
 
+    # 혜택주머니(longterm_wp) 자동 입력 글: 발행 칸(API·브라우저)에 예약 시각·카테고리·태그를 미리 채웁니다. lt_plan 이 없으면 None(화면 그대로).
+    lt_plan_view = _lt_plan_view(article) if (platform == "wordpress" and active_channel == "longterm_wp") else None
+
     return render_template(
         "final_view.html",
         idx=article_id,
         platform=platform,
+        lt_plan_view=lt_plan_view,
         radar_meta=radar_meta,
         radar_screen_content=radar_screen_content,
         radar_banner_missing=radar_banner_missing,
