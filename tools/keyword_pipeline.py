@@ -64,7 +64,10 @@ def load_rk():
     d = json.loads((TOOLS / "filter.json").read_text(encoding="utf-8-sig"))
     if "radar_kw" not in d:
         raise SystemExit("tools/filter.json 에 radar_kw 묶음이 없습니다.")
-    return d["radar_kw"]
+    rk = d["radar_kw"]
+    off = set(rk.get("theme_off") or [])          # 꺼 둔 갈래(예: 방꾸미기)는 뽑지 않는다
+    rk["theme_order"] = [t for t in rk["theme_order"] if t not in off]
+    return rk
 
 
 def status(state, stage=None, reason=None, **extra):
@@ -1126,6 +1129,17 @@ def build_outputs(rows, approved, held, short, perf, perf_note, seeds_info, drop
     if th_short:
         L.append("# ⚠ " + " · ".join(f"갈래 부족: {th} {n}편" for th, n in th_short.items()))
         L.append(f"(갈래마다 최소 {RK.get('theme_min', 2)}편 기준 — 위 갈래는 그만큼 못 채움. 숫자는 모자란 편수)")
+        L.append("")
+    cat_warn = []                                      # 큰 카테고리 비중(강제하지 않고 경고만)
+    for cat, ths in (RK.get("category_groups") or {}).items():
+        lo_hi = (RK.get("category_range") or {}).get(cat)
+        if not lo_hi or all(t in (RK.get("theme_off") or []) for t in ths):
+            continue
+        n = sum(th_cnt.get(t, 0) for t in ths)
+        if n < lo_hi[0] or n > lo_hi[1]:
+            cat_warn.append(f"{cat} {n}편(목표 {lo_hi[0]}~{lo_hi[1]}편)")
+    if cat_warn:
+        L.append("# ⚠ 큰 카테고리 비중 범위 밖: " + " · ".join(cat_warn))
         L.append("")
     if shortage:
         miss = ([f"틀 A {short['A']}편"] if short["A"] else []) + ([f"틀 B {short['B']}편"] if short["B"] else [])
