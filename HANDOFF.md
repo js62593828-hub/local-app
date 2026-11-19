@@ -1,7 +1,6 @@
-## 진행 중: 싼세계 원고지침 v1.4 + wp_import 예약 시각 (2026-11-19, 지시문 v14_예약시각)
-- 단계: 1 지침 교체 → 2 wp_check 보강 → 3 wp_import 예약 시각(먼저 앱 칸 쓰임 확인) → 4 커밋
-- 지금: 1번 시작. 실제 앱 데이터 md5 기록(queue ba2038d5..., articles 9cfadb9a...)
-- 다음: 지시문 파일 pipeline/wp_setup_run/20261119/지시문_20261119_v14_예약시각.md 순서대로
+## 완료 (2026-11-19): 싼세계 원고지침 v1.4 + wp_import 예약 시각
+- 1 tools/wp_rules.md=v1.4(md5 dd4ee39f…) · docs 사본 추가 / 2 wp_check: 기준일 줄 형식·틀별 문구·C의 '후기에서/불만'·자료 부족 문장 금지(결과 _test/check_result_v14.md) / 3 wp_import: 예약 날짜·시각 열, --reroll, 기존 시각 유지. 시험은 _test/drafts_v14 + appdata_v14(복사본)
+- 알아둘 것: 칸(발행일·예약시각)만 채워서는 발행 안 됨(스케줄러 없음, 워드프레스로는 최종본 화면 버튼). 단 날짜가 미래면 앱 목록엔 '예약됨'으로 보임. 싼세계 최종본 화면 시각 입력칸은 자동으로 안 채워짐(혜택주머니 lt_plan 만 채움).
 
 ## 완료 (2026-11-19): 싼세계 원고 흐름 도구
 - 만든 것: tools/wp_rules.md(v1.3, 원본과 cmp 같음, docs 사본) · .claude/agents/wp-writer.md(model: claude-opus-5-5, 실제 Opus 5.5 로 돎 확인) · tools/wp_check.py + wp_banned.json · tools/wp_import.py(--week, --apply, 미리보기 기본). 시험 결과: pipeline/wp_inbox/_test/README_시험결과.md
