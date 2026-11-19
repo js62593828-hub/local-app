@@ -450,8 +450,8 @@ def pick_alt(main_cat: str, pool: list[dict], cat_of) -> list[dict]:
     return out
 
 
-def recommend(items: list[dict]) -> tuple[list[dict], bool]:
-    """평점 4.5↑ → 리뷰 많은 순 → 같은 브랜드(또는 같은 스토어) 1개만 → 상위 3개. 모자라면 4.3까지 낮춤."""
+def recommend(items: list[dict], n: int = PICK) -> tuple[list[dict], bool]:
+    """평점 4.5↑ → 리뷰 많은 순 → 같은 브랜드(또는 같은 스토어) 1개만 → 상위 n개(기본 3). 모자라면 4.3까지 낮춤."""
     def pick(th: float) -> list[dict]:
         pool = [x for x in items if x["rating"] is not None and x["rating"] >= th]
         pool.sort(key=lambda x: (x["reviews"] or 0), reverse=True)
@@ -466,13 +466,13 @@ def recommend(items: list[dict]) -> tuple[list[dict], bool]:
             if b is not None:
                 brands.add(b)
             stores.add(s)
-            if len(out) == PICK:
+            if len(out) == n:
                 break
         return out
 
     rec = pick(RATING_MIN)
     relaxed = False
-    if len(rec) < PICK:
+    if len(rec) < n:
         rec2 = pick(RATING_RELAXED)
         if len(rec2) > len(rec):
             rec, relaxed = rec2, True
@@ -660,7 +660,7 @@ def write_summary(run: Path, data: dict) -> None:
         L += [f"## 검색어: {k['keyword']}", "",
               f"- 전체 검색 결과 {k.get('total') or '?'}개 중 상위 {len(k['items'])}개를 모음"
               + (" · **기준 낮춤(평점 4.3 이상)**" if k["relaxed"] else ""), "",
-              "### 추천 3개", ""]
+              f"### 추천 {k.get('pick', PICK)}개" if k.get("pick", PICK) != PICK else "### 추천 3개", ""]
         if not k["recommended"]:
             L.append("- 조건에 맞는 제품이 없습니다.")
         for r in k["recommended"]:
@@ -708,15 +708,35 @@ def main() -> int:
 def _main() -> int:
     ap = argparse.ArgumentParser(description="제품 후보 수집·추천 (읽기 전용)")
     ap.add_argument("--channel", required=True, choices=CHANNELS)
-    g = ap.add_mutually_exclusive_group(required=True)
+    g = ap.add_mutually_exclusive_group(required=False)
     g.add_argument("--keywords", help='쉼표로 구분: "키워드1,키워드2"')
     g.add_argument("--from-queue", action="store_true", help="그 채널 대기열의 '찾을 제품 조건'을 읽기만 해서 검색어로 씀")
     ap.add_argument("--alt-keywords", help='틀 B 검색어(쉼표 구분). 이 검색어에만 대안 후보를 뽑음. 안 쓰면 radar_naver 에서 모델명이 든 검색어에만 뽑음')
     ap.add_argument("--no-alt", action="store_true", help="대안 후보를 뽑지 않음")
+    ap.add_argument("--pick", type=int, default=PICK, help="검색어마다 고를 개수(기본 3)")
+    ap.add_argument("--sheet", help="검색어 시트(TSV). '검색어'·'고를 수' 열을 읽음. 같은 검색어가 여러 줄이면 고를 수가 큰 쪽. --keywords·--from-queue 와 같이 쓰지 않음")
+    ap.add_argument("--extra", type=int, default=0, help="추천 말고 '다음 후보'를 몇 개 더 뽑을지(기본 0=안 뽑음)")
     a = ap.parse_args()
 
+    if bool(a.sheet) + bool(a.keywords) + bool(a.from_queue) != 1:
+        ap.error("--keywords, --from-queue, --sheet 중 하나만 쓰세요")
     skipped: list[dict] = []
-    if a.keywords:
+    picks: dict[str, int] = {}
+    if a.sheet:
+        rows = [ln.split("	") for ln in Path(a.sheet).read_text(encoding="utf-8-sig").splitlines() if ln.strip()]
+        head = rows[0]
+        if "검색어" not in head or "고를 수" not in head:
+            ap.error("시트 첫 줄에 '검색어'·'고를 수' 열이 있어야 합니다")
+        ci, cn = head.index("검색어"), head.index("고를 수")
+        kws = []
+        for r in rows[1:]:
+            kw = " ".join(r[ci].split())
+            if not kw:
+                continue
+            if kw not in kws:
+                kws.append(kw)
+            picks[kw] = max(picks.get(kw, 0), int(r[cn]))
+    elif a.keywords:
         kws = [k.strip() for k in a.keywords.split(",") if k.strip()]
     else:
         kws, skipped = keywords_from_queue(a.channel)
@@ -749,7 +769,7 @@ def _main() -> int:
 
     data = {"channel": a.channel, "channel_label": CHANNEL_LABEL[a.channel],
             "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "source": "keywords" if a.keywords else "queue",
+            "source": "sheet" if a.sheet else ("keywords" if a.keywords else "queue"),
             "criteria": {"top_n": TOP_N, "rating_min": RATING_MIN, "rating_relaxed": RATING_RELAXED, "pick": PICK},
             "keywords": [], "skipped_no_query": skipped}
     if a.alt_keywords:
@@ -760,10 +780,18 @@ def _main() -> int:
         alt_kws = set()
     for ki, r in enumerate(raw["res"], 1):
         items = [parse_naver_item(x, i, r["kw"]) for i, x in enumerate(r["items"][:TOP_N], 1)]
-        rec, relaxed = recommend(items)
-        for x in rec:  # 대표 이미지: 추천 3개만
+        n = picks.get(r["kw"], a.pick)
+        rec, relaxed = recommend(items, n)
+        for x in rec:  # 대표 이미지: 추천 개수만큼
             x["image"] = download_image(x["image_url"], run / "img" / f"k{ki}_r{x['rank']}.jpg")
         entry = {"keyword": r["kw"], "total": r["total"], "items": items, "recommended": rec, "relaxed": relaxed}
+        if a.extra > 0:  # 다음 후보: 추천 다음 순서로 extra 개(추천 결과는 바뀌지 않음)
+            have = {x["url"] for x in rec}
+            nxt = [x for x in recommend(items, n + a.extra)[0] if x["url"] not in have][:a.extra]
+            for x in nxt:
+                x["image"] = download_image(x["image_url"], run / "img" / f"k{ki}_r{x['rank']}.jpg")
+            entry["pick"] = n
+            entry["next_candidates"] = nxt
         if not a.no_alt and r["kw"] in alt_kws:
             entry.update(build_alt(r["kw"], items, rec, run / "raw_category_parts"))
         data["keywords"].append(entry)
