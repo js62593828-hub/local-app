@@ -24,6 +24,35 @@ def apply_edits(plan, edits):
     out = copy.deepcopy(plan)
     plans = out["plans"]
     log, warn = [], []
+    for a in edits.get("add_from_plan", []):
+        try:
+            src = json.load(open(a["source_plan"], encoding="utf-8"))
+        except Exception as e:
+            warn.append(f"다른 계획 파일을 못 읽음: {a.get('source_plan')} ({e})")
+            continue
+        hit = find(src.get("plans", []), a["platform"], a["keyword"])
+        if len(hit) != 1:
+            warn.append(f"가져올 글 못 찾음(찾은 수 {len(hit)}): {a['platform']} {a['keyword']} ← {a['source_plan']}")
+            continue
+        if find(plans, a["platform"], a["keyword"]):
+            warn.append(f"이미 계획에 있어 안 가져옴: {a['platform']} {a['keyword']}")
+            continue
+        p = copy.deepcopy(hit[0])
+        if a.get("publish_date"):
+            p["role"] = "scheduled"
+            p["publish_date"] = a["publish_date"]
+            p["weekday"] = WD[datetime.strptime(a["publish_date"], "%Y-%m-%d").weekday()]
+            log.append(f"가져옴(일정): {a['platform']} {a['keyword']} {a['publish_date']} ← {a['source_plan']}")
+        elif a.get("role") == "reserve":
+            p["role"] = "reserve"
+            p["publish_date"] = None
+            p["weekday"] = None
+            log.append(f"가져옴(예비): {a['platform']} {a['keyword']} ← {a['source_plan']}")
+        else:
+            warn.append(f"가져오기에 publish_date 도 role:reserve 도 없음: {a['platform']} {a['keyword']}")
+            continue
+        plans.append(p)
+    # 적용 순서: add_from_plan → moves → remove → add_from_reserve → to_reserve → titles → outlines → product_need
     for m in edits.get("moves", []):
         hit = find(plans, m["platform"], m["keyword"], "scheduled")
         if len(hit) != 1:
@@ -52,6 +81,51 @@ def apply_edits(plan, edits):
         p["publish_date"] = a["publish_date"]
         p["weekday"] = WD[datetime.strptime(a["publish_date"], "%Y-%m-%d").weekday()]
         log.append(f"예비 → 일정: {a['platform']} {a['keyword']} {a['publish_date']}")
+    for r in edits.get("to_reserve", []):
+        hit = find(plans, r["platform"], r["keyword"], "scheduled")
+        if len(hit) != 1:
+            warn.append(f"예비로 못 돌림(찾은 수 {len(hit)}): {r['platform']} {r['keyword']}")
+            continue
+        p = hit[0]
+        old = p["publish_date"]
+        p["role"] = "reserve"
+        p["publish_date"] = None
+        p["weekday"] = None
+        log.append(f"일정 → 예비: {r['platform']} {r['keyword']} (원래 {old})")
+    for t in edits.get("titles", []):
+        hit = find(plans, t["platform"], t["keyword"])
+        if len(hit) != 1:
+            warn.append(f"제목 바꿀 글 못 찾음(찾은 수 {len(hit)}): {t['platform']} {t['keyword']}")
+            continue
+        p = hit[0]
+        old = p.get("final_title")
+        new = t["final_title"]
+        alts = p.get("alt_titles")
+        swapped = False
+        if isinstance(alts, list):
+            for i, x in enumerate(alts):
+                if x == new or nk(x) == nk(new):
+                    alts[i] = old
+                    swapped = True
+                    break
+        p["final_title"] = new
+        log.append(f"제목 교체: {t['platform']} {t['keyword']} → {new}" + (" (원래 제목을 대안 제목 자리로)" if swapped else ""))
+    for o in edits.get("outlines", []):
+        hit = find(plans, o["platform"], o["keyword"])
+        if len(hit) != 1:
+            warn.append(f"본문 설계 바꿀 글 못 찾음(찾은 수 {len(hit)}): {o['platform']} {o['keyword']}")
+            continue
+        hit[0]["outline"] = copy.deepcopy(o["outline"])
+        log.append(f"본문 설계 교체: {o['platform']} {o['keyword']} ({len(o['outline'])}단락)")
+    for n in edits.get("product_need", []):
+        hit = find(plans, n["platform"], n["keyword"])
+        if len(hit) != 1:
+            warn.append(f"제품 필요 바꿀 글 못 찾음(찾은 수 {len(hit)}): {n['platform']} {n['keyword']}")
+            continue
+        old = hit[0].get("product_need") or {}
+        hit[0]["product_need"] = {"need": bool(n["need"]), "count": n["count"], "condition": n["condition"],
+                                  "link_kind": "네이버쇼핑" if n["need"] else "필요 없음"}
+        log.append(f"제품 필요 교체: {n['platform']} {n['keyword']} need={n['need']} count={n['count']}")
     for i in edits.get("ignore", []):
         if not find(plans, i["platform"], i["keyword"]):
             log.append(f"무시(원래 없음): {i['platform']} {i['keyword']}")
