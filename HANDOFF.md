@@ -1,3 +1,8 @@
+## 이어갈 것 (2026-11-19): 11/23 주 N살림노트 확정 완료, 앱 넣기는 사용자 "넣어" 대기
+- 손질 도구 tools/plan_edits.py 에 add_from_plan·titles·to_reserve·outlines·product_need 추가(커밋 5b47076, 11/16 손질 시험 출력 동일 확인). 적용 순서: add_from_plan → moves → remove → add_from_reserve → to_reserve → titles → outlines → product_need.
+- 확정 파일: pipeline/final/{edits,plan,categories}_20261123.json, products_20261123.txt. 일정 21편(날짜마다 3편)+예비 5편, 중복·빈칸 0, 경고 없음. 제품 링크 json 은 아직 없음(없이 dry-run 됨).
+- 다음: 사용자가 "넣어" 하면 python tools/push_plan.py --plan pipeline/final/plan_20261123.json --categories pipeline/final/categories_20261123.json --products pipeline/final/products_20261123.json --apply (넣기 전 content_queue_naver_tips.json 142편, 되돌리기 --undo).
+
 ## 완료 (2026-11-19): 주간 기획 11/23 주 3차 보충 N살림노트 (확정·앱 넣기 안 함)
 - 결과 폴더: pipeline/stage_w1123_run3 (2차 stage_w1123_run 은 안 건드림). 입력: pipeline/final/seeds_20261123_r3.txt, skip_20261123_r3.txt (2차분은 _try2 보관).
 - 19편 나옴(목표 21, 2편 부족), 예비 0편(5편 부족). 갈래당 4편 한도로 21개 빠짐. 후보 적은 씨앗: 냉동실 1개, 베란다 3개. 설계 다시 받은 글 7편.
