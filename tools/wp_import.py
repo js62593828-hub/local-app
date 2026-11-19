@@ -12,9 +12,11 @@
 같은 제목이 이미 대기열에 있고 글(원고)도 들어 있으면 건너뛴다('이미 있음'). 고친 원고 다시 넣기(--update)는 아직 없음.
 예약 시각(v1.4 11장): 틀별 기준 시각 C 07:40 · S 12:30 · D 18:40 에서 분 단위 ±10분(끝 분 포함)을 랜덤으로 고른다.
   날짜 = 원고 파일 이름 MMDD(주 월~일 안이어야 함), 시드 = 주차 문자열(다시 돌려도 같은 시각), --reroll 이면 새로.
-  같은 주 같은 '시:분' 금지, 이미 wp_tips 글에 잡힌 그 주 시각도 피한다. 이미 사람이 넣은 시각은 덮어쓰지 않는다('기존 시각 유지').
-  --apply 때 날짜는 앱의 /article/<id>/set-published-date/wordpress 라우트로, 시각(HH:MM)은 platform_scheduled_time 칸에 직접 저장한다.
-  이 칸만 채워서는 발행되지 않는다(워드프레스로 보내는 건 최종본 화면의 발행 버튼). 시각 뽑는 방식은 tools/lt_schedule_slots.py 를 고치지 않고 필요한 부분만 복제했다.
+  같은 주 같은 '시:분' 금지, 앱 wp_tips 글(읽기만)과 <원고폴더>/_예약표.md 에 이미 있는 그 주 시각도 피한다.
+  _예약표.md 에 이미 있는 글(제목 같음)은 시각을 그대로 유지한다(--reroll 이면 새로 뽑음).
+  예약 날짜·시각은 _예약표.md 를 보고 최종본 화면에서 사람이 입력한다. 앱 데이터에는 예약 관련 값을 아무것도 쓰지 않는다
+  (set-published-date 호출·platform_scheduled_time 저장 없음). 표는 미리보기에서도 출력하고 --apply 때 파일로 저장한다.
+  시각 뽑는 방식은 tools/lt_schedule_slots.py 를 고치지 않고 필요한 부분만 복제했다.
 앱 로직은 새로 짜지 않고 기존 라우트를 app.app.test_client() 로 부른다. 혜택주머니(lt_common·lt_plan)는 쓰지 않는다.
 키워드: 원고 옆 <원고이름>.facts.md 첫 줄 '키워드: …', 없으면 메타 '태그 제안' 의 첫 태그.
 
@@ -39,7 +41,7 @@ COST_COVER_WON = 20
 COST_BODY_WON = 15
 BODY_IMAGES = 3  # 앱 INFO_BODY_IMAGE_COUNT
 BASE_URL = "http://127.0.0.1:5000"
-STEPS = ["키워드", "붙여넣기", "메타", "이미지", "최종본", "예약"]
+STEPS = ["키워드", "붙여넣기", "메타", "이미지", "최종본"]
 BASE_TIMES = {"C": (7, 40), "S": (12, 30), "D": (18, 40)}  # 틀별 기준 시각(v1.4 11장)
 JITTER_MIN = 10  # ±10분, 끝 분 포함
 
@@ -75,6 +77,42 @@ def pick_times(items, week, taken, reroll=False):
         out[fn] = f"{t // 60:02d}:{t % 60:02d}"
         used.add(out[fn])
     return out
+SCHED_FILE = "_예약표.md"
+WEEKDAYS = "월화수목금토일"
+SCHED_HEAD = "| 날짜 | 요일 | 시각 | 틀 | 제목 | 대기열 id |"
+
+
+def read_sched_table(path):
+    """_예약표.md 의 데이터 줄 → [{date,time,frame,title,id}]. 파일이 없거나 못 읽으면 빈 목록."""
+    rows = []
+    try:
+        lines = open(path, encoding="utf-8").read().splitlines()
+    except OSError:
+        return rows
+    for ln in lines:
+        cells = [c.strip() for c in ln.strip().strip("|").split("|")]
+        if len(cells) >= 6 and re.fullmatch(r"\d{4}-\d{2}-\d{2}", cells[0]) and re.fullmatch(r"\d{2}:\d{2}", cells[2]):
+            rows.append({"date": cells[0], "time": cells[2], "frame": cells[3], "title": cells[4], "id": cells[5]})
+    return rows
+
+
+def render_sched_table(rows):
+    out = [SCHED_HEAD, "|---|---|---|---|---|---|"]
+    for r in sorted(rows, key=lambda x: (x["date"], x["time"])):
+        wd = WEEKDAYS[date.fromisoformat(r["date"]).weekday()]
+        out.append(f"| {r['date']} | {wd} | {r['time']} | {r['frame']} | {r['title'].replace('|', '/')} | {r['id'] or '-'} |")
+    return "\n".join(out)
+
+
+def write_sched_file(path, week, rows):
+    text = (f"# 싼세계 예약표 (주 {week})\n\n예약 날짜·시각은 이 표를 보고 최종본 화면에서 사람이 입력한다. 앱 데이터에는 저장하지 않는다.\n\n"
+            + render_sched_table(rows) + "\n")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
 LINK_LINE_RX = re.compile(r"^([ \t]*링크[ \t]*[:：][ \t]*)\[쿠팡링크:(\d+)\][ \t]*$", re.M)
 
 
@@ -178,7 +216,7 @@ def main():
     links = rj(os.path.abspath(a.links or os.path.join(ROOT, "pipeline", "wp_inbox", week, "links.json")), {})
     if not os.path.isdir(drafts):
         sys.exit(f"원고 폴더가 없어요: {drafts}")
-    files = sorted(f for f in os.listdir(drafts) if f.lower().endswith(".md") and not f.lower().endswith(".facts.md") and f != "_import_result.md")
+    files = sorted(f for f in os.listdir(drafts) if f.lower().endswith(".md") and not f.lower().endswith(".facts.md") and f not in ("_import_result.md", SCHED_FILE))
     if a.only:
         files = [f for f in files if a.only in f]
     conv_dir = os.path.join(drafts, "_converted")
@@ -236,24 +274,27 @@ def main():
         plan.append({"fn": fn, "frame": frame, "title": title, "category": category, "nlink": nlink, "keyword": keyword,
                      "body": body, "memo": memo, "errs": errs, "viol": viol, "existing": existing, "status": status})
 
-    # ── 예약 날짜·시각 배정 (v1.4 11장)
+    # ── 예약 날짜·시각 배정 (v1.4 11장) — 앱에는 쓰지 않고 _예약표.md 에만 남긴다
     week_days = {(date.fromisoformat(week) + timedelta(days=i)).isoformat() for i in range(7)}
+    sched_path = os.path.join(drafts, SCHED_FILE)
+    saved_rows = read_sched_table(sched_path)
+    saved_by_key = {(r["title"], r["frame"]): r for r in saved_rows}  # 같은 제목이어도 틀이 다르면 다른 글
     own_ids = {it["existing"]["id"] for it in plan if it["existing"]}
     taken = set()  # 'HH:MM' — 같은 주 안에서 같은 시:분 금지
-    for aid_, art_ in articles.items():
+    for aid_, art_ in articles.items():  # 앱 글에 이미 잡힌 시각(읽기만)
         if aid_ in own_ids or not isinstance(art_, dict):
             continue
         d_ = ((art_.get("platform_published_at") or {}).get("wordpress") or "")[:10]
         t_ = ((art_.get("platform_scheduled_time") or {}).get("wordpress") or "")[:5]
         if d_ in week_days and t_:
             taken.add(t_)
+    redo = {(it["title"], it["frame"]) for it in plan if a.reroll and it["status"] == "넣을 예정"}  # 새로 뽑을 글은 표의 옛 시각을 피하지 않음
+    for r in saved_rows:
+        if r["date"] in week_days and (r["title"], r["frame"]) not in redo:
+            taken.add(r["time"])
     todo_sched = []
     for it in plan:
         it["sched_date"], it["sched_time"], it["sched_note"] = "", "", ""
-        ex = it["existing"]
-        ex_art = (articles.get(ex["id"]) or {}) if ex else {}
-        ex_d = ((ex_art.get("platform_published_at") or {}).get("wordpress") or "")[:10]
-        ex_t = ((ex_art.get("platform_scheduled_time") or {}).get("wordpress") or "")[:5]
         dd = draft_date(it["fn"], week)
         if it["frame"] not in BASE_TIMES or dd is None:
             why = "틀(C|D|S)을 못 읽음" if it["frame"] not in BASE_TIMES else f"파일 이름 날짜가 {week} 주(월~일) 밖이거나 못 읽음"
@@ -261,32 +302,43 @@ def main():
             if it["status"] == "넣을 예정":
                 it["status"] = "문제 — 건너뜀"
             continue
+        row = saved_by_key.get((it["title"], it["frame"]))
+        if it["status"] != "넣을 예정":
+            if row:
+                it["sched_date"], it["sched_time"], it["sched_note"] = row["date"], row["time"], "표 시각 유지"
+            continue
         it["sched_date"] = dd.isoformat()
-        if ex_d or ex_t:
-            it["sched_date"], it["sched_time"], it["sched_note"] = ex_d or dd.isoformat(), ex_t, "기존 시각 유지"
-            if ex_t:
-                taken.add(ex_t)
-        elif it["status"] == "넣을 예정":
+        if row and not a.reroll:
+            it["sched_time"], it["sched_note"] = row["time"], "표 시각 유지"
+        else:
             todo_sched.append((it["fn"], it["frame"], dd))
     picked = pick_times(todo_sched, week, taken, a.reroll)
     for it in plan:
         if it["fn"] in picked:
             it["sched_time"] = picked[it["fn"]]
-        elif it["status"] == "넣을 예정" and not it["sched_note"]:
+        elif it["status"] == "넣을 예정" and not it["sched_time"]:
             it["errs"].append("예약 시각: 고를 수 있는 분이 모두 사용 중")
             it["status"] = "문제 — 건너뜀"
 
-    print("\n| 파일 | 제목 | 틀 | 카테고리 | 링크 수 | 검사 결과 | 예약 날짜 | 예약 시각 | 상태 |")
-    print("|---|---|---|---|---|---|---|---|---|")
+    def build_rows(ids=None):
+        ids = ids or {}
+        mine = [{"date": it["sched_date"], "time": it["sched_time"], "frame": it["frame"], "title": it["title"],
+                 "id": ids.get((it["title"], it["frame"])) or (it["existing"] or {}).get("id") or (saved_by_key.get((it["title"], it["frame"])) or {}).get("id") or "-"}
+                for it in plan if it["sched_time"] and it["sched_date"]]
+        have = {(r["title"], r["frame"]) for r in mine}
+        return mine + [r for r in saved_rows if (r["title"], r["frame"]) not in have]
+
+    print("\n| 파일 | 제목 | 틀 | 카테고리 | 링크 수 | 검사 결과 | 상태 |")
+    print("|---|---|---|---|---|---|---|")
     for it in plan:
         res = "통과(위반 0)" if it["viol"] == [] and not it["errs"] else ("; ".join(it["errs"]) or "-")
-        sd = it["sched_date"] or "-"
-        st = (it["sched_time"] or "-") + (f" ({it['sched_note']})" if it["sched_note"] else "")
-        print(f"| {it['fn']} | {it['title']} | {it['frame']} | {it['category']} | {it['nlink']} | {res} | {sd} | {st} | {it['status']} |")
+        print(f"| {it['fn']} | {it['title']} | {it['frame']} | {it['category']} | {it['nlink']} | {res} | {it['status']} |")
+    print(f"\n예약표 ({SCHED_FILE}) — 같은 시:분 금지·틀별 기준 ±{JITTER_MIN}분" + "".join(f"\n  · {it['fn']}: {it['sched_note']}" for it in plan if it["sched_note"]))
+    print(render_sched_table(build_rows()))
     todo = [it for it in plan if it["status"] == "넣을 예정"]
     cost = len(todo) * (COST_COVER_WON + BODY_IMAGES * COST_BODY_WON)
     print(f"\n넣을 글 {len(todo)}편 · 이미지 표지 {len(todo)}장 + 본문 {len(todo) * BODY_IMAGES}장 · 예상 비용 어림 {cost:,}원"
-          f"{' [가짜 이미지 모드: 비용 0]' if a.mock_images else ''} · 예약 날짜·시각은 --apply 때 칸에만 채움(워드프레스 발행은 최종본 화면 버튼)")
+          f"{' [가짜 이미지 모드: 비용 0]' if a.mock_images else ''} · 예약 날짜·시각은 _예약표.md 를 보고 최종본 화면에서 사람이 입력(앱에는 안 씀)")
     if not a.apply:
         print("\n(미리보기 끝 — 실제로 넣으려면 --apply)")
         return
@@ -303,7 +355,7 @@ def main():
     client.get(f"/switch-channel/{CHANNEL}")
     results = []
     for it in todo:
-        row = {"fn": it["fn"], "title": it["title"], "id": "", "sdate": "", "stime": "", "steps": {s: "-" for s in STEPS}, "note": "", "url": ""}
+        row = {"fn": it["fn"], "title": it["title"], "id": "", "steps": {s: "-" for s in STEPS}, "note": "", "url": ""}
         results.append(row)
 
         def fail(step, msg):
@@ -363,21 +415,10 @@ def main():
             continue
         row["steps"]["최종본"] = "성공"
         row["url"] = f"{BASE_URL}/article/{aid}/final/wordpress"
-        row["sdate"], row["stime"] = it["sched_date"], it["sched_time"]
-        r = client.post(f"/article/{aid}/set-published-date/wordpress", data={"published_date": it["sched_date"], "published_url": ""})
-        all_art = rj(apath, {})
-        art = all_art.get(aid) or {}
-        if (art.get("platform_published_at") or {}).get("wordpress") != it["sched_date"]:
-            fail("예약", f"예약 날짜가 저장되지 않음(응답 {r.status_code})")
-            continue
-        art.setdefault("platform_scheduled_time", {})["wordpress"] = it["sched_time"]
-        all_art[aid] = art
-        write_json_atomic(apath, all_art)
-        row["steps"]["예약"] = "성공"
 
-    lines = ["| 파일 | 대기열·글 id | " + " | ".join(STEPS) + " | 예약 날짜 | 예약 시각 | 최종본 주소 / 메모 |", "|" + "---|" * (len(STEPS) + 5)]
+    lines = ["| 파일 | 대기열·글 id | " + " | ".join(STEPS) + " | 최종본 주소 / 메모 |", "|" + "---|" * (len(STEPS) + 3)]
     for r in results:
-        lines.append(f"| {r['fn']} | {r['id']} | " + " | ".join(r["steps"][s] for s in STEPS) + f" | {r['sdate'] or '-'} | {r['stime'] or '-'} | {r['note'] or r['url']} |")
+        lines.append(f"| {r['fn']} | {r['id']} | " + " | ".join(r["steps"][s] for s in STEPS) + f" | {r['note'] or r['url']} |")
     after_q = {q["id"]: q for q in rj(qpath, [])}
     after_a = rj(apath, {})
     cmp_lines = ["| 구분 | 백업(전) | 적용 후 |", "|---|---|---|",
@@ -388,6 +429,9 @@ def main():
     print("\n" + "\n".join(lines) + "\n\n" + "\n".join(cmp_lines))
     ok = sum(1 for r in results if r["steps"]["최종본"] == "성공")
     print(f"\n성공 {ok}편 / 전체 {len(results)}편")
+    ids = {(it["title"], it["frame"]): r["id"] for it, r in zip(todo, results) if r["id"]}
+    write_sched_file(sched_path, week, build_rows(ids))
+    print("저장:", sched_path)
     out = os.path.join(drafts, "_import_result.md")
     with open(out, "w", encoding="utf-8") as f:
         f.write(f"# wp_import 결과 ({datetime.now():%Y-%m-%d %H:%M})\n\n" + "\n".join(lines) + "\n\n" + "\n".join(cmp_lines) + "\n")
