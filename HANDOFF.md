@@ -1,3 +1,8 @@
+## 완료 (2026-11-19): N데스크피커 카테고리 이름 바꾸기 — 미리보기까지만(적용 안 함)
+- 한 일: radar_rules.md v3.3(8f03089) / filter.json·config 갈래 9개로(71e175c, 방꾸미기는 theme_off 로 꺼 둠, 큰 카테고리 범위는 report.md 경고만) / 11/30 plan.json 갈래 21개 + 한일 840→2000AI(백업 plan.json.backup_before_category_20261119) / 11/23 원고 20편 카테고리 줄만(백업 pipeline/radar_drafts/_backup/2026-11-23_before_category/)
+- 안 한 것: push_plan --apply, radar_import --apply, 대기열·글 데이터 쓰기. radar_check 위반 0, radar_import --update 미리보기 16편 바뀜·4편 같음.
+- 다음("적용해" 받으면): radar_import --update --apply + 대기열 plan.갈래 20개 + 11/23 plan.json radar.갈래(함께 보면 좋은 글·표지가 여기서 읽음) 수정, 백업 후.
+
 ## 완료 (2026-11-19): 11/30 주 결과 수정 + 원고지침 v3.2 (대기열엔 안 넣음)
 - radar_rules.md 를 v3.2 로 교체(a7a8d65, docs 파일과 동일). 고친 것: pipeline/keyword_run/2026-11-30_radar_naver/plan.json (백업 plan.json.backup_before_edit_20261119). 교체 2(이룸→베네폼 허리소프트, AMA2→한일 840)·키워드 1(큐브멀티탭)·제목 3·NUPHY 갈래 입력·날짜 재배치
 - push_plan --channel radar_naver dry-run 21편 정상, --apply 안 함. report.md·keywords.json·status.json 은 옛 값 그대로(안 고침). 다음: 사용자 확인 후 push_plan --apply
