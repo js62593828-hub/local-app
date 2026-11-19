@@ -55,7 +55,11 @@ def parse_research(path):
          "name": "", "brand": "", "model": "", "review_lines": []}
     text = open(path, encoding="utf-8").read()
     sec = ""
+    d["slots"] = set()
     for ln in text.splitlines():
+        ms = re.match(r"^-\s*쓸 글\s*[:：]\s*(.*)", ln)
+        if ms:  # 새 형식 '쓸 글: 1124 C … / 1123 S …' (날짜 틀). 옛 형식(비교 등)은 비어 있음
+            d["slots"] = {(a, b.upper()) for a, b in re.findall(r"(?<!\d)(\d{4})\s*([CSDcsd])(?![A-Za-z])", ms.group(1))}
         h = re.match(r"^##\s+(.+)", ln)
         if h:
             sec = h.group(1).strip()
@@ -212,7 +216,10 @@ def check_text(text, name, frame, research=None, final=False, keyword="", rules=
     # ── 링크 · 제품 섹션
     secs = sections_of(body)
     link_ids = [m.group(1) for ln in body for m in [PLACEHOLDER_RX.search(ln)] if m and LINK_LINE_RX.match(ln)]
-    research_ids = [i for i in link_ids if i in research] or list(research)
+    nm = NAME_RX.match(name)
+    slot = (nm.group(1), nm.group(3)) if nm else None  # 원고 이름의 날짜+틀 = 그 글의 제품을 찾는 열쇠
+    by_slot = [i for i, r in research.items() if slot and slot in r.get("slots", ())]
+    research_ids = [i for i in link_ids if i in research] or by_slot or list(research)
     link_sections = 0
     product_heads = []
     for head, start, ls in secs:

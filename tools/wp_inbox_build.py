@@ -3,11 +3,13 @@
 
 사용:  python tools/wp_inbox_build.py --week 2026-11-23
 
-입력:  pipeline/wp_inbox/<주>/*.txt  (_양식.txt 는 건너뜀. 파일 하나 = 상품 하나)
+입력:  pipeline/wp_inbox/<주>/*.txt  ('_' 로 시작하는 파일(_양식·_주간계획 등)은 제품이 아님. 파일 하나 = 상품 하나)
+       '쓸 글: 1124 C, 1123 S' (날짜 틀 목록) 또는 옛 형식(키워드 + 쓸 글: 비교/심층/단독)
+       _주간계획.txt: 한 줄 = 글 하나 '날짜 틀 | 키워드 | 카테고리 | 메모' → 글별 준비표 + 키워드 연결
 출력(같은 폴더 안, 다시 돌리면 덮어씀):
   research/<상품id>.md   상품 자료 (상품id = 쿠팡 주소 products/ 뒤 숫자)
   links.json             {상품id: 파트너스 HTML}  (허용된 것만)
-  summary.md             상품별 점검표 + 문제 목록
+  summary.md             글별 준비표 + 상품별 점검표 + 문제 목록
 
 원칙: 원문에 없는 값은 비워 두고 지어내지 않는다. 쿠팡 사이트에는 접속하지 않는다(파일만 읽음).
 앱 데이터(content_queue*·articles*)는 읽지도 쓰지도 않는다.
@@ -207,7 +209,42 @@ def product_id(url):
 
 
 def post_types(s):
+    """옛 형식 '비교/심층/단독' 이름만 읽는다(날짜+틀은 parse_slots)."""
     return [t for t in POST_TYPES if t in (s or "")]
+
+
+SLOT_RE = re.compile(r"(?<!\d)(\d{4})\s*([CSD])(?![A-Za-z])", re.I)
+
+
+def parse_slots(s):
+    """'1124 C, 1123 S' → [('1124','C'), ('1123','S')] (쉼표·줄바꿈 모두 허용, 중복 뺌)."""
+    out = []
+    for m in SLOT_RE.finditer(s or ""):
+        k = (m.group(1), m.group(2).upper())
+        if k not in out:
+            out.append(k)
+    return out
+
+
+def read_plan(week_dir):
+    """_주간계획.txt → [{'mmdd','frame','keyword','category','memo'}] (줄 순서). 파일 없으면 []."""
+    path = os.path.join(week_dir, "_주간계획.txt")
+    if not os.path.isfile(path):
+        return []
+    plan = []
+    with open(path, encoding="utf-8-sig") as f:
+        text = f.read().replace("\r\n", "\n")
+    for line in text.split("\n"):
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        parts = [x.strip() for x in s.split("|")]
+        slots = parse_slots(parts[0])
+        if len(slots) != 1:
+            continue
+        plan.append({"mmdd": slots[0][0], "frame": slots[0][1], "keyword": parts[1] if len(parts) > 1 else "",
+                     "category": parts[2] if len(parts) > 2 else "", "memo": parts[3] if len(parts) > 3 else ""})
+    return plan
 
 
 def parse_file(path):
@@ -221,6 +258,7 @@ def parse_file(path):
         "url": get_field(head, "쿠팡 주소", "쿠팡주소", "주소"),
         "date": get_field(head, "수집일"),
         "types": post_types(get_field(head, "쓸 글", "쓸글")),
+        "slots": parse_slots(get_field(head, "쓸 글", "쓸글")),
         "html": sec.get("파트너스 HTML", "").strip(),
         "info": parse_info(sec.get("상품 정보", "")),
         "must": kv_lines(sec.get("필수 표기정보", "")),
@@ -237,10 +275,22 @@ def is_sponsor(t):
 
 
 # ---------- research 파일 ----------
-def render_research(p):
+def slot_labels(p, plan):
+    """'1124 C 가열식 가습기 추천' 목록. 계획에 없으면 날짜·틀만."""
+    kw = {(x["mmdd"], x["frame"]): x["keyword"] for x in plan}
+    return ["%s %s%s" % (m, f, (" " + kw[(m, f)]) if kw.get((m, f)) else "") for m, f in p["slots"]]
+
+
+def render_research(p, plan=()):
     i = p["info"]
     L = ["# 상품 자료 %s" % (p["pid"] or "(상품id 없음)"), ""]
-    L += ["- 키워드: %s" % p["keyword"], "- 쓸 글: %s" % " / ".join(p["types"]), "- 쿠팡 주소: %s" % p["url"], "- 수집일: %s" % p["date"], ""]
+    if p["slots"]:
+        L += ["- 쓸 글: %s" % " / ".join(slot_labels(p, plan))]
+        if p["keyword"]:
+            L += ["- 키워드: %s" % p["keyword"]]
+    else:
+        L += ["- 키워드: %s" % p["keyword"], "- 쓸 글: %s" % " / ".join(p["types"])]
+    L += ["- 쿠팡 주소: %s" % p["url"], "- 수집일: %s" % p["date"], ""]
     L += ["## 상품", "", "- 상품명: %s" % i["name"], "- 브랜드: %s" % i["brand"], "- 모델명: %s" % i["model"],
           "- 별점: %s" % i["rating"], "- 리뷰 수: %s" % ("" if i["reviews"] is None else "{:,}".format(i["reviews"])), ""]
     L += ["## 옵션별 일반 판매가", ""]
@@ -268,8 +318,9 @@ def render_research(p):
 
 
 # ---------- 합치기·점검 ----------
-def build(week_dir):
-    files = sorted(f for f in glob.glob(os.path.join(week_dir, "*.txt")) if os.path.basename(f) != "_양식.txt")
+def build(week_dir, plan=()):
+    files = sorted(f for f in glob.glob(os.path.join(week_dir, "*.txt")) if not os.path.basename(f).startswith("_"))
+    plan_keys = {(x["mmdd"], x["frame"]) for x in plan}
     prods, problems_global = [], []
     by_pid, no_url = {}, []
     for f in files:
@@ -284,6 +335,9 @@ def build(week_dir):
             for t in p["types"]:
                 if t not in first["types"]:
                     first["types"].append(t)
+            for sl in p["slots"]:
+                if sl not in first["slots"]:
+                    first["slots"].append(sl)
             first["problems"].append("같은 상품id 중복(%s, 쓸 글 합침)" % p["file"])
             continue
         by_pid[p["pid"]] = p
@@ -296,8 +350,28 @@ def build(week_dir):
             p["problems"].append("HTML 없음" if errs == ["HTML 없음"] else "링크 오류: " + "; ".join(sorted(set(errs))[:3]))
         if not p["info"]["name"]:
             p["problems"].append("상품명 없음")
-        if not p["types"]:
+        if not p["types"] and not p["slots"]:
             p["problems"].append("쓸 글 표시 없음")
+        if p["slots"] and plan:
+            for m, f in p["slots"]:
+                if (m, f) not in plan_keys:
+                    p["problems"].append("계획에 없는 글 '%s %s'" % (m, f))
+        elif p["slots"] and not plan:
+            p["problems"].append("_주간계획.txt 가 없어 '쓸 글' 날짜를 확인 못 함")
+        if p["slots"]:  # 새 형식: 글마다 키워드는 계획에서
+            p["keyword"] = " / ".join(dict.fromkeys(
+                x["keyword"] for x in plan if (x["mmdd"], x["frame"]) in p["slots"] and x["keyword"]))
+        # 제품별 경고(새 형식)
+        if len(p["slots"]) >= 4:
+            p["problems"].append("경고: 같은 제품이 %d편(3편까지)" % len(p["slots"]))
+        if sum(1 for _, f in p["slots"] if f == "S") >= 2:
+            p["problems"].append("경고: 같은 제품 S(단독 추천) %d편(한 주에 1편까지)" % sum(1 for _, f in p["slots"] if f == "S"))
+        days = {}
+        for m, f in p["slots"]:
+            days.setdefault(m, []).append(f)
+        for m, fs in days.items():
+            if len(fs) >= 2:
+                p["problems"].append("경고: %s 같은 날 두 틀(%s)에 같은 제품" % (m, "·".join(fs)))
         n_latest, n_low = len(p["latest"]), len(p["low"])
         if "심층" in p["types"] and (n_latest < 20 or n_low < 10):
             p["problems"].append("'심층'인데 최신순 %d개(20↑ 필요)·낮은 별점 %d개(10↑ 필요)" % (n_latest, n_low))
@@ -315,7 +389,49 @@ def build(week_dir):
     return prods
 
 
-def write_outputs(week_dir, prods):
+def plan_table(plan, prods):
+    """주간계획 줄 순서대로 글별 준비 상태 표(마크다운 줄 목록)."""
+    L = ["## 글별 준비표", ""]
+    if not plan:
+        return L + ["(_주간계획.txt 가 없거나 글 줄이 없음)", ""]
+    L += ["| 날짜 | 틀 | 키워드 | 들어온 제품 | 준비 상태 | 모자란 것 |", "|---|---|---|---|---|---|"]
+    for x in plan:
+        key = (x["mmdd"], x["frame"])
+        ps = [p for p in prods if key in p["slots"]]
+        names = " / ".join((p["info"]["name"] or p["pid"] or p["file"]) for p in ps)
+        miss = []
+        if not ps:
+            state = "제품 없음"
+        elif x["frame"] == "C":
+            brands = {p["info"]["brand"] for p in ps if p["info"]["brand"]}
+            if len(ps) < 2:
+                miss.append("제품 %d개(2개 필요)" % len(ps))
+            if len(brands) < 2:
+                miss.append("브랜드 %d개(2개 필요)" % len(brands))
+            nrev = [len(p["latest"]) for p in ps]
+            if any(nrev):
+                miss.append("(참고) 후기 " + "·".join(str(n) for n in nrev) + "개")
+            state = "준비됨" if len(ps) >= 2 and len(brands) >= 2 else "모자람"
+            if state == "준비됨":
+                miss = miss  # 후기 개수 참고만
+        else:
+            if len(ps) != 1:
+                miss.append("제품 %d개(정확히 1개 필요)" % len(ps))
+            if len(ps) == 1:
+                p = ps[0]
+                n_ok = sum(1 for t in p["latest"] if not is_sponsor(t))
+                if n_ok < 20:
+                    miss.append("최신순 후기 %d개(체험단 뺀 수, 20개 필요)" % n_ok)
+                if x["frame"] == "D" and len(p["low"]) < 10:
+                    miss.append("낮은 별점 %d개(10개 필요)" % len(p["low"]))
+            ok = len(ps) == 1 and not [m for m in miss if not m.startswith("(참고)")]
+            state = "준비됨" if ok else "모자람"
+        cells = [x["mmdd"], x["frame"], x["keyword"], names, state, " / ".join(miss) or "없음"]
+        L.append("| " + " | ".join(str(c).replace("|", "/") for c in cells) + " |")
+    return L + [""]
+
+
+def write_outputs(week_dir, prods, plan=()):
     rdir = os.path.join(week_dir, "research")
     os.makedirs(rdir, exist_ok=True)
     for old in glob.glob(os.path.join(rdir, "*.md")):  # 다시 돌리면 덮어씀(옛 결과가 남지 않게)
@@ -325,17 +441,18 @@ def write_outputs(week_dir, prods):
         if not p["pid"]:
             continue
         with open(os.path.join(rdir, p["pid"] + ".md"), "w", encoding="utf-8") as f:
-            f.write(render_research(p))
+            f.write(render_research(p, plan))
         if p["link_ok"]:
             links[p["pid"]] = p["html"]
     with open(os.path.join(week_dir, "links.json"), "w", encoding="utf-8") as f:
         json.dump(links, f, ensure_ascii=False, indent=1)
-    L = ["# 받은편지함 변환 결과", "", "상품 %d개 · 문제 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["problems"])), "",
+    L = ["# 받은편지함 변환 결과", ""] + plan_table(plan, prods)
+    L += ["## 상품별 점검표", "", "상품 %d개 · 문제 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["problems"])), "",
          "| 상품id | 키워드 | 쓸 글 | 상품명 | 가격 있음 | 별점 | 리뷰 수 | 표기정보 항목 수 | 최신순 후기 수 | 낮은 별점 후기 수 | 링크 정상 | 문제 |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for p in prods:
         i = p["info"]
-        cells = [p["pid"] or "(없음)", p["keyword"], "·".join(p["types"]), i["name"], "예" if i["prices"] else "아니오", i["rating"],
+        cells = [p["pid"] or "(없음)", p["keyword"], "·".join(p["types"] + ["%s %s" % sl for sl in p["slots"]]), i["name"], "예" if i["prices"] else "아니오", i["rating"],
                  "" if i["reviews"] is None else "{:,}".format(i["reviews"]), len(p["must"]), len(p["latest"]), len(p["low"]),
                  "예" if p["link_ok"] else "아니오", " / ".join(p["problems"]) or "없음"]
         L.append("| " + " | ".join(str(c).replace("|", "/") for c in cells) + " |")
@@ -353,8 +470,9 @@ def main():
     week_dir = a.dir or os.path.join(ROOT, "pipeline", "wp_inbox", a.week)
     if not os.path.isdir(week_dir):
         sys.exit("폴더가 없습니다: %s" % week_dir)
-    prods = build(week_dir)
-    links = write_outputs(week_dir, prods)
+    plan = read_plan(week_dir)
+    prods = build(week_dir, plan)
+    links = write_outputs(week_dir, prods, plan)
     bad = [p for p in prods if p["problems"]]
     print("상품 %d개 → research %d개, links.json %d개, 문제 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["pid"]), len(links), len(bad)))
     for p in bad:

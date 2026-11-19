@@ -1,3 +1,7 @@
+## 완료 (2026-11-20): W싼세계 받은편지함 새 양식(날짜+틀 '쓸 글', _주간계획.txt, 글별 준비표)
+- wp_inbox_build.py(글별 준비표·'_' 파일 제외·research '쓸 글' 줄), wp_check.py(원고 이름 날짜+틀로 제품 고름), wp-writer.md 안내 추가. 시험: pipeline/wp_inbox/_test_v2/README.md. 실제 폴더 돌림: 제품 0개 → 준비표 6줄 '제품 없음'.
+- 다음: 제품 파일을 _양식.txt 복사해 채우기 → 다시 돌리기. wp_import.py 는 wp_check 를 부르므로 수정 없음.
+
 ## 회사 PC에서 이어갈 것 (2026-11-19 저녁 마무리, 집 PC 마지막 작업 커밋 b65f281)
 - 먼저: 구글 드라이브 동기화 완료 확인 → git fetch → git reset origin/main → git status 깨끗한지 확인. (preview/, 데이터 파일, pipeline 결과는 git 이 아니라 드라이브로 옮겨짐)
 - N살림노트 11/23 주: 대기열 넣기 끝(142→168), 링크 20개 발급·자료 19개 수집 끝. 다음은 채팅이 준 "제품 찾기 3단계" 지시문(남은 링크 10개·로긴 재수집·products_20261123.txt·--update-products 미리 보기).
