@@ -9,6 +9,7 @@
   3 대기열 항목(제목 = 원고 '제목:' 줄, plan.final_title)을 만들거나 찾고 승인으로 둔 뒤, 본문(코드 [메모] 위)은 붙여넣기 칸,
     메타데이터([메모] 아래)는 워드프레스 메타 칸에 저장
   4 이미지 일괄 생성(표지 1 + 본문 3, 앱 기본값) → 5 최종본 만들기
+한 번 실행에서 제목이 같은 원고가 2편 이상이면 모두 '문제 — 제목 중복'으로 건너뛴다(예약표에도 안 넣음).
 같은 제목이 이미 대기열에 있고 글(원고)도 들어 있으면 건너뛴다('이미 있음'). 고친 원고 다시 넣기(--update)는 아직 없음.
 예약 시각(v1.4 11장): 틀별 기준 시각 C 07:40 · S 12:30 · D 18:40 에서 분 단위 ±10분(끝 분 포함)을 랜덤으로 고른다.
   날짜 = 원고 파일 이름 MMDD(주 월~일 안이어야 함), 시드 = 주차 문자열(다시 돌려도 같은 시각), --reroll 이면 새로.
@@ -274,6 +275,18 @@ def main():
         plan.append({"fn": fn, "frame": frame, "title": title, "category": category, "nlink": nlink, "keyword": keyword,
                      "body": body, "memo": memo, "errs": errs, "viol": viol, "existing": existing, "status": status})
 
+    # ── 제목 중복: 한 번 실행에서 제목이 같은 원고가 2편 이상이면 모두 건너뜀(뒤 원고가 앞 원고를 덮어쓰는 것 방지)
+    title_files = {}
+    for it in plan:
+        if it["title"]:
+            title_files.setdefault(it["title"], []).append(it["fn"])
+    for it in plan:
+        fl = title_files.get(it["title"], [])
+        if len(fl) >= 2:
+            it["dup"] = True
+            it["errs"].append("제목 중복 — 같은 제목 원고 " + str(len(fl)) + "편: " + ", ".join(fl))
+            it["status"] = "문제 — 제목 중복"
+
     # ── 예약 날짜·시각 배정 (v1.4 11장) — 앱에는 쓰지 않고 _예약표.md 에만 남긴다
     week_days = {(date.fromisoformat(week) + timedelta(days=i)).isoformat() for i in range(7)}
     sched_path = os.path.join(drafts, SCHED_FILE)
@@ -301,6 +314,8 @@ def main():
             it["errs"].append("예약 시각: " + why)
             if it["status"] == "넣을 예정":
                 it["status"] = "문제 — 건너뜀"
+            continue
+        if it.get("dup"):
             continue
         row = saved_by_key.get((it["title"], it["frame"]))
         if it["status"] != "넣을 예정":
