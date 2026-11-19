@@ -1,3 +1,9 @@
+## 회사 PC에서 이어갈 것 (2026-11-19 저녁 마무리, 집 PC 마지막 작업 커밋 b65f281)
+- 먼저: 구글 드라이브 동기화 완료 확인 → git fetch → git reset origin/main → git status 깨끗한지 확인. (preview/, 데이터 파일, pipeline 결과는 git 이 아니라 드라이브로 옮겨짐)
+- N살림노트 11/23 주: 대기열 넣기 끝(142→168), 링크 20개 발급·자료 19개 수집 끝. 다음은 채팅이 준 "제품 찾기 3단계" 지시문(남은 링크 10개·로긴 재수집·products_20261123.txt·--update-products 미리 보기).
+- 결과 폴더: pipeline/candidates_run/20261119_naver_tips(본 폴더)·_2(다시 찾기 결과)·_keep(복사본, 지워도 됨).
+- 에고라이트는 회사 PC에서 다시 네이버 로그인 필요.
+
 ## 완료 (2026-11-19): N살림노트 11/23 주 제품 찾기 2단계 (멈춤)
 - approved.json 25개(상품id 기준)·salim_slots.json 25줄 만듦(pipeline/candidates_run/20261119_naver_tips, 앞서 있던 approved 는 없었음). 링크는 앞 20개만 발급: 발급 20·실패 0 (links.json). 나머지 5개(붙이는거울·원목서랍장·인덕션·일산화탄소경보기 2)는 링크 아직 없음. 제외 방법: approved.json 을 잠깐 20개짜리로 바꿔 실행 후 25개로 복구(approved_full25.json 은 25개 사본).
 - 자료·사진: 19개 성공(research/<id>.md, _img/<id>/01_rep.*). 실패 1개: 878085513998688(로긴 식기건조대) — 스토어 주소가 brand.naver.com/loginmall/… 라서 collect_research_ego.mjs 가 'login' 글자만 보고 로그인 풀림으로 착각해 멈춤(로그인은 정상). 도구는 안 고침. 고치려면 정규식을 /nidlogin|\/login(\?|$)/ 처럼 좁히기.
