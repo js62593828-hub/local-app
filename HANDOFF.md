@@ -1,6 +1,10 @@
-## 진행 중 (2026-11-19): N데스크피커 카테고리 적용
-- 단계: 백업 → 11/23 plan.json 갈래 21개·대기열 plan.갈래 16개 → radar_import --update --apply → images.json 6개 → 판정 낱말 2건(코드) → 11/30 push_plan --apply → 원고지침 v3.3 파일명
-- 다음 명령: 이 줄 아래 완료 기록을 보고 이어갈 것(백업 suffix: backup_before_category_20261119)
+## 완료 (2026-11-19): N데스크피커 카테고리 이름 적용 + 11/30 주 대기열 넣기
+- 적용: 11/23 plan.json 갈래 21개(AD500S=충전·멀티탭), 대기열 plan.갈래 16개(AD500S 는 옛 '충전·전원' 그대로 — 글 없음), radar_import --update --apply 16편(바뀐 칸: 메모 카테고리 줄·platform_generated_at, 최종본은 JBL FLIP7 1편만 비워짐), images.json 6개. 사진 선택·안 넣음·표지·GIF 기록(photos.json)은 안 건드림. 이미 만든 표지(cover.jpg)엔 옛 갈래 글자가 박혀 있으니 [표지 다시 만들기] 필요
+- 코드: filter.json theme_order 에서 방꾸미기를 책상 정리 앞으로 + keyword_pipeline.theme_of 가 꺼 둔 갈래에 걸리면 '갈래 미정'(수납장이 책상 정리로 새지 않음). 이어폰·헤드폰 거치대는 원래도 이어폰·스피커. 커밋 c06e525
+- 11/30 주: push_plan --apply 21편(날짜당 3편, id 2026-11-30_06066f6b~ede9ae89 해시순, 대기열 94→115). 11/30 순번1 은 처음부터 '소니헤드폰'(바뀐 적 없음)
+- 백업(suffix .backup_before_category_20261119): content_queue_radar_naver / articles_radar_naver / 11/23 plan.json / images.json 6개. 그 밖에 articles_radar_naver.backup_before_radar_import_20261119_092114.json, backup/content_queue_radar_naver.backup_before_push_plan_20261119_092324.json
+- docs/데스크피커-원고지침_v3.3_20261119.md 로 이름 바꿈(복사본 글자 제거)
+- 안 한 것: 링크 발급·제품 후보·keyword_pipeline 재실행·글쓰기·발행. 11/30 report.md·keywords.json 은 옛 값 그대로
 
 ## 완료 (2026-11-19): N데스크피커 카테고리 이름 바꾸기 — 미리보기까지만(적용 안 함)
 - 한 일: radar_rules.md v3.3(8f03089) / filter.json·config 갈래 9개로(71e175c, 방꾸미기는 theme_off 로 꺼 둠, 큰 카테고리 범위는 report.md 경고만) / 11/30 plan.json 갈래 21개 + 한일 840→2000AI(백업 plan.json.backup_before_category_20261119) / 11/23 원고 20편 카테고리 줄만(백업 pipeline/radar_drafts/_backup/2026-11-23_before_category/)
