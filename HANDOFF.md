@@ -1,3 +1,8 @@
+## 완료 (2026-11-19): N살림노트 제품 찾기를 데스크피커 방식으로 — 조사만 (고친 것 없음)
+- 보고서: preview/salim_products_probe/report.md. 코드·앱 데이터·대기열·링크 발급 안 건드림.
+- 핵심: 후보·발급·자료수집 도구는 이미 naver_tips 를 받음. 막힌 곳은 ① plan 칸에 검색어(search_query) 없음(26편 전부) ② 앱 편집기가 naver_tips 상품 사진 칸을 숨김 ③ 링크가 본문 뒤에 나옴(요청은 사진 바로 아래).
+- 추천: 도구 재사용 + 검색어 시트·연결 스크립트(새로) + 앱은 naver_tips 일 때만 켜지는 옵션. 사용자 확인 3가지는 보고서 맨 끝.
+
 ## 완료 (2026-11-19): 11/23 주 N살림노트 26편(승인 21+예비 5) 앱 대기열에 넣음
 - categories_20261123.json 빈 카테고리 9칸 채움(빈 칸 0, 채우기 전 백업 categories_20261123.backup_before_fill_20261119.json). 넣기 --apply: content_queue_naver_tips.json 142 → 168편.
 - 백업: backup/content_queue_naver_tips.backup_before_push_plan_20261119_220108.json. 되돌리기: python tools/push_plan.py --undo (넣은 id 는 pipeline/final/push_log.json).
