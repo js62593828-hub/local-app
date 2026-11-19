@@ -323,6 +323,12 @@ LONGTERM_BODY_IMAGE_CHAR_THRESHOLD = 4000
 LONGTERM_BODY_IMAGES_LONG = 5
 LONGTERM_BODY_IMAGES_SHORT = 4
 INFO_BODY_IMAGE_COUNT = 3  # 네이버(naver_tips)·싼세계(wp_tips) 본문 AI 사진 장수(플랫폼당)
+NAVER_TIPS_BODY_IMAGE_COUNT = 4  # N살림노트(naver_tips)만 4장(photo4_naver_tips_20261119). wp_tips 는 위 INFO_BODY_IMAGE_COUNT 그대로
+
+
+def _info_body_image_count(channel_id: str) -> int:
+    """정보 채널(naver_tips·wp_tips)의 본문 사진 장수(플랫폼당). naver_tips 만 4장, 나머지는 INFO_BODY_IMAGE_COUNT."""
+    return NAVER_TIPS_BODY_IMAGE_COUNT if channel_id == "naver_tips" else INFO_BODY_IMAGE_COUNT
 NV75_CHANNELS = ("naver_tips",)  # 본문 사진마다 "네이버용 75% 여백 파일"을 함께 만드는 채널(생활레이더는 RADAR_CHANNELS)
 
 # 워드프레스로 "보내는 사본"에서 본문 맨 앞 표지(seo-cover-img)를 뺄지 채널별로 정합니다 (True = 뺌).
@@ -1612,7 +1618,7 @@ def gen_images(article_id):
         images_per_platform = 0
     elif is_info_channel:
         # 네이버 일반(꿀팁)·워드프레스 일반은 가벼운 정보 글이라 소제목 수와 무관하게 고정 INFO_BODY_IMAGE_COUNT장입니다.
-        images_per_platform = INFO_BODY_IMAGE_COUNT
+        images_per_platform = _info_body_image_count(get_active_channel_id())
         total_body_images = images_per_platform * n_active
     elif is_longterm:
         # 롱텀은 메모의 본문 장면이 3~5개면 그 개수만큼, 아니면 원고 길이(공백 제외 글자 수)로 정합니다 —
