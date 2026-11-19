@@ -6,7 +6,7 @@
   python tools/lt_draft_check.py --week 2026-11-23 --file 원고/01_...md   # 파일 하나(작업 폴더 기준 상대경로 또는 절대경로)
 
 글 정보(역할·묶음·발행 순서)는 06_확정.json → 없으면 05_기획표.md → 둘 다 없으면 원고 안 구분 제목("### 1/3 대표글: 키워드")에서 읽는다.
-검사 6가지(글마다 ✔/✖): 글자 수 / 본문 사진 줄 / 피할 표현 / 카테고리 / {{LINK}} 순서 / 표지·메타·FAQ·면책·첫 줄.
+검사 8가지(글마다 ✔/✖): 글자 수 / 본문 사진 줄 / 피할 표현 / 카테고리 / {{LINK}} 순서 / 표지·메타·FAQ·면책·첫 줄 / 해요체 비율 / 본문 확인 표시.
 종료 코드: 걸린 게 하나라도 있으면 1, 없으면 0."""
 import argparse
 import glob
@@ -31,6 +31,31 @@ META_RANGE = (80, 150)
 SUMMARY_NAMES = ("핵심 요약", "한눈에 정리", "신청 전 꼭 볼 것", "이 글의 결론")
 AVOID = re.compile(r"갈리|갈린|갈려|갈립|갈릴|갈렸|가르|가른|가릅")
 AVOID_OK = re.compile(r"헷갈|갈라지")
+HAEYO_MAX = 0.20            # 11/19 사용자 결정(5차): 본문 문장 끝 해요체 20% 이하
+CONFIRM_MARKS = ("[확인 필요]", "확인 필요]", "링크 확인 필요")
+
+
+def haeyo_stats(text: str):
+    """본문 문장 끝 (해요체 수, 전체 문장 수). 표·목록·소제목·인용 줄은 뺀다."""
+    total = haeyo = 0
+    for ln in text.splitlines():
+        s = ln.strip()
+        if not s or s.startswith(("|", "#", ">", "-", "*", "+")) or re.match(r"^\d+[.)]\s", s):
+            continue
+        s = re.sub(r"\{\{(?:LINK|SHOP):.*?\}\}", "", s)
+        s = re.sub(r"<[^>]+>", "", s).replace("**", "")
+        for sent in re.split(r"(?<=[.?!])[\"'”’)\]]*\s+", s):
+            sent = sent.strip()
+            m = re.search(r"([.?!])[\"'”’)\]]*$", sent)
+            if not m:
+                continue
+            body = sent[:m.start()].rstrip()
+            if not body:
+                continue
+            total += 1
+            if body.endswith("요"):
+                haeyo += 1
+    return haeyo, total
 
 
 def count_chars(text: str) -> int:
@@ -231,6 +256,15 @@ def check_one(path: str, plan):
     if "<small" not in a:
         misc.append("면책 <small> 줄 없음")
     add("표지·메타·FAQ·면책", not misc, f"표지 {len(strip_br(l1))}/{len(strip_br(l2))}자 · 메타 {len(md_desc)}자 · FAQ {nq}쌍" + ("" if not misc else " — " + "; ".join(misc)))
+
+    # 해요체 비율
+    hy, tot = haeyo_stats(text)
+    pct = (hy / tot * 100) if tot else 0
+    add("해요체 비율", tot == 0 or hy / tot <= HAEYO_MAX, f"해요체 {hy}/{tot}문장({pct:.0f}%) — 본문은 격식체, 해요체 {int(HAEYO_MAX*100)}% 이하")
+
+    # 본문 확인 표시 (코드 블록 A·B 안)
+    marks = [m for m in CONFIRM_MARKS if m in a or m in b]
+    add("본문 확인 표시", not marks, "없음" if not marks else "코드 블록 안에 남음 — " + ", ".join(marks))
     return res
 
 
