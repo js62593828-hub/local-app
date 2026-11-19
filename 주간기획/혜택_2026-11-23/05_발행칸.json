@@ -1,0 +1,142 @@
+[
+  {
+    "slot_id": "1123-am",
+    "date": "2026-11-23",
+    "weekday": "월",
+    "time": "08:23",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1123-pm",
+    "date": "2026-11-23",
+    "weekday": "월",
+    "time": "16:45",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  },
+  {
+    "slot_id": "1124-am",
+    "date": "2026-11-24",
+    "weekday": "화",
+    "time": "08:37",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1124-pm",
+    "date": "2026-11-24",
+    "weekday": "화",
+    "time": "16:51",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  },
+  {
+    "slot_id": "1125-am",
+    "date": "2026-11-25",
+    "weekday": "수",
+    "time": "08:27",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1125-pm",
+    "date": "2026-11-25",
+    "weekday": "수",
+    "time": "16:47",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  },
+  {
+    "slot_id": "1126-am",
+    "date": "2026-11-26",
+    "weekday": "목",
+    "time": "08:32",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1126-pm",
+    "date": "2026-11-26",
+    "weekday": "목",
+    "time": "16:42",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  },
+  {
+    "slot_id": "1127-am",
+    "date": "2026-11-27",
+    "weekday": "금",
+    "time": "08:31",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1127-pm",
+    "date": "2026-11-27",
+    "weekday": "금",
+    "time": "17:11",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  },
+  {
+    "slot_id": "1128-am",
+    "date": "2026-11-28",
+    "weekday": "토",
+    "time": "08:25",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1128-pm",
+    "date": "2026-11-28",
+    "weekday": "토",
+    "time": "16:46",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  },
+  {
+    "slot_id": "1129-am",
+    "date": "2026-11-29",
+    "weekday": "일",
+    "time": "08:36",
+    "label": "오전",
+    "used_by": null,
+    "start": "08:21",
+    "end": "08:41"
+  },
+  {
+    "slot_id": "1129-pm",
+    "date": "2026-11-29",
+    "weekday": "일",
+    "time": "16:54",
+    "label": "오후",
+    "used_by": null,
+    "start": "16:41",
+    "end": "17:14"
+  }
+]

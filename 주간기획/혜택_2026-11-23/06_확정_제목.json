@@ -1,0 +1,100 @@
+[
+ {
+  "order": 1,
+  "bundle": "A",
+  "title_draft": "근로장려금 기한 후 신청, 12월 1일까지면 5%만 덜 받아요",
+  "device": "B+F+A",
+  "skeleton": "H4·1"
+ },
+ {
+  "order": 2,
+  "bundle": "D",
+  "title_draft": "2027 생계급여는 87만 원대 기준만 보면 내 대상 여부가 바로 보여요",
+  "device": "B+G",
+  "skeleton": "H1·2"
+ },
+ {
+  "order": 3,
+  "bundle": "B",
+  "title_draft": "월세 세액공제 조건, 총급여 8천만 원 이하면 17%까지 환급돼요",
+  "device": "B+C",
+  "skeleton": "H2·3"
+ },
+ {
+  "order": 4,
+  "bundle": "A",
+  "title_draft": "자녀장려금 기한 후 신청, 12월 1일까지 맞벌이는 부부 소득을 합쳐요",
+  "device": "C+B+F",
+  "skeleton": "H5·4"
+ },
+ {
+  "order": 5,
+  "bundle": "C",
+  "title_draft": "연말정산 기부금 세액공제, 12월 31일 안에 내야 올해 환급에 들어가요",
+  "device": "B+F",
+  "skeleton": "H4·2"
+ },
+ {
+  "order": 6,
+  "bundle": "D",
+  "title_draft": "2027 주거급여, 기준 중위소득 48% 이하면 월세 지원액이 바로 계산돼요",
+  "device": "B+G",
+  "skeleton": "H3·1"
+ },
+ {
+  "order": 7,
+  "bundle": "E",
+  "title_draft": "새출발기금 신청은 연체 90일 전이어도 되는 경우가 있어요",
+  "device": "D+B",
+  "skeleton": "H1·3"
+ },
+ {
+  "order": 8,
+  "bundle": "B",
+  "title_draft": "월세 세액공제 경정청구, 놓쳤다면 5년 안에 돌려받아요",
+  "device": "B+A",
+  "skeleton": "H4·4"
+ },
+ {
+  "order": 9,
+  "bundle": "F",
+  "title_draft": "학점은행제 학점인정 신청은 따로 안 하면 학점이 안 들어와요",
+  "device": "A+D",
+  "skeleton": "H1·1"
+ },
+ {
+  "order": 10,
+  "bundle": "C",
+  "title_draft": "고향사랑기부제 연말정산, 10만 원까지는 전액 공제돼요",
+  "device": "B+G",
+  "skeleton": "H2·2"
+ },
+ {
+  "order": 11,
+  "bundle": "D",
+  "title_draft": "생계급여 부양의무자, 가족이 있으면 못 받는다는 말은 오해일 수 있어요",
+  "device": "D+B",
+  "skeleton": "H5·3"
+ },
+ {
+  "order": 12,
+  "bundle": "E",
+  "title_draft": "새출발기금 연체 기간에 따라 신청 조건이 달라요",
+  "device": "C+D",
+  "skeleton": "H2·1"
+ },
+ {
+  "order": 13,
+  "bundle": "B",
+  "title_draft": "월세 세액공제 한도, 월세 83만 원 넘는 집이라면 계산부터 하세요",
+  "device": "B+C",
+  "skeleton": "H3·4"
+ },
+ {
+  "order": 14,
+  "bundle": "F",
+  "title_draft": "학점은행제 학위신청, 2월 학위 받으려면 12월 15일부터 해요",
+  "device": "B+F",
+  "skeleton": "H4·3"
+ }
+]
