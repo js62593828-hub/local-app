@@ -1,7 +1,6 @@
-## 진행 중: 싼세계 원고 흐름 도구 만들기 (2026-11-19)
-- 할 것: (1) tools/wp_rules.md 설치 (2) .claude/agents/wp-writer.md (3) tools/wp_check.py + wp_banned.json (4) tools/wp_import.py (5) pipeline/wp_inbox/_test 에서 복사본 데이터·가짜 이미지로 시험
-- 원칙: 쿠팡 접속·실제 앱 데이터 쓰기·워드프레스·구글 조회 안 함. 시험 원고는 작가 1회만.
-- 다음: 단계 끝날 때마다 커밋, 마지막에 이 줄을 완료 기록으로 바꾸기.
+## 완료 (2026-11-19): 싼세계 원고 흐름 도구
+- 만든 것: tools/wp_rules.md(v1.3, 원본과 cmp 같음, docs 사본) · .claude/agents/wp-writer.md(model: claude-opus-5-5, 실제 Opus 5.5 로 돎 확인) · tools/wp_check.py + wp_banned.json · tools/wp_import.py(--week, --apply, 미리보기 기본). 시험 결과: pipeline/wp_inbox/_test/README_시험결과.md
+- 다음: 실제 11/23 원고는 받은편지함 research 가 있어야 시작. 예약 시각은 안 넣음(앱 platform_published_at+platform_scheduled_time 칸이 있어 가능하나 이번엔 보고만). --update(고친 원고 다시 넣기) 미구현.
 
 ## 진행 중: 싼세계 11/23 주 시작 준비 — 4-1 미리보기에서 멈춤, 사용자 "적용" 대기 (2026-11-19)
 - 끝: 1 keywords.md(구글 사이트 종류만 미확인: 구글이 주소를 /goto 로 감싸 읽기 오류, 복사본 tools/wp_google_check.mjs 에 고침, 구글 13/15회 사용) · 2 pipeline/wp_inbox/2026-11-23/_양식.txt · 3 tools/wp_inbox_build.py(시험 통과, _test 폴더로 이동) · 4-1 categories/preview.md + backup_categories.json
