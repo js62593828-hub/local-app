@@ -66,6 +66,7 @@ def load_rk():
         raise SystemExit("tools/filter.json 에 radar_kw 묶음이 없습니다.")
     rk = d["radar_kw"]
     off = set(rk.get("theme_off") or [])          # 꺼 둔 갈래(예: 방꾸미기)는 뽑지 않는다
+    rk["judge_order"] = list(rk["theme_order"])   # 판정용(꺼 둔 갈래 포함): 수납장 같은 낱말이 다른 갈래로 새지 않게 먼저 걸러낸다
     rk["theme_order"] = [t for t in rk["theme_order"] if t not in off]
     return rk
 
@@ -136,9 +137,10 @@ def model_tokens(keyword):
 
 def theme_of(word):
     n = nk(word)
-    for th in RK["theme_order"]:
+    off = set(RK.get("theme_off") or [])
+    for th in RK.get("judge_order") or RK["theme_order"]:
         if any(nk(w) in n for w in RK["theme_words"].get(th, [])):
-            return th
+            return UNDECIDED if th in off else th   # 꺼 둔 갈래에 걸리면 후보에서 뺀다
     return UNDECIDED
 
 
