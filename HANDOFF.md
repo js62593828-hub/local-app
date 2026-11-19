@@ -1,3 +1,9 @@
+## 완료 (2026-11-19): N살림노트 11/23 주 제품 찾기 2단계 (멈춤)
+- approved.json 25개(상품id 기준)·salim_slots.json 25줄 만듦(pipeline/candidates_run/20261119_naver_tips, 앞서 있던 approved 는 없었음). 링크는 앞 20개만 발급: 발급 20·실패 0 (links.json). 나머지 5개(붙이는거울·원목서랍장·인덕션·일산화탄소경보기 2)는 링크 아직 없음. 제외 방법: approved.json 을 잠깐 20개짜리로 바꿔 실행 후 25개로 복구(approved_full25.json 은 25개 사본).
+- 자료·사진: 19개 성공(research/<id>.md, _img/<id>/01_rep.*). 실패 1개: 878085513998688(로긴 식기건조대) — 스토어 주소가 brand.naver.com/loginmall/… 라서 collect_research_ego.mjs 가 'login' 글자만 보고 로그인 풀림으로 착각해 멈춤(로그인은 정상). 도구는 안 고침. 고치려면 정규식을 /nidlogin|\/login(\?|$)/ 처럼 좁히기.
+- 다시 찾기: pipeline/final/product_search_20261119_2.tsv(12검색어) → 결과 pipeline/candidates_run/20261119_naver_tips_2. 도구가 결과 폴더 이름을 날짜+채널로 고정해, 첫 폴더를 _keep 으로 바꿔 두고 돌린 뒤 복사로 복원(이름 변경이 '사용 중'으로 막혀 _keep 폴더가 남아 있음 — 백업과 동일 확인, 사용자가 지워도 됨).
+- 안 한 것: 대기열·앱 코드·글 데이터. 다음: 사용자가 칸2 후보 고르기 → 나머지 5개 링크 발급 → 글 연결.
+
 ## 완료 (2026-11-19): N살림노트 11/23 주 제품 찾기 1단계 — 후보·추천표까지 (멈춤)
 - product_candidates.py 에 --pick·--sheet·--extra 추가(커밋 f0cdca1, 기본 동작 불변: 지난 25개 검색어 전후 추천 동일). 시트 pipeline/final/product_search_20261123.tsv(29줄·44칸).
 - 결과 pipeline/candidates_run/20261119_naver_tips (salim_picks.md = 칸별 추천+다음 후보 2개). 조건 맞는지는 모두 '확인 필요'.
