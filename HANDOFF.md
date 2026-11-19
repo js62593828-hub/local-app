@@ -1,3 +1,7 @@
+## 진행 중: 싼세계 11/23 주 시작 준비 — 4-1 미리보기에서 멈춤, 사용자 "적용" 대기 (2026-11-19)
+- 끝: 1 keywords.md(구글 사이트 종류만 미확인: 구글이 주소를 /goto 로 감싸 읽기 오류, 복사본 tools/wp_google_check.mjs 에 고침, 구글 13/15회 사용) · 2 pipeline/wp_inbox/2026-11-23/_양식.txt · 3 tools/wp_inbox_build.py(시험 통과, _test 폴더로 이동) · 4-1 categories/preview.md + backup_categories.json
+- 다음: 사용자가 "적용" → python tools/wp_category_fix.py --apply (그 뒤 앱 재동기화가 옛 카테고리 이름으로 새로 만드는지 코드 확인만, 고치지 않음). 구글 12개 재조회는 한도 초과라 사용자 허락 필요.
+
 ## 완료 (2026-11-19): 싼세계 새 방식 조사(읽기만)
 - 결과: pipeline/wp_setup_run/20261119/report.md, existing_posts.csv(글 102편: ① 28 · ② 69 · ③ 2 · 확인필요 3). 코드·앱 데이터·워드프레스 수정 없음(REST GET만).
 - 다음: report.md 5번 "11/23 시작에 꼭 필요한 작업" 순서대로. 사용자 결정 먼저(① 중 안 맞는 8편 처리, 카테고리 이름, 구글 검색량 출처).
