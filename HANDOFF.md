@@ -1,3 +1,7 @@
+## 진행 중 (2026-11-19): N데스크피커 카테고리 적용
+- 단계: 백업 → 11/23 plan.json 갈래 21개·대기열 plan.갈래 16개 → radar_import --update --apply → images.json 6개 → 판정 낱말 2건(코드) → 11/30 push_plan --apply → 원고지침 v3.3 파일명
+- 다음 명령: 이 줄 아래 완료 기록을 보고 이어갈 것(백업 suffix: backup_before_category_20261119)
+
 ## 완료 (2026-11-19): N데스크피커 카테고리 이름 바꾸기 — 미리보기까지만(적용 안 함)
 - 한 일: radar_rules.md v3.3(8f03089) / filter.json·config 갈래 9개로(71e175c, 방꾸미기는 theme_off 로 꺼 둠, 큰 카테고리 범위는 report.md 경고만) / 11/30 plan.json 갈래 21개 + 한일 840→2000AI(백업 plan.json.backup_before_category_20261119) / 11/23 원고 20편 카테고리 줄만(백업 pipeline/radar_drafts/_backup/2026-11-23_before_category/)
 - 안 한 것: push_plan --apply, radar_import --apply, 대기열·글 데이터 쓰기. radar_check 위반 0, radar_import --update 미리보기 16편 바뀜·4편 같음.
