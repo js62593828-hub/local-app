@@ -1,3 +1,5 @@
+## 완료 (2026-11-19): 4차 FAQ 최대 4쌍 — lt_draft_check FAQ 3~4쌍(5쌍↑ ✖, 5쌍 글로 시험 확인), 작가·SKILL 복사본 docs와 같음.
+
 ## 완료 (2026-11-19): 3차 분량·사진·작가
 - 본문 사진 4,000자 미만 4장 / 이상 5장(app.py), 메모 장면 3~5줄은 그대로 그 수만큼(app.py·image_gen.py·lt_auto_input.py). 시험: 메모 5줄→5장·최종본 그림 6(표지 포함), 메모 3줄→3장·4. 실제 데이터 SHA 전후 같음.
 - 새 도구 tools/lt_draft_check.py(원고 검사, FAQ 3~4쌍 기준=4차 반영). 작가 .claude/agents/hyetaek-writer.md(model: opus), SKILL 다시 복사.
