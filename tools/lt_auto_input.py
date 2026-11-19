@@ -133,7 +133,7 @@ def main():
             memo = app.metadata_parser.parse_metadata_memo(B or "")
             n_scene = len(memo.get("body_alt_pairs") or [])
             raw_body = re.sub(r"^\[플랫폼:[^\]]*\]\s*\n제목:[^\n]*\n", "", A.lstrip())
-            n_body = n_scene if 3 <= n_scene <= 4 else app._longterm_body_image_count(raw_body)
+            n_body = n_scene if 3 <= n_scene <= 5 else app._longterm_body_image_count(raw_body)
             if not memo.get("category"):
                 warns.append("메타데이터에 '카테고리 제안' 이 없음")
             elif memo["category"] != p.get("category"):

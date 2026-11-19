@@ -320,8 +320,8 @@ SHOP_WEEKLY_QUEUE_SIZE = 48  # 숍 채널(queue_builder == "shopping")의 주간
 # 숍 채널(0장)·네이버/싼세계 정보 채널(고정 INFO_BODY_IMAGE_COUNT장)는 gen_images에서 따로 정합니다.
 # (photo_v2_20261020: 본문 사진 +1장 — 롱텀 2/3 → 3/4, 정보 채널 2 → 3, 생활레이더 2 → 3)
 LONGTERM_BODY_IMAGE_CHAR_THRESHOLD = 4000
-LONGTERM_BODY_IMAGES_LONG = 4
-LONGTERM_BODY_IMAGES_SHORT = 3
+LONGTERM_BODY_IMAGES_LONG = 5
+LONGTERM_BODY_IMAGES_SHORT = 4
 INFO_BODY_IMAGE_COUNT = 3  # 네이버(naver_tips)·싼세계(wp_tips) 본문 AI 사진 장수(플랫폼당)
 NV75_CHANNELS = ("naver_tips",)  # 본문 사진마다 "네이버용 75% 여백 파일"을 함께 만드는 채널(생활레이더는 RADAR_CHANNELS)
 
@@ -1615,10 +1615,10 @@ def gen_images(article_id):
         images_per_platform = INFO_BODY_IMAGE_COUNT
         total_body_images = images_per_platform * n_active
     elif is_longterm:
-        # 롱텀은 메모의 본문 장면이 3~4개면 그 개수만큼, 아니면 원고 길이(공백 제외 글자 수)로 정합니다 —
+        # 롱텀은 메모의 본문 장면이 3~5개면 그 개수만큼, 아니면 원고 길이(공백 제외 글자 수)로 정합니다 —
         # 기준·장수는 파일 위쪽 LONGTERM_BODY_IMAGE_* 상수.
         n_memo_scenes = len(parsed_memo["body_alt_pairs"])
-        if 3 <= n_memo_scenes <= 4:
+        if 3 <= n_memo_scenes <= 5:
             images_per_platform = n_memo_scenes
         else:
             images_per_platform = _longterm_body_image_count(reference_raw)

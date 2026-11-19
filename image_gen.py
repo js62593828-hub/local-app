@@ -2882,10 +2882,10 @@ def normalize_heading(text: str) -> str:
 
 def select_memo_body_pairs(pairs: list[tuple[str, str]], n: int) -> list[tuple[str, str]]:
     """롱텀: 메모의 (소제목, 장면) 목록에서 쓸 것만 순서를 유지한 채 고릅니다.
-    3~4개면 전부, 5개 이상이면 n개를 글 앞·중간·뒤에 고르게(각 구간의 가운데) 고르고, 0~2개면 있는 것만 돌려줍니다(모자란 자리는 호출하는 쪽이 채움).
+    3~5개면 전부, 6개 이상이면 n개를 글 앞·중간·뒤에 고르게(각 구간의 가운데) 고르고, 0~2개면 있는 것만 돌려줍니다(모자란 자리는 호출하는 쪽이 채움).
     (photo_v2_20261020: 본문 사진 +1장에 맞춰 기준을 2~3 → 3~4로 올렸습니다.)"""
     m = len(pairs)
-    if 3 <= m <= 4 or m <= 2:
+    if 3 <= m <= 5 or m <= 2:
         return list(pairs)
     n = max(1, min(n, m))
     return [pairs[int((i + 0.5) * m / n)] for i in range(n)]
