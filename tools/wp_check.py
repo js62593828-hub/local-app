@@ -32,6 +32,7 @@ PRICE_RX = re.compile(r"(\d[\d,]*)\s*원")
 LINK_LINE_RX = re.compile(r"^[ \t]*링크[ \t]*[:：]")
 PLACEHOLDER_RX = re.compile(r"\[쿠팡링크:(\d+)\]")
 HTML_LINK_RX = re.compile(r"<a\b[^\n]*</a>\s*$", re.I)
+BASE_LINE_RX = re.compile(r"^\(\d{1,2}월 \d{1,2}일 쿠팡 기준 · 상품 정보와 (?:(구매 후기 [\d,]+개)|필수 표기정보)를 바탕으로 정리\)$")
 SEP_ROW_RX = re.compile(r"^\s*\|?[\s:|-]*-{3,}[\s:|-]*\|?\s*$")
 
 
@@ -358,8 +359,25 @@ def check_text(text, name, frame, research=None, final=False, keyword="", rules=
                 v("기준일", no, f"가격·별점·리뷰 수 문장에 기준일이 없어요: {ln.strip()[:30]}")
     first_h = h2[0][0] if h2 else len(body) + 1
     intro = "\n".join(lines[2:first_h - 1])
-    if "쿠팡 기준" not in intro:
-        v("기준일 줄", "-", "도입부(첫 '##' 앞)에 '○월 ○일 쿠팡 기준 · … 정리' 줄이 없어요")
+    base_lines = [(first_no, l.strip()) for first_no, l in ((i + 3, x) for i, x in enumerate(lines[2:first_h - 1])) if l.strip()]
+    base_hit = [(no, l) for no, l in base_lines if "쿠팡 기준" in l]
+    if not base_hit:
+        v("기준일 줄", "-", "도입부(첫 '##' 앞)에 '(○월 ○일 쿠팡 기준 · 상품 정보와 … 바탕으로 정리)' 줄이 없어요")
+    else:
+        bno, btxt = base_hit[-1]
+        bm = BASE_LINE_RX.match(btxt)
+        if not bm:
+            v("기준일 줄", bno, f"기준일 줄 문구가 v1.4 5장 형식이 아니에요: {btxt[:40]}")
+        else:
+            kind = "후기" if bm.group(1) else "표기"
+            if base_lines and base_lines[-1][0] != bno:
+                w("기준일 줄", bno, "기준일 줄이 도입의 마지막 줄이 아니에요(도입 바로 다음 줄이어야 해요)")
+            if kind == "표기" and frame in ("D", "S"):
+                v("기준일 줄", bno, f"{frame} 틀은 '구매 후기 N개' 문구만 허용돼요('필수 표기정보' 문구 위반)")
+            if kind == "표기" and frame == "C":
+                for no, ln in body_scan:
+                    for m in re.finditer(r"후기에서|불만", ln):
+                        v("기준일 줄", no, f"후기를 쓰지 않은 C 글인데 본문에 '{m.group(0)}' 이(가) 있어요 · {ln.strip()[:30]}")
     nwarn = len(re.findall(r"수시로\s*바뀌", "\n".join(l for _, l in body_scan)))
     if nwarn != 1:
         v("가격 안내 문장", "-", f"'가격은 수시로 바뀌니 링크에서 오늘 가격을 확인해 보세요' 류 문장이 {nwarn}번이에요(글 전체 1번)")
