@@ -524,22 +524,128 @@ def parse_tsv_products(path, overrides=None):
         rv = parse_reviews(revs)
         for x in rv:
             x["sponsor"] = is_sponsor(x["text"])
-        brand = next((b for b in KNOWN_BRANDS if b.lower() in name.lower()), "")
-        p = {"file": "제품표 %d줄(%s)" % (n, label), "label": label, "keyword": "", "url": url, "date": collected_on, "types": [],
-             "slots": slots, "html": html, "link": url,
-             "info": {"name": name, "brand": brand, "model": "", "rating": rating_from_dist(dist), "reviews": reviews, "prices": [],
-                      "skipped_prices": []},
-             "must": [], "latest": [], "low": [], "memo": "", "tsv": True, "collected": rv, "satisfied": satisfied,
-             "dist": dist, "survey": survey, "options": list(dict.fromkeys(x["option"] for x in rv if x["option"]))}
-        p["pid"] = (re.search(r"link\.coupang\.com/a/([A-Za-z0-9]+)", url) or [None, ""])[1]
-        prods.append(p)
+        prods.append(make_tsv_product("제품표 %d줄(%s)" % (n, label), label, name, url, html, slots, collected_on, reviews, satisfied, dist, survey, rv))
     return prods
+
+
+def make_tsv_product(file, label, name, url, html, slots, collected_on, reviews, satisfied, dist, survey, rv):
+    """제품표 한 줄이든 추가 자료의 '새 제품' 이든 같은 모양의 제품 dict 를 만든다."""
+    brand = next((b for b in KNOWN_BRANDS if b.lower() in name.lower()), "")
+    p = {"file": file, "label": label, "keyword": "", "url": url, "date": collected_on, "types": [],
+         "slots": slots, "html": html, "link": url,
+         "info": {"name": name, "brand": brand, "model": "", "rating": rating_from_dist(dist), "reviews": reviews, "prices": [],
+                  "skipped_prices": []},
+         "must": [], "latest": [], "low": [], "memo": "", "tsv": True, "collected": rv, "satisfied": satisfied,
+         "dist": dist, "survey": survey, "options": list(dict.fromkeys(x["option"] for x in rv if x["option"]))}
+    p["pid"] = (re.search(r"link\.coupang\.com/a/([A-Za-z0-9]+)", url) or [None, ""])[1]
+    return p
+
+
+# ---------- 추가 자료(_추가자료_*.txt) ----------
+def _clean_block(text):
+    """주석('#' 줄)과 안내 문구('(' 로 시작해 ')' 로 끝나는 줄)를 뺀 글."""
+    out = []
+    for l in text.replace("\r\n", "\n").split("\n"):
+        t = l.strip()
+        if t.startswith("#") or (t.startswith("(") and t.endswith(")")):
+            continue
+        out.append(l.rstrip())
+    return "\n".join(out).strip("\n")
+
+
+def _bracket_parts(body):
+    """'[칸 이름]' 줄로 나눈다 → ({칸 이름: 본문}, '[' 앞 머리말)"""
+    parts, head, cur = {}, [], None
+    for line in body.split("\n"):
+        m = re.match(r"^\s*\[([^\]]+)\]\s*$", line)
+        if m:
+            cur = m.group(1).strip()
+            parts[cur] = []
+        elif cur is None:
+            head.append(line)
+        else:
+            parts[cur].append(line)
+    return {k: _clean_block("\n".join(v)) for k, v in parts.items()}, _clean_block("\n".join(head))
+
+
+def read_extra(week_dir):
+    """_추가자료_*.txt → {"items": [{"pid","title","must","reviews"}], "new": [dict], "filled": 칸 있는 블록 수, "empty": 빈 블록 수}
+    '=== 상품id | 이름 ===' 블록: [필수 표기정보]·[추가 후기] 를 더함 / '=== 새 제품 | 1124 S … ===' 블록: 새 제품 하나.
+    칸이 비어 있으면 건너뜀(파일이 없어도 됨)."""
+    out = {"items": [], "new": [], "filled": 0, "empty": 0}
+    for path in sorted(glob.glob(os.path.join(week_dir, "_추가자료_*.txt"))):
+        with open(path, encoding="utf-8-sig") as f:
+            sec = split_sections(f.read())
+        for title, body in sec.items():
+            head_id, _, rest = [x.strip() for x in title.partition("|")]
+            parts, head = _bracket_parts(body)
+            if head_id == "새 제품":
+                link = (parts.get("파트너스 링크", "").splitlines() or [""])[0].strip()
+                name = (parts.get("상품명", "").splitlines() or [""])[0].strip()
+                if not link and not name:
+                    out["empty"] += 1
+                    continue
+                out["filled"] += 1
+                kv = dict(kv_lines(head))
+                out["new"].append({"title": rest, "link": link, "html": " ".join(parts.get("파트너스 HTML", "").split()), "name": name,
+                                   "stats": parts.get("별점/후기개수", ""), "must": parts.get("필수 표기정보", ""),
+                                   "reviews": parts.get("후기", ""), "date": kv.get("수집일", ""), "slots": parse_slots(kv.get("쓸 글", "") or rest),
+                                   "page": kv.get("쿠팡 주소", ""), "file": os.path.basename(path)})
+            else:
+                must, rev = parts.get("필수 표기정보", ""), parts.get("추가 후기", "")
+                if not must.strip() and not rev.strip():
+                    out["empty"] += 1
+                    continue
+                out["filled"] += 1
+                out["items"].append({"pid": head_id, "title": rest, "must": kv_lines(must), "reviews": split_reviews(rev)})
+    return out
+
+
+def _norm_text(t):
+    return re.sub(r"\s+", "", t or "")
+
+
+def apply_extra(raw, extra, plan):
+    """추가 자료를 제품 목록(raw)에 합친다. 반환: 보고용 문장 목록."""
+    notes = []
+    by_pid = {p.get("pid"): p for p in raw if p.get("tsv")}
+    for it in extra["items"]:
+        p = by_pid.get(it["pid"])
+        if not p:
+            notes.append("추가 자료의 상품id %s 는 제품표에 없음 — 건너뜀" % it["pid"])
+            continue
+        have = {k for k, _ in p["must"]}
+        p["must"] += [(k, v) for k, v in it["must"] if k not in have]
+        seen = {_norm_text(x["text"]) for x in p["collected"]}
+        added = 0
+        for t in it["reviews"]:
+            if _norm_text(t) in seen:
+                continue
+            seen.add(_norm_text(t))
+            p["collected"].append({"date": "추가 자료", "option": "", "text": t, "sponsor": is_sponsor(t)})
+            added += 1
+        notes.append("%s: 필수 표기정보 %d개·추가 후기 %d개 더함" % (it["pid"], len(it["must"]), added))
+    for nw in extra["new"]:
+        reviews, satisfied, dist, survey = parse_stats(nw["stats"])
+        rv = parse_reviews(nw["reviews"]) or [{"date": "", "option": "", "text": t} for t in split_reviews(nw["reviews"])]
+        for x in rv:
+            x["sponsor"] = is_sponsor(x["text"])
+        label = re.sub(r"(?<!\d)\d{4}\s*[CSD](?![A-Za-z])", "", nw["title"]).strip()
+        p = make_tsv_product("추가 자료 새 제품(%s)" % nw["title"], label, nw["name"], nw["link"], nw["html"], nw["slots"], nw["date"],
+                             reviews, satisfied, dist, survey, rv)
+        p["must"] = kv_lines(nw["must"])
+        if nw["page"]:
+            p["memo"] = "쿠팡 상품 화면 주소(사람이 열어 본 것): " + nw["page"]
+        raw.append(p)
+        notes.append("새 제품 %s: 상품명 '%s' · 후기 %d개" % (nw["title"], nw["name"][:20], len(rv)))
+    return notes
 
 
 def spec_missing(p, official):
     """핵심 사양 중 상품명·옵션명·제조사 공식 어디에도 없는 항목 목록."""
     text = " ".join([p["info"]["name"], p.get("label", "")] + p.get("options", []) +
-                    ["%s %s" % (x.get("항목", ""), x.get("값", "")) for x in (official or {}).get("items", [])])
+                    ["%s %s" % (x.get("항목", ""), x.get("값", "")) for x in (official or {}).get("items", [])] +
+                    ["%s %s" % (k, v) for k, v in p.get("must", [])])
     key_text = p["info"]["name"] + " " + p.get("label", "")
     for words, items in CORE_SPECS:
         if any(w in key_text for w in words):
@@ -646,13 +752,16 @@ def load_official(week_dir):
     return {}
 
 
-def build(week_dir, plan=(), exc=None):
+def build(week_dir, plan=(), exc=None, extra=None):
     files = sorted(f for f in glob.glob(os.path.join(week_dir, "*.txt")) if not os.path.basename(f).startswith("_"))
     plan_keys = {x["key"] for x in plan}
     official = load_official(week_dir)
     raw = [parse_file(f) for f in files]
     for tsv in sorted(glob.glob(os.path.join(week_dir, "_제품표_*.tsv"))):
         raw += parse_tsv_products(tsv, (exc or {}).get("slots"))
+    if extra and (extra["items"] or extra["new"]):
+        for n in apply_extra(raw, extra, plan):
+            print("추가 자료 -", n)
     prods = []
     by_pid, no_url = {}, []
     for p in raw:
@@ -843,7 +952,9 @@ def main():
         sys.exit("폴더가 없습니다: %s" % week_dir)
     plan = read_plan(week_dir)
     exc = read_exceptions(week_dir)
-    prods = build(week_dir, plan, exc)
+    extra = read_extra(week_dir)
+    print("추가 자료: 칸이 채워진 블록 %d개 · 비어 있어 건너뜀 %d개" % (extra["filled"], extra["empty"]))
+    prods = build(week_dir, plan, exc, extra)
     links = write_outputs(week_dir, prods, plan, exc)
     bad = [p for p in prods if p["problems"]]
     print("상품 %d개 → research %d개, links.json %d개, 문제(경고 포함) 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["pid"]), len(links), len(bad)))
