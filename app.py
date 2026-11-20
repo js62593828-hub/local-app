@@ -2711,8 +2711,9 @@ def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tup
         title = ((art.get("platform_title") or {}).get("naver") or "").strip()
         row = {"id": aid, "keyword": it.get("keyword", ""), "title": title, "date": date, "current": url, "found": "", "result": "", "ref": "", "rss_title": ""}
         dt = _publish_dt(date, ((art.get("platform_scheduled_time") or {}).get("naver")))
-        if date[:10] > today or (dt and dt > now):
-            row["result"] = "예약 중"
+        hits0 = by_title.get(_radar_norm_title(title), []) if title else []
+        if (date[:10] > today or (dt and dt > now)) and len(hits0) != 1:
+            row["result"] = "예약 중"  # 아직 공개 전. 단, RSS 에 같은 제목 글이 이미 있으면(미리 발행한 글) 공개된 것이라 아래에서 짝짓기
         elif not art:
             row["result"], row["ref"] = "못 찾음", "앱에 원고가 없는 글(쓰지 않는 글)"
         else:

@@ -1308,7 +1308,7 @@ def load_naver_links():
 
 def pick_related(cur_id, cur_genre, queue, articles, since, genre_of=None, limit=2, today=None):
     """"함께 보면 좋은 글" 고르기. 반환 (뽑은 목록 [{id,url,date,genre,same}], 메모 목록).
-    고를 수 있는 글: since <= 발행일 <= 오늘 + 주소가 guardradar/<숫자> + 자기 자신 아님. 같은 갈래 최근 1 + 다른 갈래 최근 1,
+    고를 수 있는 글: 대기열 id 날짜 >= since + 주소가 guardradar/<숫자>(글 번호 있음=이미 공개) + 자기 자신 아님. 발행일 칸은 보지 않음(미리 발행한 글도 포함). 같은 갈래 최근 1 + 다른 갈래 최근 1,
     한쪽이 없으면 남은 글 중 최근 순으로 채움. 갈래를 못 찾은 글은 "다른 갈래"로 취급하고 메모에 적는다."""
     genre_of = genre_of or plan_genre
     today = today or datetime.now().strftime("%Y-%m-%d")  # 이 PC 의 오늘 날짜. 발행일이 오늘보다 뒤(예약)인 글은 아직 공개 전이라 뺀다
@@ -1320,8 +1320,9 @@ def pick_related(cur_id, cur_genre, queue, articles, since, genre_of=None, limit
         art = (articles or {}).get(aid) or {}
         d = ((art.get("platform_published_at") or {}).get("naver") or "").strip()
         url = ((art.get("platform_published_url") or {}).get("naver") or "").strip()
-        if not d or d < since or d > today or not _POST_URL_RE.match(url):
-            continue
+        if str(aid)[:10] < since or not _POST_URL_RE.match(url):
+            continue  # 옛 생활 글(id 날짜가 since 이전)·글 번호 주소가 없는 글은 뺌
+        d = d or str(aid)[:10]
         g = genre_of(it) or ""
         if not g:
             notes.append(f"갈래를 못 찾아 '다른 갈래'로 취급: {it.get('keyword')} ({aid})")
