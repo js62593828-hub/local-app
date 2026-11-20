@@ -1,3 +1,7 @@
+## 진행 중 (2026-11-20 radar 마무리): (1) 주소 채우기 대상 기준 수정 (2) 사진 제외 단어 정확하게 (3) RADAR_LETTERBOX_FILL 켜기 (4) 11/23 주 태그 넣기
+- 단계: 대상 조사 끝(발행 날짜 칸이 비어 있어 전부 빠졌음 → 대기열 plan.publish_date 로 대신 봄). 지금 app.py·radar_screen.py 고치는 중. 실제 RSS 저장·발행 안 함.
+- 다음 명령: 가짜 RSS 시험 → _LB_DENY 시험 7가지 → config True → 태그 백업 후 radar_import --update --apply → reviewer → 커밋
+
 ## 완료 (2026-11-20 radar 후속): ① 사진 띠 대상=사진 출처로 판단(_detail·pieces·gallery·캡처·표·카드·모름은 제외, RADAR_LETTERBOX_FILL 은 계속 False) ② 주소 채우기는 id 2026-11-23 이후 글만(옛 글 60개 뺌, 맨 위 한 줄 표시) ③ 제목 짝짓기=HTML 기호 풀고 띄어쓰기·문장부호·대소문자 뺀 값, 글번호 없는 RSS 는 '주소 형식 다름'으로 표시 — reviewer 결과는 아래 참고
 - 함께 보면 좋은 글: pick_related 가 발행일 >= 2026-11-23 만 고르므로 옛 글은 못 고름(옛 id 인데 발행일이 이후인 글 0개) → 코드 안 고침. 실제 주소 저장·앱 데이터 수정 안 함.
 
