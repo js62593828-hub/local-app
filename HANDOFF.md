@@ -1,4 +1,4 @@
-## 멈춤 (2026-11-20): N살림노트 11/23 주 제품 정리 3단계 — 사용자 "넣어" 대기
+## 완료 (2026-11-20): N살림노트 11/23 주 제품 정리 3단계 — 대기열에 17편 제품 넣음(백업 backup/content_queue_naver_tips.backup_before_update_products_20261120_090305.json)
 - 끝낸 것: 남은 링크 5개 발급(발급 5·기존 20·실패 0, links.json 25칸 모두 있음, approved.json 은 48개로 복구), 자료 6개 수집(새 5개+로긴 식기건조대 재수집, 임시 복사본으로 login 판단만 좁힘), products_20261123.txt 25줄(백업 .backup_before_slots_20261120), products_20261123.json 만듦, --update-products 미리 보기(바뀔 17편, 경고 없음).
 - 다음 명령(사용자가 "넣어"라고 하면만): python tools/push_plan.py --products pipeline/final/products_20261123.json --update-products --apply
 - _keep 폴더는 본 폴더에 없는 파일 0개(지워도 되는지는 사용자가 결정).
