@@ -2628,8 +2628,25 @@ RADAR_AUTOFILL_CHANNEL = "radar_naver"
 _RADAR_RSS_CACHE = {"at": 0.0, "items": None}
 
 
+def _radar_unescape(t: str) -> str:
+    """HTML 기호를 풀어 글자로(&amp;middot; 처럼 두 겹이어도 더 안 풀릴 때까지, 최대 3번). 앞뒤 빈칸 제거."""
+    t = t or ""
+    for _ in range(3):
+        u = html.unescape(t)
+        if u == t:
+            break
+        t = u
+    return t.strip()
+
+
+def _radar_norm_title(t: str) -> str:
+    """제목 짝짓기용: HTML 기호를 풀고 띄어쓰기·문장부호(·, ?, ! 등)를 모두 뺀 뒤 소문자로. 글자·숫자만 남습니다."""
+    return re.sub(r"[\W_]+", "", _radar_unescape(t)).lower()
+
+
 def _fetch_radar_rss() -> list[dict] | None:
-    """guardradar RSS의 [{title, link}] (link 는 글 번호까지 있는 주소만). 읽기 실패·형식 오류면 None, 올라온 글이 0개면 [].
+    """guardradar RSS의 [{title, link, raw}] — title 은 HTML 기호(&amp; &#39; &middot; 등)를 푼 글자, link 는 글 번호까지 있는 주소
+    (글 번호가 없는 항목은 link="" 로 남기고 raw 에 원래 주소). 읽기 실패·형식 오류면 None, 올라온 글이 0개면 [].
     저장 전 확인용이라 캐시 없이 매번 새로 읽습니다."""
     try:
         resp = requests.get(f"https://rss.blog.naver.com/{radar_screen.RADAR_BLOG_ID}.xml", timeout=10)
@@ -2637,10 +2654,11 @@ def _fetch_radar_rss() -> list[dict] | None:
         root = ET.fromstring(resp.content)
         items = []
         for node in root.iter("item"):
-            title = html.unescape((node.findtext("title") or "")).strip()
-            fixed, err = radar_screen.normalize_post_url((node.findtext("link") or "").strip())
-            if title and fixed and not err:
-                items.append({"title": title, "link": fixed})
+            title = _radar_unescape(node.findtext("title") or "")
+            raw = (node.findtext("link") or "").strip()
+            fixed, err = radar_screen.normalize_post_url(raw)
+            if title:
+                items.append({"title": title, "link": fixed if (fixed and not err) else "", "raw": raw})
     except (requests.RequestException, ET.ParseError, ValueError):
         return None
     return items
@@ -2660,16 +2678,20 @@ def _radar_url_is_fillable(url: str) -> bool:
     return host in ("blog.naver.com", "m.blog.naver.com") and pu.path.rstrip("/").lower() == "/" + radar_screen.RADAR_BLOG_ID and not parse_qs(pu.query).get("logNo")
 
 
-def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tuple | None = None) -> list[dict]:
-    """radar_naver 글만 읽기만 해서 계획을 만듭니다(저장 안 함). 제목이 한 글자도 다르지 않고 RSS에서 정확히 1개일 때만 '채움'.
+def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tuple | None = None) -> tuple[list[dict], int]:
+    """radar_naver 글만 읽기만 해서 계획을 만듭니다(저장 안 함). 반환 (행 목록, 옛 생활 글이라 뺀 개수).
+    대기열 id 가 RADAR_RELATED_SINCE(2026-11-23) 이전인 옛 생활 글은 대상에서 뺍니다. 제목은 HTML 기호를 풀고 띄어쓰기·문장부호·대소문자를 뺀 값이
+    같고 글 번호 있는 RSS 글이 정확히 1개일 때만 '채움'.
     결과: 채움 / 못 찾음(없음·여러 개·다른 글과 겹침, 가장 비슷한 제목을 참고로 표시) / 예약 중(아직 공개 전, 오류 아님)."""
     now = now or datetime.now()
     queue, articles = data if data is not None else _read_channel_data(RADAR_AUTOFILL_CHANNEL)
     today = now.strftime("%Y-%m-%d")
+    since = str(getattr(config, "RADAR_RELATED_SINCE", "2026-11-23"))
     by_title: dict[str, list[dict]] = {}
     for r in rss:
-        by_title.setdefault(r["title"], []).append(r)
-    rows, seen = [], set()
+        if r.get("link"):
+            by_title.setdefault(_radar_norm_title(r["title"]), []).append(r)
+    rows, seen, old_skipped = [], set(), 0
     for it in queue:
         aid = it.get("id")
         if aid in seen:
@@ -2680,21 +2702,25 @@ def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tup
         date = ((art.get("platform_published_at") or {}).get("naver") or "").strip()
         if not date or not _radar_url_is_fillable(url):
             continue  # 발행(예약) 날짜가 없거나, 이미 주소가 있는 글은 대상이 아님
+        if str(aid)[:10] < since:
+            old_skipped += 1  # 옛 생활 글(Desk Picker 이전)은 목록에서 뺌
+            continue
         title = ((art.get("platform_title") or {}).get("naver") or "").strip()
-        row = {"id": aid, "keyword": it.get("keyword", ""), "title": title, "date": date, "current": url, "found": "", "result": "", "ref": ""}
+        row = {"id": aid, "keyword": it.get("keyword", ""), "title": title, "date": date, "current": url, "found": "", "result": "", "ref": "", "rss_title": ""}
         dt = _stored_publish_dt(art, "naver")
         if date[:10] > today or (dt and dt > now):
             row["result"] = "예약 중"
         else:
-            hits = by_title.get(title, []) if title else []
+            hits = by_title.get(_radar_norm_title(title), []) if title else []
             if len(hits) == 1:
-                row["found"], row["result"] = hits[0]["link"], "채움"
+                row["found"], row["result"], row["rss_title"] = hits[0]["link"], "채움", hits[0]["title"]
             else:
                 row["result"] = "못 찾음"
                 if hits:
                     row["ref"] = hits[0]["title"] + f" (같은 제목 {len(hits)}개)"
                 elif title and rss:
-                    row["ref"] = max(rss, key=lambda r: difflib.SequenceMatcher(None, title, r["title"]).ratio())["title"]
+                    nt = _radar_norm_title(title)
+                    row["ref"] = max(rss, key=lambda r: difflib.SequenceMatcher(None, nt, _radar_norm_title(r["title"])).ratio())["title"]
         rows.append(row)
     # 이미 다른 글이 쓰는 주소이거나 두 글이 같은 주소를 받으려 하면 채우지 않습니다.
     used = {}
@@ -2709,8 +2735,8 @@ def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tup
     for r in rows:
         if r["result"] == "채움" and (claimed[r["found"]] > 1 or r["found"] in used):
             r["ref"] = f"{r['found']} (이미 다른 글이 쓰는 주소라 채우지 않음)"
-            r["found"], r["result"] = "", "못 찾음"
-    return rows
+            r["found"], r["result"], r["rss_title"] = "", "못 찾음", ""
+    return rows, old_skipped
 
 
 def _radar_apply_autofill(rows: list[dict], path: str | None = None) -> tuple[int, str]:
@@ -2751,8 +2777,9 @@ def radar_url_autofill_preview():
         return redirect(url_for("index"))
     back = url_for("status") if request.form.get("back") == "status" else url_for("index")
     rss = _fetch_radar_rss()
-    rows = [] if rss is None else _radar_autofill_plan(rss)
-    return render_template("radar_url_autofill.html", rss_failed=rss is None, rows=rows, saved=None, back_url=back)
+    rows, old_skipped = ([], 0) if rss is None else _radar_autofill_plan(rss)
+    bad_rss = [r for r in (rss or []) if not r.get("link")]
+    return render_template("radar_url_autofill.html", rss_failed=rss is None, rows=rows, saved=None, back_url=back, old_skipped=old_skipped, bad_rss=bad_rss)
 
 
 @app.route("/radar-url-autofill/apply", methods=["POST"])
@@ -2765,12 +2792,12 @@ def radar_url_autofill_apply():
     if rss is None:
         return render_template("radar_url_autofill.html", rss_failed=True, rows=[], saved=None, back_url=back)
     approved = set(request.form.getlist("pair"))
-    rows = _radar_autofill_plan(rss)
+    rows, old_skipped = _radar_autofill_plan(rss)
     for r in rows:
         if r["result"] == "채움" and f"{r['id']}|{r['found']}" not in approved:
             r["result"], r["ref"] = "못 찾음", "미리보기와 달라져 채우지 않음(다시 눌러 확인해 주세요)"
     count, backup = _radar_apply_autofill(rows)
-    return render_template("radar_url_autofill.html", rss_failed=False, rows=rows, saved={"count": count, "backup": os.path.basename(backup)}, back_url=back)
+    return render_template("radar_url_autofill.html", rss_failed=False, rows=rows, saved={"count": count, "backup": os.path.basename(backup)}, back_url=back, old_skipped=old_skipped, bad_rss=[r for r in rss if not r.get("link")])
 
 
 NAVER_RELATED_CHANNELS = ("shop_naver", "naver_tips")  # 같은 네이버 블로그의 두 채널 — 하단 추천 후보는 둘 다에서 고릅니다

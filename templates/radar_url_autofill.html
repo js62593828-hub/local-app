@@ -42,6 +42,7 @@
       {% else %}
       <span class="warn">미리보기 — 아직 아무것도 저장하지 않았어요.</span><br>
       {% endif %}
+      <span class="wait">옛 생활 글(2026-11-23 이전) {{ old_skipped }}개는 목록에서 뺐어요.</span><br>
       채울 글 {{ filled_rows | length }}개 / 짝 없음 {{ missed | length }}개 / 아직 예약 중 {{ waiting | length }}개
       {% if not rows %}<br><span class="wait">채울 대상이 없어요 (이미 글 주소가 있거나 발행 날짜가 없는 글이에요).</span>{% endif %}
     </div>
@@ -49,9 +50,9 @@
     {% if filled_rows %}
     <h2>{% if saved is not none %}채운 글{% else %}채울 글 (확인 후 저장){% endif %}</h2>
     <table>
-      <tr><th>글 id</th><th>제목</th><th>채울 주소</th><th>발행일</th></tr>
+      <tr><th>글 id</th><th>앱 제목</th><th>네이버(RSS) 제목</th><th>채울 주소</th><th>발행일</th></tr>
       {% for r in filled_rows %}
-      <tr><td>{{ r.id }}</td><td><a style="color:#60a5fa" href="/article/{{ r.id }}/edit">{{ r.title or r.keyword }}</a></td><td>{{ r.found }}</td><td>{{ r.date }}</td></tr>
+      <tr><td>{{ r.id }}</td><td><a style="color:#60a5fa" href="/article/{{ r.id }}/edit">{{ r.title or r.keyword }}</a></td><td>{{ r.rss_title }}</td><td>{{ r.found }}</td><td>{{ r.date }}</td></tr>
       {% endfor %}
     </table>
     {% if saved is none %}
@@ -69,6 +70,16 @@
       <tr><th>글 id</th><th>제목</th><th>발행일</th><th>가장 비슷한 네이버 제목 (참고)</th></tr>
       {% for r in missed %}
       <tr><td>{{ r.id }}</td><td><a style="color:#60a5fa" href="/article/{{ r.id }}/edit">{{ r.title or r.keyword }}</a></td><td>{{ r.date }}</td><td>{{ r.ref or '-' }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if bad_rss %}
+    <h2>주소 형식 다름 ({{ bad_rss | length }}개) — 글 번호가 없는 네이버 글이라 채우지 않아요</h2>
+    <table>
+      <tr><th>네이버(RSS) 제목</th><th>RSS 주소</th></tr>
+      {% for r in bad_rss %}
+      <tr><td>{{ r.title }}</td><td>{{ r.raw or '-' }}</td></tr>
       {% endfor %}
     </table>
     {% endif %}

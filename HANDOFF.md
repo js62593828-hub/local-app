@@ -1,3 +1,6 @@
+## 완료 (2026-11-20 radar 후속): ① 사진 띠 대상=사진 출처로 판단(_detail·pieces·gallery·캡처·표·카드·모름은 제외, RADAR_LETTERBOX_FILL 은 계속 False) ② 주소 채우기는 id 2026-11-23 이후 글만(옛 글 60개 뺌, 맨 위 한 줄 표시) ③ 제목 짝짓기=HTML 기호 풀고 띄어쓰기·문장부호·대소문자 뺀 값, 글번호 없는 RSS 는 '주소 형식 다름'으로 표시 — reviewer 결과는 아래 참고
+- 함께 보면 좋은 글: pick_related 가 발행일 >= 2026-11-23 만 고르므로 옛 글은 못 고름(옛 id 인데 발행일이 이후인 글 0개) → 코드 안 고침. 실제 주소 저장·앱 데이터 수정 안 함.
+
 ## 완료 (2026-11-20 radar): (가) 11/23 주 데스크피커 태그 · (나) radar 발행 주소 자동 채우기 · (다) 본문 사진 띠 없애기 — reviewer 검수: 문제 없음(사소한 권장 2: 메모 종류가 제품인데 캡처를 고른 경우 켤 때 시안 확인, RSS 글번호 없는 항목은 버림)
 - (가) 20편 '태그:' 줄만 띄어쓰기 없이 붙임(개수 10~15, 키워드 붙임 태그 있음). 백업 pipeline/radar_drafts/_backup/2026-11-23_before_tags/(20개). radar_check 위반 0, radar_import --update 미리보기: 바뀔 글 20(태그만). 전후 표 preview/radar_tags_before_after_20261120.md. 앱에 안 넣음(--apply 안 함). 앱은 태그를 빈칸으로도 자름(radar_screen.parse_tag_text).
 - (나) app.py 새 길 /radar-url-autofill(미리보기)→/radar-url-autofill/apply(확인 후 저장, 저장 전 articles_radar_naver.backup_before_urlfill_날짜.json). 버튼: 대기열 화면·발행 현황 화면 위쪽 '🔗 글 주소 자동 채우기'(radar_naver 일 때만). 제목 한 글자도 같을 때만, 글 번호 있는 주소·다른 블로그 주소는 안 덮음, 예약 중은 건너뜀. 실제 실행 안 함(가짜 데이터 시험만). 커밋 c7245a2.
