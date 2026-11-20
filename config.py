@@ -206,6 +206,9 @@ RADAR_UPLOAD_SIZE = 800
 # 본문 사진(📷 NN_사진n)만 프레임을 씌움: 전체 800×800, 바깥 바탕 RADAR_FRAME_BG, 안쪽 사진 칸은 사방 PAD px 안쪽·모서리 RADIUS px 둥글게,
 # 사진은 자르지 않고 칸 안에 맞추고 남는 곳은 FILL. False 면 예전 방식(흰 여백 800×800). 표지·GIF·필수 표기 이미지는 해당 없음.
 RADAR_PHOTO_FRAME = True
+# 본문 사진 중 제품·AI 장면 사진의 빈 띠(레터박스) 없애기: 장면 사진만 띠를 자르고 비율 그대로 키워 칸을 채움(기준 숫자는 radar_screen.py 의 LB_*).
+# 시안 확인 전이라 꺼 둠(False). 켜면 다음 '③ 최종본 만들기'부터 naver_upload 가 새 방식으로 다시 만들어집니다.
+RADAR_LETTERBOX_FILL = False
 RADAR_FRAME_BG = "#F4F1EC"
 RADAR_FRAME_PAD = 27
 RADAR_FRAME_RADIUS = 16

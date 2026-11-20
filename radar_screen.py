@@ -1421,6 +1421,102 @@ def _upload_size():
         return 800
 
 
+# ── 본문 사진 레터박스(흰·검은 빈 띠) 없애기: 장면 사진만 비율 그대로 확대해 칸을 채움 ──
+# 기준 숫자(모두 여기 한 곳): 11/23 주 사진 실측으로 정함.
+LB_SOLID_RING = 6      # 사진 가장자리 바깥 6px 한 바퀴를 본다
+LB_SOLID_TOL = 20      # 그 가장자리 대표색(중앙값)과 채널별 차이가 20 이하면 '같은 색'
+LB_SOLID_NEED = 0.90   # 가장자리 픽셀의 90% 이상이 같은 색이면 '단색 배경 사진'(흰 배경 제품 등) → 지금처럼 그대로
+LB_BAND_TOL = 12       # 띠 한 줄 = 줄 안 색 차이도, 가장 바깥 줄과의 색 차이도 12 이하
+LB_BAND_MIN_PX = 3     # 이보다 얇은 띠는 띠로 보지 않음
+LB_BAND_MAX_FRAC = 0.45  # 한 변에서 최대 45% 까지만 띠로 봄
+LB_BAND_SAFE_PX = 2    # 띠를 자를 때 JPEG 번짐을 피해 안쪽으로 2px 더 자름
+LB_MAX_CROP = 0.20     # 확대해 채우려 잘라 내는 양이 긴 변의 20% 를 넘으면 자르지 않음('많이 잘림')
+LB_MIN_KEEP_AREA = 0.40  # 띠를 잘라 낸 뒤 남는 넓이가 원본의 40% 미만이면 제품이 잘릴 위험 → 그대로
+
+
+def _rgb_on_white(im):
+    from PIL import Image
+    im = im.convert("RGBA")
+    bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
+    return Image.alpha_composite(bg, im).convert("RGB")
+
+
+def _edge_solid_ratio(im):
+    """가장자리 바깥 LB_SOLID_RING px 한 바퀴 중 대표색(중앙값)과 거의 같은 픽셀의 비율 → (비율, 대표색)."""
+    w, h = im.size
+    r = max(1, min(LB_SOLID_RING, w // 2, h // 2))
+    px = []
+    for bx in ((0, 0, w, r), (0, h - r, w, h), (0, 0, r, h), (w - r, 0, w, h)):
+        px += list(im.crop(bx).getdata())
+    med = tuple(sorted(v[c] for v in px)[len(px) // 2] for c in range(3))
+    ok = sum(1 for v in px if max(abs(v[c] - med[c]) for c in range(3)) <= LB_SOLID_TOL)
+    return ok / len(px), med
+
+
+def _band_sizes(im):
+    """네 변(위·아래·왼·오른)에 붙은 같은 색 띠의 두께(px) → (t, b, l, r). 얇은 띠(LB_BAND_MIN_PX 미만)는 0."""
+    w, h = im.size
+
+    def line_ok(box, ref):
+        ex = im.crop(box).getextrema()
+        return all(abs(e[0] - ref[c]) <= LB_BAND_TOL and abs(e[1] - ref[c]) <= LB_BAND_TOL for c, e in enumerate(ex))
+
+    def mean(box):
+        d = list(im.crop(box).getdata())
+        return tuple(sum(v[c] for v in d) // len(d) for c in range(3))
+
+    out = []
+    for first, nth, n in (((0, 0, w, 1), lambda i: (0, i, w, i + 1), h), ((0, h - 1, w, h), lambda i: (0, h - 1 - i, w, h - i), h),
+                          ((0, 0, 1, h), lambda i: (i, 0, i + 1, h), w), ((w - 1, 0, w, h), lambda i: (w - 1 - i, 0, w - i, h), w)):
+        ref = mean(first)
+        c = 0
+        while c < n * LB_BAND_MAX_FRAC and line_ok(nth(c), ref):
+            c += 1
+        out.append(c if c >= LB_BAND_MIN_PX else 0)
+    return tuple(out)
+
+
+def letterbox_plan(im):
+    """장면 사진 확대 채우기 판단(그림은 바꾸지 않음). im: RGB.
+    반환 dict: decision('확대 채우기'|'그대로'|'많이 잘림'), reason, bands(t,b,l,r), ring(가장자리 같은색 비율), crop_frac(잘라 낼 양/긴 변), box(자를 영역)."""
+    w, h = im.size
+    ring, med = _edge_solid_ratio(im)
+    plan = {"decision": "그대로", "reason": "", "bands": (0, 0, 0, 0), "ring": round(ring, 3), "edge_color": med, "crop_frac": 0.0, "box": (0, 0, w, h)}
+    if ring >= LB_SOLID_NEED:
+        plan["reason"] = "가장자리가 단색(흰 배경 제품 등)"
+        return plan
+    t, b, l, r = _band_sizes(im)
+    plan["bands"] = (t, b, l, r)
+    has_band = bool(t or b or l or r)
+    if has_band:
+        t, b, l, r = [x + LB_BAND_SAFE_PX if x else 0 for x in (t, b, l, r)]
+    box = (l, t, w - r, h - b)
+    bw, bh = box[2] - box[0], box[3] - box[1]
+    if bw < 8 or bh < 8 or (bw * bh) / (w * h) < LB_MIN_KEEP_AREA:
+        plan["reason"] = "띠를 자르면 남는 부분이 너무 작음"
+        return plan
+    plan["box"] = box
+    cf = 1 - min(bw, bh) / max(bw, bh)
+    plan["crop_frac"] = round(cf, 3)
+    if cf > LB_MAX_CROP:
+        plan["decision"], plan["reason"] = "많이 잘림", f"채우려면 긴 변의 {round(cf * 100)}% 를 잘라야 함(기준 {round(LB_MAX_CROP * 100)}%)"
+    elif not has_band and cf < 0.01:
+        plan["reason"] = "띠 없음(정사각)"
+    else:
+        plan["decision"] = "확대 채우기"
+        plan["reason"] = (f"띠 {t}/{b}/{l}/{r}px 자름 + " if has_band else "") + f"가운데 기준 {round(cf * 100)}% 자름"
+    return plan
+
+
+def _fill_tile(im, inner, plan):
+    """plan 의 box 로 띠를 자르고 가운데 기준 정사각으로 잘라 inner×inner 로 비율 그대로 키워(줄여) 돌려준다."""
+    from PIL import Image
+    c = im.crop(plan["box"])
+    s = min(c.size)
+    x0, y0 = (c.width - s) // 2, (c.height - s) // 2
+    return c.crop((x0, y0, x0 + s, y0 + s)).resize((inner, inner), Image.LANCZOS)
+
+
 def _contain(im, size):
     """그림 한 장을 size×size 흰 바탕 가운데에 비율 그대로(자르지 않고) 맞춘다. 반환 RGB 그림."""
     from PIL import Image
@@ -1475,8 +1571,9 @@ def _frame_cfg():
         return None
 
 
-def _frame_image(im, size, cfg):
-    """그림 한 장을 size×size 프레임(바깥 바탕색·둥근 안쪽 칸·칸 안 contain)에 넣어 RGB 로 돌려준다."""
+def _frame_image(im, size, cfg, lb_fill=False):
+    """그림 한 장을 size×size 프레임(바깥 바탕색·둥근 안쪽 칸·칸 안 contain)에 넣어 RGB 로 돌려준다.
+    lb_fill=True(제품·AI 장면 사진, config RADAR_LETTERBOX_FILL): 장면 사진이면 띠를 자르고 비율 그대로 키워 칸을 꽉 채움(letterbox_plan)."""
     from PIL import Image, ImageDraw
     bg, pad, radius, fill = cfg
     inner = size - 2 * pad
@@ -1484,6 +1581,14 @@ def _frame_image(im, size, cfg):
     mask = Image.new("L", (inner * ss, inner * ss), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, inner * ss - 1, inner * ss - 1), radius=radius * ss, fill=255)
     mask = mask.resize((inner, inner), Image.LANCZOS)
+    if lb_fill:
+        _rgb = _rgb_on_white(im)
+        _plan = letterbox_plan(_rgb)
+        if _plan["decision"] == "확대 채우기":
+            canvas = Image.new("RGB", (size, size), bg)
+            canvas.paste(_fill_tile(_rgb, inner, _plan), (pad, pad), mask)
+            radar_images.draw_frame_border(canvas)
+            return canvas
     tile = _contain(im, inner)  # 흰 바탕 contain → 칸 바탕색으로 다시 칠함
     if fill != "#FFFFFF":
         im2 = im.convert("RGBA")
@@ -1499,12 +1604,12 @@ def _frame_image(im, size, cfg):
     return canvas
 
 
-def frame_square_copy(src, dst, size, cfg):
-    """본문 사진을 프레임(⑩) 씌워 dst 에 저장(원본은 안 바꿈). JPEG 품질 90, PNG 는 PNG."""
+def frame_square_copy(src, dst, size, cfg, lb_fill=False):
+    """본문 사진을 프레임(⑩) 씌워 dst 에 저장(원본은 안 바꿈). JPEG 품질 90, PNG 는 PNG. lb_fill=True 면 장면 사진은 띠 없이 칸을 채움."""
     from PIL import Image, ImageOps
     with Image.open(src) as im:
         fmt = im.format
-        out = _frame_image(ImageOps.exif_transpose(im), size, cfg)
+        out = _frame_image(ImageOps.exif_transpose(im), size, cfg, lb_fill)
     if fmt == "PNG":
         out.save(dst, format="PNG", optimize=True)
     elif fmt == "WEBP":
@@ -1565,8 +1670,8 @@ def _write_upload_folder(pdir, uploads):
         src, name = item[0], item[1]
         resize = item[2] if len(item) > 2 else True
         dst = os.path.join(up, name)
-        if resize == "frame" and _frame_cfg():
-            frame_square_copy(src, dst, size, _frame_cfg())
+        if resize in ("frame", "frame_fill") and _frame_cfg():
+            frame_square_copy(src, dst, size, _frame_cfg(), lb_fill=(resize == "frame_fill"))
         elif resize == "notice":
             notice_small_copy(src, dst)
         elif resize == "banner":
@@ -1667,11 +1772,13 @@ def upload_listing(pdir, final_html):
             "size_want": want, "big_gifs": big_gifs, "bad_dims": [f"{f['name']} ({f['size_warn']})" for f in files if not f["dim_ok"]]}
 
 
-def build_final_html(raw, title, pdir, related=None, product_links=None, line_break=None):
+def build_final_html(raw, title, pdir, related=None, product_links=None, line_break=None, memo=None):
     """radar_naver 최종본. 반환 (HTML, 정보 dict). shop_formatter.build_shop_html 은 고치지 않고 그대로 불러
     글 모양을 만든 뒤, 자리표시를 사진·GIF·표·제휴 링크로 바꿔 끼운다. 이미지 생성 API·장부 쓰기 없음.
     related: pick_related 가 뽑은 목록(None 이면 안 붙임, 빈 목록이면 "다른 글 없음" 표시), product_links: 상품id→제휴 링크(None 이면 links.json 을 읽음)."""
     st = load_state(pdir)
+    # memo(메모 글)가 있고 config RADAR_LETTERBOX_FILL 이 켜져 있을 때만, 사진자리 종류가 제품·AI 장면인 사진에 띠 없애기를 쓴다.
+    lb_kinds = slot_hints(memo) if (memo and _cfg("RADAR_LETTERBOX_FILL", False)) else {}
     subs, sub_cards = [], []  # "### 제품 소제목" 글자들 / 각 구간의 상품카드 이름(없으면 None)
     body, tables, photos, cards = _prepare_raw(strip_notice(raw), subs, sub_cards)  # 쇼핑커넥트 안내 문장은 글자 대신 이미지로 넣으므로 원고에서 뺌
     table_pair = [n for _rows, n in table_slot_map(strip_notice(raw))]  # 표마다 바로 아래 [사진: n] 번호(없으면 None)
@@ -1784,7 +1891,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         if _exists(pdir, chosen):
             if os.path.basename(chosen).startswith(TABLE_FILE_PREFIX) and st["slot_sources"].get(str(k)) == "표 그림(앱이 만듦)":
                 return mark(add_upload(chosen, f"사진{k}", resize=False))  # 표 그림은 이미 가로 800·테두리 포함: 정사각 틀·크기 맞춤 없이 그대로
-            return mark(add_upload(chosen, f"사진{k}", resize="frame"))
+            _kind = (lb_kinds.get(k) or {}).get("kind") or ""
+            return mark(add_upload(chosen, f"사진{k}", resize="frame_fill" if (_kind == "제품" or _kind.startswith("AI")) else "frame"))
         info["empty"].append(k)
         return f'<p style="text-align:center; color:#D32F2F; font-weight:bold; font-size:16px;">사진 {k} 비어 있음</p>'
 
