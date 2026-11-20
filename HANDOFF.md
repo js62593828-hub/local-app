@@ -1,6 +1,7 @@
-## 진행 중 (2026-11-20 radar 마무리): (1) 주소 채우기 대상 기준 수정 (2) 사진 제외 단어 정확하게 (3) RADAR_LETTERBOX_FILL 켜기 (4) 11/23 주 태그 넣기
-- 단계: 대상 조사 끝(발행 날짜 칸이 비어 있어 전부 빠졌음 → 대기열 plan.publish_date 로 대신 봄). 지금 app.py·radar_screen.py 고치는 중. 실제 RSS 저장·발행 안 함.
-- 다음 명령: 가짜 RSS 시험 → _LB_DENY 시험 7가지 → config True → 태그 백업 후 radar_import --update --apply → reviewer → 커밋
+## 완료 (2026-11-20 radar 마무리) 커밋 d442e2a: ① 주소 채우기 대상: 앱에 발행 날짜가 없으면 대기열 plan.publish_date 로 봄(지난번 0개 원인=날짜 칸이 11/23 이후 42개 중 41개 비어 있었음). 오늘(11/20)은 41개 전부 '예약 중'이라 11/23 이후에 채워짐. ② 사진 제외 단어는 영어 단어 단위(design·cardigan 은 제외 안 됨). ③ RADAR_LETTERBOX_FILL=True. ④ 11/23 주 태그 20편 넣음(태그 칸만 바뀜).
+- ④ 주의: radar_import --update 가 최종본(platform_final)·생성시각까지 비워서, 백업 값으로 되돌림(백업 articles_radar_naver.backup_before_tags_20261120.json, 되돌리기 전 상태 .backup_after_import_before_restore_20261120.json). 큐 파일은 안 바뀜.
+- reviewer: 큰 문제 없음. 참고: detailimage 처럼 영어가 붙은 파일명은 제외 못 잡음(실제 사진 폴더엔 그런 이름 없음).
+- 시험 스크립트 preview/radar_final_20261120/(git 제외 폴더).
 
 ## 완료 (2026-11-20 radar 후속): ① 사진 띠 대상=사진 출처로 판단(_detail·pieces·gallery·캡처·표·카드·모름은 제외, RADAR_LETTERBOX_FILL 은 계속 False) ② 주소 채우기는 id 2026-11-23 이후 글만(옛 글 60개 뺌, 맨 위 한 줄 표시) ③ 제목 짝짓기=HTML 기호 풀고 띄어쓰기·문장부호·대소문자 뺀 값, 글번호 없는 RSS 는 '주소 형식 다름'으로 표시 — reviewer 결과는 아래 참고
 - 함께 보면 좋은 글: pick_related 가 발행일 >= 2026-11-23 만 고르므로 옛 글은 못 고름(옛 id 인데 발행일이 이후인 글 0개) → 코드 안 고침. 실제 주소 저장·앱 데이터 수정 안 함.
