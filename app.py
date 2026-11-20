@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
 from PIL import Image, ImageOps
 import requests
+from urllib.parse import parse_qs, urlparse
 from werkzeug.exceptions import HTTPException
 
 import blog_overlap
@@ -2618,6 +2619,158 @@ def naver_url_autofill_one(article_id):
     rows = _naver_autofill_plan(rss, channel_ids=(channel_id,), only_article_id=article_id)
     filled = _apply_naver_autofill(rows)
     return render_template("naver_url_autofill.html", rss_failed=False, rows=rows, filled=filled, back_url=back, only=True)
+
+
+# ---------- N데스크피커(radar_naver) 글 주소 자동 채우기 ----------
+# naver_tips 와 따로 만든 복사본입니다(기존 함수·동작은 그대로). 블로그는 guardradar, 대상은 radar_naver 글만.
+# 흐름: ① 버튼 → 미리보기(저장 안 함) → ② [확인하고 저장]을 눌렀을 때만 저장(저장 전 백업).
+RADAR_AUTOFILL_CHANNEL = "radar_naver"
+_RADAR_RSS_CACHE = {"at": 0.0, "items": None}
+
+
+def _fetch_radar_rss() -> list[dict] | None:
+    """guardradar RSS의 [{title, link}] (link 는 글 번호까지 있는 주소만). 읽기 실패·형식 오류면 None, 올라온 글이 0개면 [].
+    저장 전 확인용이라 캐시 없이 매번 새로 읽습니다."""
+    try:
+        resp = requests.get(f"https://rss.blog.naver.com/{radar_screen.RADAR_BLOG_ID}.xml", timeout=10)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        items = []
+        for node in root.iter("item"):
+            title = html.unescape((node.findtext("title") or "")).strip()
+            fixed, err = radar_screen.normalize_post_url((node.findtext("link") or "").strip())
+            if title and fixed and not err:
+                items.append({"title": title, "link": fixed})
+    except (requests.RequestException, ET.ParseError, ValueError):
+        return None
+    return items
+
+
+def _radar_url_is_fillable(url: str) -> bool:
+    """채움 대상 주소인지: 비었거나, guardradar 블로그 첫 화면(글 번호 없음)뿐인 경우만 True.
+    글 번호가 있는 주소·다른 블로그 주소는 이미 주소가 있는 것으로 보고 덮어쓰지 않습니다."""
+    u = (url or "").strip()
+    if not u:
+        return True
+    try:
+        pu = urlparse(u)
+        host = (pu.hostname or "").lower()
+    except ValueError:
+        return False
+    return host in ("blog.naver.com", "m.blog.naver.com") and pu.path.rstrip("/").lower() == "/" + radar_screen.RADAR_BLOG_ID and not parse_qs(pu.query).get("logNo")
+
+
+def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tuple | None = None) -> list[dict]:
+    """radar_naver 글만 읽기만 해서 계획을 만듭니다(저장 안 함). 제목이 한 글자도 다르지 않고 RSS에서 정확히 1개일 때만 '채움'.
+    결과: 채움 / 못 찾음(없음·여러 개·다른 글과 겹침, 가장 비슷한 제목을 참고로 표시) / 예약 중(아직 공개 전, 오류 아님)."""
+    now = now or datetime.now()
+    queue, articles = data if data is not None else _read_channel_data(RADAR_AUTOFILL_CHANNEL)
+    today = now.strftime("%Y-%m-%d")
+    by_title: dict[str, list[dict]] = {}
+    for r in rss:
+        by_title.setdefault(r["title"], []).append(r)
+    rows, seen = [], set()
+    for it in queue:
+        aid = it.get("id")
+        if aid in seen:
+            continue
+        seen.add(aid)
+        art = articles.get(aid) or {}
+        url = ((art.get("platform_published_url") or {}).get("naver") or "").strip()
+        date = ((art.get("platform_published_at") or {}).get("naver") or "").strip()
+        if not date or not _radar_url_is_fillable(url):
+            continue  # 발행(예약) 날짜가 없거나, 이미 주소가 있는 글은 대상이 아님
+        title = ((art.get("platform_title") or {}).get("naver") or "").strip()
+        row = {"id": aid, "keyword": it.get("keyword", ""), "title": title, "date": date, "current": url, "found": "", "result": "", "ref": ""}
+        dt = _stored_publish_dt(art, "naver")
+        if date[:10] > today or (dt and dt > now):
+            row["result"] = "예약 중"
+        else:
+            hits = by_title.get(title, []) if title else []
+            if len(hits) == 1:
+                row["found"], row["result"] = hits[0]["link"], "채움"
+            else:
+                row["result"] = "못 찾음"
+                if hits:
+                    row["ref"] = hits[0]["title"] + f" (같은 제목 {len(hits)}개)"
+                elif title and rss:
+                    row["ref"] = max(rss, key=lambda r: difflib.SequenceMatcher(None, title, r["title"]).ratio())["title"]
+        rows.append(row)
+    # 이미 다른 글이 쓰는 주소이거나 두 글이 같은 주소를 받으려 하면 채우지 않습니다.
+    used = {}
+    for a in articles.values():
+        u = ((a.get("platform_published_url") or {}).get("naver") or "").strip()
+        if u and not _radar_url_is_fillable(u):
+            used[u] = used.get(u, 0) + 1
+    claimed: dict[str, int] = {}
+    for r in rows:
+        if r["result"] == "채움":
+            claimed[r["found"]] = claimed.get(r["found"], 0) + 1
+    for r in rows:
+        if r["result"] == "채움" and (claimed[r["found"]] > 1 or r["found"] in used):
+            r["ref"] = f"{r['found']} (이미 다른 글이 쓰는 주소라 채우지 않음)"
+            r["found"], r["result"] = "", "못 찾음"
+    return rows
+
+
+def _radar_apply_autofill(rows: list[dict], path: str | None = None) -> tuple[int, str]:
+    """'채움' 행만 저장합니다. 저장 전에 articles_radar_naver 를 '.backup_before_urlfill_날짜' 로 백업. 바꾸는 값은 platform_published_url.naver 뿐이고,
+    그 사이 주소가 채워졌으면(채움 대상이 아니면) 건드리지 않습니다. 반환: (채운 개수, 백업 파일 경로)."""
+    todo = [r for r in rows if r["result"] == "채움"]
+    if not todo:
+        return 0, ""
+    path = path or CHANNELS[RADAR_AUTOFILL_CHANNEL]["articles_file"]
+    raw = _read_text_retry(path)
+    data = json.loads(raw)
+    base, ext = os.path.splitext(path)
+    backup = f"{base}.backup_before_urlfill_{datetime.now():%Y%m%d}{ext}"
+    if os.path.exists(backup):
+        backup = f"{base}.backup_before_urlfill_{datetime.now():%Y%m%d_%H%M%S}{ext}"
+    with open(backup, "w", encoding="utf-8", newline="") as f:
+        f.write(raw)
+    count = 0
+    for r in todo:
+        art = data.get(r["id"])
+        if not art:
+            continue
+        urls = art.get("platform_published_url")
+        if not isinstance(urls, dict):
+            urls = art["platform_published_url"] = {}
+        if not _radar_url_is_fillable(urls.get("naver") or ""):
+            continue
+        urls["naver"] = r["found"]
+        count += 1
+    _write_json_atomic(path, data)
+    return count, backup
+
+
+@app.route("/radar-url-autofill", methods=["POST"])
+def radar_url_autofill_preview():
+    """"🔗 글 주소 자동 채우기" — 미리보기만(아무것도 저장하지 않음). N데스크피커 전용."""
+    if get_active_channel_id() != RADAR_AUTOFILL_CHANNEL:
+        return redirect(url_for("index"))
+    back = url_for("status") if request.form.get("back") == "status" else url_for("index")
+    rss = _fetch_radar_rss()
+    rows = [] if rss is None else _radar_autofill_plan(rss)
+    return render_template("radar_url_autofill.html", rss_failed=rss is None, rows=rows, saved=None, back_url=back)
+
+
+@app.route("/radar-url-autofill/apply", methods=["POST"])
+def radar_url_autofill_apply():
+    """미리보기에서 [확인하고 저장]을 눌렀을 때만 저장. 화면에서 넘어온 값(글 id|주소)을 믿지 않고 다시 계산해, 둘 다 같은 행만 저장합니다."""
+    if get_active_channel_id() != RADAR_AUTOFILL_CHANNEL:
+        return redirect(url_for("index"))
+    back = url_for("status") if request.form.get("back") == "status" else url_for("index")
+    rss = _fetch_radar_rss()
+    if rss is None:
+        return render_template("radar_url_autofill.html", rss_failed=True, rows=[], saved=None, back_url=back)
+    approved = set(request.form.getlist("pair"))
+    rows = _radar_autofill_plan(rss)
+    for r in rows:
+        if r["result"] == "채움" and f"{r['id']}|{r['found']}" not in approved:
+            r["result"], r["ref"] = "못 찾음", "미리보기와 달라져 채우지 않음(다시 눌러 확인해 주세요)"
+    count, backup = _radar_apply_autofill(rows)
+    return render_template("radar_url_autofill.html", rss_failed=False, rows=rows, saved={"count": count, "backup": os.path.basename(backup)}, back_url=back)
 
 
 NAVER_RELATED_CHANNELS = ("shop_naver", "naver_tips")  # 같은 네이버 블로그의 두 채널 — 하단 추천 후보는 둘 다에서 고릅니다

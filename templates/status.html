@@ -52,6 +52,13 @@
   {% include "_old_channel_notice.html" %}
   <h1>발행 현황</h1>
 
+  {% if active_channel_id == 'radar_naver' %}
+  <form method="POST" action="/radar-url-autofill" style="margin-bottom:14px;">
+    <input type="hidden" name="back" value="status">
+    <button type="submit" style="background:#262626; color:#ddd; border:1px solid #3a3a3a; padding:8px 16px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:13.5px;" title="공개된 guardradar 글의 주소를 RSS 에서 찾아 보여 줍니다. 목록을 확인하고 저장 버튼을 눌러야만 저장돼요">🔗 글 주소 자동 채우기</button>
+    <span style="color:#888; font-size:12.5px; margin-left:8px;">예약 글은 공개된 뒤에 하루 한 번 누르세요 (미리보기 → 확인 후 저장)</span>
+  </form>
+  {% endif %}
   {% if active_channel_id in ('naver_tips', 'shop_naver') %}
   <form method="POST" action="/naver-url-autofill" style="margin-bottom:14px;" onsubmit="return confirm('네이버 일반·네이버 SHOP 두 채널에서, 이미 공개된 글 중 글 주소가 없는 글의 발행 주소를 네이버 RSS에서 찾아 채웁니다. 계속할까요?');">
     <input type="hidden" name="back" value="status">
