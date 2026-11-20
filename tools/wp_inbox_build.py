@@ -693,7 +693,8 @@ def build(week_dir, plan=()):
     return prods
 
 
-MIN_REVIEWS = {"S": 10, "D": 25}  # v1.6: 단독 추천 10개↑ · 심층 리뷰 25개↑(뺀 것 제외)
+MIN_REVIEWS = {"S": 10, "D": 15}  # v1.6(11/20 고침): 단독 추천 10개↑ · 심층 리뷰 15개↑(글 있는 후기, 뺀 것 제외)
+BRAND_EXCEPT = {("1128", "C")}  # 11/20 사용자 결정: 이번만 브랜드 2개 규칙 예외
 
 
 def plan_table(plan, prods):
@@ -715,7 +716,11 @@ def plan_table(plan, prods):
                 miss.append("제품 %d개(2개 필요)" % len(ps))
             if len(brands) < 2:
                 miss.append("브랜드 %d개(2개 필요)" % len(brands))
-            state = "준비됨" if len(ps) >= 2 and len(brands) >= 2 else "모자람"
+            if x["key"] in BRAND_EXCEPT and len(ps) >= 2 and len(brands) < 2:
+                miss = [m for m in miss if not m.startswith("브랜드")] + ["브랜드 %d개(이번만 예외: 제품명으로 소제목)" % len(brands)]
+                state = "준비됨(브랜드 예외)"
+            else:
+                state = "준비됨" if len(ps) >= 2 and len(brands) >= 2 else "모자람"
         else:
             if len(ps) != 1:
                 miss.append("제품 %d개(정확히 1개 필요)" % len(ps))
