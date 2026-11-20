@@ -1,3 +1,34 @@
+## 완료 (2026-11-20 radar): (가) 11/23 주 데스크피커 태그 · (나) radar 발행 주소 자동 채우기 · (다) 본문 사진 띠 없애기 — reviewer 검수: 문제 없음(사소한 권장 2: 메모 종류가 제품인데 캡처를 고른 경우 켤 때 시안 확인, RSS 글번호 없는 항목은 버림)
+- (가) 20편 '태그:' 줄만 띄어쓰기 없이 붙임(개수 10~15, 키워드 붙임 태그 있음). 백업 pipeline/radar_drafts/_backup/2026-11-23_before_tags/(20개). radar_check 위반 0, radar_import --update 미리보기: 바뀔 글 20(태그만). 전후 표 preview/radar_tags_before_after_20261120.md. 앱에 안 넣음(--apply 안 함). 앱은 태그를 빈칸으로도 자름(radar_screen.parse_tag_text).
+- (나) app.py 새 길 /radar-url-autofill(미리보기)→/radar-url-autofill/apply(확인 후 저장, 저장 전 articles_radar_naver.backup_before_urlfill_날짜.json). 버튼: 대기열 화면·발행 현황 화면 위쪽 '🔗 글 주소 자동 채우기'(radar_naver 일 때만). 제목 한 글자도 같을 때만, 글 번호 있는 주소·다른 블로그 주소는 안 덮음, 예약 중은 건너뜀. 실제 실행 안 함(가짜 데이터 시험만). 커밋 c7245a2.
+- (다) radar_screen.letterbox_plan 등 + config.RADAR_LETTERBOX_FILL=False(꺼 둠). 시안 preview/radar_letterbox_20261120/, 사진 표 preview/radar_letterbox_20261120_table.md, 점검 도구 tools/radar_letterbox_report.py. 커밋 55318e2. 시안 확인 뒤 config 를 True 로 켜면 다음 '③ 최종본 만들기'부터 업로드 폴더가 새 방식으로 다시 만들어짐(11/23 주 업로드 폴더는 아직 안 건드림).
+
+## 진행 중 (2026-11-20): N살림노트 11/23 주 원고 — 7~21번 15편 작성(날짜별 3편 동시), 05번 제목 고침 끝
+- 단계: 11/25(7·8·9)·11/26(10·11·12) 끝(검사 ✖0, 8·11번 제품 자료 부족). 11/27(13·14·15) 작성 중. 날짜마다 salim_check --week 2026-11-23 검사 후 이 줄 갱신. 앱 데이터·app.py 안 건드림.
+- 다음 명령: python tools/salim_check.py --week 2026-11-23 (끊기면 pipeline/salim_drafts/2026-11-23/ 에 있는 번호 다음부터 이어서)
+
+## 완료 (2026-11-20): N살림노트 작가(salim-writer)·검사 도구(tools/salim_check.py) 만들고 11/23 1~3번 시범 원고 저장, 검사 ✖ 0
+- 원고: pipeline/salim_drafts/2026-11-23/ 01_패브릭소파(A)·02_현관매트(C, 링크 확정 목록과 같음)·03_LED줄전구(A). 새 제목 3편 모두 확정 제목에서 바뀜. 검사 도구는 같은 날짜 소제목·경험 장면 겹침도 봄.
+- 에이전트 파일은 .claude/agents/salim-writer.md(사본 docs/살림노트/agent_salim-writer.md). 새 에이전트는 다음 세션부터 이름으로 부를 수 있음(이번엔 Opus 범용 에이전트로 대신 씀).
+- 남은 것: 4~21번 미작성. 다음은 날짜별 3편 동시 호출(경험 장면 미리 지정). 앱 데이터에는 안 넣음.
+
+## 완료 (2026-11-20): N살림노트 11/23 주 확정 목록 파일 만듦 — Claude outputs/weekly_final_2026-11-23.md (읽기만, 승인 21·날짜별 3편·제품 링크 글 8·빈 칸 0)
+
+## 완료 (2026-11-20): N살림노트 11/23 주 발행일 8편 바꿈(바뀐 항목 8: 대기열 plan.publish_date·weekday + plan_20261123.json 같은 8편)
+- 백업: backup/content_queue_naver_tips.backup_before_redate_20261120_093152.json, pipeline/final/plan_20261123.backup_before_redate_20261120.json. 날짜별 3편씩 유지. finalize·push_plan 안 돌림.
+
+## 완료 (2026-11-20): N살림노트 11/23 주 판매글 17편→8편 — 대기열에 9편 제품 비움(바뀐 항목 9, 백업 backup/content_queue_naver_tips.backup_before_update_products_20261120_092114.json)
+- 보류 9개 키워드(13줄)는 products_20261123.txt 에서 '# 보류' 주석(백업 .backup_before_cut8_20261120). 링크 있는 승인 글 8/21.
+
+## 완료 (2026-11-20): N살림노트 11/23 주 제품 정리 3단계 — 대기열에 17편 제품 넣음(백업 backup/content_queue_naver_tips.backup_before_update_products_20261120_090305.json)
+- 끝낸 것: 남은 링크 5개 발급(발급 5·기존 20·실패 0, links.json 25칸 모두 있음, approved.json 은 48개로 복구), 자료 6개 수집(새 5개+로긴 식기건조대 재수집, 임시 복사본으로 login 판단만 좁힘), products_20261123.txt 25줄(백업 .backup_before_slots_20261120), products_20261123.json 만듦, --update-products 미리 보기(바뀔 17편, 경고 없음).
+- 다음 명령(사용자가 "넣어"라고 하면만): python tools/push_plan.py --products pipeline/final/products_20261123.json --update-products --apply
+- _keep 폴더는 본 폴더에 없는 파일 0개(지워도 되는지는 사용자가 결정).
+
+## 완료 (2026-11-20): W싼세계 받은편지함 새 양식(날짜+틀 '쓸 글', _주간계획.txt, 글별 준비표)
+- wp_inbox_build.py(글별 준비표·'_' 파일 제외·research '쓸 글' 줄), wp_check.py(원고 이름 날짜+틀로 제품 고름), wp-writer.md 안내 추가. 시험: pipeline/wp_inbox/_test_v2/README.md. 실제 폴더 돌림: 제품 0개 → 준비표 6줄 '제품 없음'.
+- 다음: 제품 파일을 _양식.txt 복사해 채우기 → 다시 돌리기. wp_import.py 는 wp_check 를 부르므로 수정 없음.
+
 ## 회사 PC에서 이어갈 것 (2026-11-19 저녁 마무리, 집 PC 마지막 작업 커밋 b65f281)
 - 먼저: 구글 드라이브 동기화 완료 확인 → git fetch → git reset origin/main → git status 깨끗한지 확인. (preview/, 데이터 파일, pipeline 결과는 git 이 아니라 드라이브로 옮겨짐)
 - N살림노트 11/23 주: 대기열 넣기 끝(142→168), 링크 20개 발급·자료 19개 수집 끝. 다음은 채팅이 준 "제품 찾기 3단계" 지시문(남은 링크 10개·로긴 재수집·products_20261123.txt·--update-products 미리 보기).
