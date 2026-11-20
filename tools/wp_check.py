@@ -60,7 +60,12 @@ def parse_research(path):
     for ln in text.splitlines():
         ms = re.match(r"^-\s*쓸 글\s*[:：]\s*(.*)", ln)
         if ms:  # 새 형식 '쓸 글: 1124 C … / 1123 S …' (날짜 틀). 옛 형식(비교 등)은 비어 있음
-            d["slots"] = {(a, b.upper()) for a, b in re.findall(r"(?<!\d)(\d{4})\s*([CSDcsd])(?![A-Za-z])", ms.group(1))}
+            # 항목 = (날짜, 틀, 키워드 공백 뺀 것). 키워드가 없으면 ''. 같은 날 같은 틀 글이 둘 이상이면 키워드로 가린다
+            d["slots"] = set()
+            for part in ms.group(1).split(" / "):
+                mm = re.match(r"^\s*(\d{4})\s*([CSDcsd])(?![A-Za-z])\s*(.*)$", part)
+                if mm:
+                    d["slots"].add((mm.group(1), mm.group(2).upper(), re.sub(r"\s+", "", mm.group(3))))
         h = re.match(r"^##\s+(.+)", ln)
         if h:
             sec = h.group(1).strip()
@@ -219,7 +224,14 @@ def check_text(text, name, frame, research=None, final=False, keyword="", rules=
     link_ids = [m.group(1) for ln in body for m in [PLACEHOLDER_RX.search(ln)] if m and LINK_LINE_RX.match(ln)]
     nm = NAME_RX.match(name)
     slot = (nm.group(1), nm.group(3)) if nm else None  # 원고 이름의 날짜+틀 = 그 글의 제품을 찾는 열쇠
-    by_slot = [i for i, r in research.items() if slot and slot in r.get("slots", ())]
+    kws = [re.sub(r"\s+", "", x) for x in (keyword, nm.group(4) if nm else "") if x]  # 같은 날 같은 틀이 둘이면 키워드까지
+
+    def slot_hit(r):
+        for s in r.get("slots", ()):
+            if slot and (s[0], s[1]) == slot and (not s[2] or any(s[2] in k or k in s[2] for k in kws)):
+                return True
+        return False
+    by_slot = [i for i, r in research.items() if slot and slot_hit(r)]
     research_ids = [i for i in link_ids if i in research] or by_slot or list(research)
     link_sections = 0
     product_heads = []

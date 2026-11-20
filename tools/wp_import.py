@@ -305,6 +305,15 @@ def main():
     for r in saved_rows:
         if r["date"] in week_days and (r["title"], r["frame"]) not in redo:
             taken.add(r["time"])
+    # 같은 날 S(단독 추천)가 둘이면 순번이 작은 쪽은 C 시간대(07:30~07:50)를 쓴다(11/20 결정)
+    band_of, s_by_day = {}, {}
+    for it in plan:
+        d0 = draft_date(it["fn"], week)
+        if it["frame"] == "S" and d0 is not None:
+            s_by_day.setdefault(d0, []).append(it["fn"])
+    for d0, fns in s_by_day.items():
+        if len(fns) >= 2:
+            band_of[sorted(fns)[0]] = "C"
     todo_sched = []
     for it in plan:
         it["sched_date"], it["sched_time"], it["sched_note"] = "", "", ""
@@ -326,7 +335,7 @@ def main():
         if row and not a.reroll:
             it["sched_time"], it["sched_note"] = row["time"], "표 시각 유지"
         else:
-            todo_sched.append((it["fn"], it["frame"], dd))
+            todo_sched.append((it["fn"], band_of.get(it["fn"], it["frame"]), dd))
     picked = pick_times(todo_sched, week, taken, a.reroll)
     for it in plan:
         if it["fn"] in picked:
