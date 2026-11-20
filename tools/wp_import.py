@@ -235,6 +235,24 @@ def keyword_of(path, memo):
     return tags[0] if tags else ""
 
 
+def same_keyword_items(queue, week, keyword):
+    """같은 주·같은 키워드의 대기열 항목 목록."""
+    return [q for q in queue if q.get("week") == week and (q.get("keyword") or "").strip() == (keyword or "").strip()]
+
+
+def create_item_direct(app, week, keyword):
+    """앱 '키워드 직접 추가' 라우트는 같은 주·같은 키워드가 있으면 새로 안 만들고 옛 항목으로 보내 버린다.
+    제목이 다른 글은 옛 항목을 덮어쓰면 안 되므로, 앱의 같은 함수(_make_custom_item·_insert_custom_item)로 새 항목을 직접 만든다. 반환: 새 id"""
+    import flask
+    with app.app.test_request_context():
+        flask.session["channel"] = CHANNEL
+        queue = app.load_queue()
+        item = app._make_custom_item(keyword, week, keyword, "대표")
+        app._insert_custom_item(queue, item)
+        app.save_queue(queue)
+        return item["id"]
+
+
 def find_by_title(queue, title):
     return [q for q in queue if ((q.get("plan") or {}).get("final_title") or "").strip() == title]
 
@@ -317,10 +335,15 @@ def main():
                 errs.append(f"wp_check --final 위반 {len(V)}개: " + "; ".join(f"{v[0]}({v[1]}줄)" for v in V[:4]) + (" …" if len(V) > 4 else ""))
         same = find_by_title(queue, title) if title else []
         existing = same[0] if same else None
+        warns = []
+        if title and keyword and not existing:  # 제목이 다른데 같은 주·같은 키워드 항목이 이미 있으면 경고(덮어쓰지 않고 새 항목으로 만듦)
+            for o in same_keyword_items(queue, week, keyword):
+                warns.append("경고: 같은 주·같은 키워드 항목이 이미 있음(%s, 제목 '%s') — 덮어쓰지 않고 새 항목으로 만듦"
+                             % (o.get("id"), ((o.get("plan") or {}).get("final_title") or "(제목 없음)")[:30]))
         has_art = bool(existing and (articles.get(existing["id"]) or {}).get("platform_raw", {}).get("wordpress"))
         status = "이미 있음 — 건너뜀" if has_art else ("문제 — 건너뜀" if errs else "넣을 예정")
         plan.append({"fn": fn, "frame": frame, "title": title, "category": category, "nlink": nlink, "keyword": keyword,
-                     "body": body, "memo": memo, "errs": errs, "viol": viol, "existing": existing, "status": status})
+                     "body": body, "memo": memo, "errs": errs, "viol": viol, "existing": existing, "status": status, "warns": warns})
 
     # ── 제목 중복: 한 번 실행에서 제목이 같은 원고가 2편 이상이면 모두 건너뜀(뒤 원고가 앞 원고를 덮어쓰는 것 방지)
     title_files = {}
@@ -403,6 +426,8 @@ def main():
     print("|---|---|---|---|---|---|---|")
     for it in plan:
         res = "통과(위반 0)" if it["viol"] == [] and not it["errs"] else ("; ".join(it["errs"]) or "-")
+        if it.get("warns"):
+            res += " / " + "; ".join(it["warns"])
         print(f"| {it['fn']} | {it['title']} | {it['frame']} | {it['category']} | {it['nlink']} | {res} | {it['status']} |")
     print(f"\n예약표 ({SCHED_FILE}) — 같은 시:분 금지·틀별 기준 ±{JITTER_MIN}분" + "".join(f"\n  · {it['fn']}: {it['sched_note']}" for it in plan if it["sched_note"]))
     print(render_sched_table(build_rows()))
@@ -436,12 +461,18 @@ def main():
         queue = rj(qpath, [])
         q = (find_by_title(queue, it["title"]) or [None])[0]
         if not q:
-            r = client.post("/add-custom-keyword", data={"week": week, "keyword": it["keyword"], "cluster_seed": it["keyword"],
-                                                          "role": "대표", "confirm_dup": "1"})
-            queue = rj(qpath, [])
-            q = next((x for x in queue if x.get("week") == week and x.get("keyword") == it["keyword"]), None)
+            if same_keyword_items(queue, week, it["keyword"]):  # 같은 키워드 항목이 있으면 옛 항목을 쓰지 않고 새로 만든다
+                new_id = create_item_direct(app, week, it["keyword"])
+                queue = rj(qpath, [])
+                q = next((x for x in queue if x.get("id") == new_id), None)
+                r = None
+            else:
+                r = client.post("/add-custom-keyword", data={"week": week, "keyword": it["keyword"], "cluster_seed": it["keyword"],
+                                                              "role": "대표", "confirm_dup": "1"})
+                queue = rj(qpath, [])
+                q = next((x for x in queue if x.get("week") == week and x.get("keyword") == it["keyword"]), None)
             if not q:
-                fail("키워드", f"직접 추가 실패(응답 {r.status_code})")
+                fail("키워드", f"직접 추가 실패(응답 {getattr(r, 'status_code', '-')})")
                 continue
         aid = q["id"]
         row["id"] = aid

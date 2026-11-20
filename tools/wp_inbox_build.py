@@ -22,7 +22,9 @@ import glob
 import json
 import os
 import re
+import shutil
 import sys
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from html.parser import HTMLParser
 from urllib.parse import urlparse
@@ -316,7 +318,9 @@ def resolve_slots(slots, label, plan):
         if len(cand) <= 1:
             k = cand[0]["key"] if cand else (m, f)
         else:
-            hit = [x for x in cand if lab and (lab in norm_kw(x["memo"]) or (norm_kw(x["keyword"]) and norm_kw(x["keyword"]) in lab))]
+            hit = [x for x in cand if lab and norm_kw(x["keyword"]) and norm_kw(x["keyword"]) in lab]  # 키워드로 먼저 가린다
+            if len(hit) != 1:  # 안 가려지면 계획 메모로
+                hit = [x for x in cand if lab and (lab in norm_kw(x["memo"]) or (norm_kw(x["keyword"]) and norm_kw(x["keyword"]) in lab))]
             if len(hit) == 1:
                 k = hit[0]["key"]
             else:
@@ -325,6 +329,32 @@ def resolve_slots(slots, label, plan):
         if k not in out:
             out.append(k)
     return out, probs
+
+
+def read_exceptions(week_dir):
+    """_예외.txt(채팅이 관리) → {"slots": {상품id: {"slots": [(날짜,틀)], "label": 키워드 글자}}, "brand": [(날짜, 틀, 키워드 글자)]}
+    '상품id: 날짜 틀 [키워드]' 줄 = 제품표·제품 파일의 '쓸 글'을 덮어씀 / '브랜드예외: 날짜 틀 [키워드]' 줄 = 브랜드 2개 규칙 예외. 파일 없으면 빈 설정."""
+    out = {"slots": {}, "brand": []}
+    path = os.path.join(week_dir, "_예외.txt")
+    if not os.path.isfile(path):
+        return out
+    with open(path, encoding="utf-8-sig") as f:
+        text = f.read().replace("\r\n", "\n")
+    for line in text.split("\n"):
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        m = re.match(r"^(.+?)\s*[:：]\s*(.+)$", s)
+        if not m:
+            continue
+        head, val = m.group(1).strip(), m.group(2).strip()
+        slots = parse_slots(val)
+        label = norm_kw(SLOT_RE.sub("", val))
+        if head == "브랜드예외":
+            out["brand"] += [(a, b, label) for a, b in slots]
+        elif slots:
+            out["slots"][head] = {"slots": slots, "label": SLOT_RE.sub("", val).strip(" ,")}
+    return out
 
 
 def parse_file(path):
@@ -391,6 +421,21 @@ def tsv_read(path):
     if start is None:
         raise SystemExit("제품표 머리글(리스트 / 제품명 …)을 못 찾음: " + path)
     return [r + [""] * (6 - len(r)) for r in rows[start + 1:] if any(c.strip() for c in r)]
+
+
+def tsv_date(path):
+    """제품표의 수집일 'YYYY-MM-DD'. 파일 이름 _제품표_YYYYMMDD 가 먼저, 없으면 머리글(리스트 줄 위)에 적힌 날짜. 못 찾으면 빈 글자."""
+    m = re.search(r"(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)", os.path.basename(path))
+    if not m:
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            head = " ".join(" ".join(r) for r in list(csv.reader(f, delimiter="	"))[:5])
+        m = re.search(r"(20\d{2})[-./](\d{1,2})[-./](\d{1,2})", head)
+    if not m:
+        return ""
+    try:
+        return "%04d-%02d-%02d" % (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return ""
 
 
 def rating_from_dist(dist):
@@ -462,21 +507,25 @@ def parse_reviews(cell):
     return out
 
 
-def parse_tsv_products(path):
+def parse_tsv_products(path, overrides=None):
     prods = []
+    collected_on = tsv_date(path)
+    overrides = overrides or {}
     for n, r in enumerate(tsv_read(path), 1):
         label_raw, name, url, html, stats, revs = [c.strip() for c in r[:6]]
         slots_text = re.search(r"쓸 글\s*[:：](.*?)(?:\(|$)", label_raw)
         label = re.sub(r"쓸 글.*$", "", label_raw).strip("# ").strip()
         slots = parse_slots(slots_text.group(1) if slots_text else "")
-        if "미니 온풍기" in label:  # 11/20 사용자 결정: '1129 C' 로 적힌 미니 온풍기는 단독 추천(S) 1개
-            slots = [("1129", "S")]
+        pid0 = (re.search(r"link\.coupang\.com/a/([A-Za-z0-9]+)", url) or [None, ""])[1]
+        if pid0 in overrides:  # _예외.txt 의 '상품id: 날짜 틀 [키워드]' 가 제품표의 '쓸 글'보다 우선
+            slots = overrides[pid0]["slots"]
+            label = overrides[pid0]["label"] or label
         reviews, satisfied, dist, survey = parse_stats(stats)
         rv = parse_reviews(revs)
         for x in rv:
             x["sponsor"] = is_sponsor(x["text"])
         brand = next((b for b in KNOWN_BRANDS if b.lower() in name.lower()), "")
-        p = {"file": "제품표 %d줄(%s)" % (n, label), "label": label, "keyword": "", "url": url, "date": "2026-11-20", "types": [],
+        p = {"file": "제품표 %d줄(%s)" % (n, label), "label": label, "keyword": "", "url": url, "date": collected_on, "types": [],
              "slots": slots, "html": html, "link": url,
              "info": {"name": name, "brand": brand, "model": "", "rating": rating_from_dist(dist), "reviews": reviews, "prices": [],
                       "skipped_prices": []},
@@ -597,17 +646,20 @@ def load_official(week_dir):
     return {}
 
 
-def build(week_dir, plan=()):
+def build(week_dir, plan=(), exc=None):
     files = sorted(f for f in glob.glob(os.path.join(week_dir, "*.txt")) if not os.path.basename(f).startswith("_"))
     plan_keys = {x["key"] for x in plan}
     official = load_official(week_dir)
     raw = [parse_file(f) for f in files]
     for tsv in sorted(glob.glob(os.path.join(week_dir, "_제품표_*.tsv"))):
-        raw += parse_tsv_products(tsv)
+        raw += parse_tsv_products(tsv, (exc or {}).get("slots"))
     prods = []
     by_pid, no_url = {}, []
     for p in raw:
         p["problems"] = []
+        ov = ((exc or {}).get("slots") or {}).get(p["pid"])
+        if ov and not p.get("tsv"):
+            p["slots"], p["label"] = ov["slots"], ov["label"]
         p["slots"], sp = resolve_slots(p["slots"], p.get("label", ""), plan)
         p["problems"] += sp
         if not p["pid"]:
@@ -694,10 +746,17 @@ def build(week_dir, plan=()):
 
 
 MIN_REVIEWS = {"S": 10, "D": 15}  # v1.6(11/20 고침): 단독 추천 10개↑ · 심층 리뷰 15개↑(글 있는 후기, 뺀 것 제외)
-BRAND_EXCEPT = {("1128", "C")}  # 11/20 사용자 결정: 이번만 브랜드 2개 규칙 예외
 
 
-def plan_table(plan, prods):
+def brand_excepted(x, exc):
+    """주간계획 한 줄 x 가 _예외.txt 의 '브랜드예외' 에 들어 있는지(키워드 글자가 적혀 있으면 그 글만)."""
+    for m, f, kw in (exc or {}).get("brand", []):
+        if (m, f) == (x["mmdd"], x["frame"]) and (not kw or kw in norm_kw(x["keyword"])):
+            return True
+    return False
+
+
+def plan_table(plan, prods, exc=None):
     """주간계획 줄 순서대로 글별 준비 상태 표(마크다운 줄 목록)."""
     L = ["## 글별 준비표", ""]
     if not plan:
@@ -716,8 +775,8 @@ def plan_table(plan, prods):
                 miss.append("제품 %d개(2개 필요)" % len(ps))
             if len(brands) < 2:
                 miss.append("브랜드 %d개(2개 필요)" % len(brands))
-            if x["key"] in BRAND_EXCEPT and len(ps) >= 2 and len(brands) < 2:
-                miss = [m for m in miss if not m.startswith("브랜드")] + ["브랜드 %d개(이번만 예외: 제품명으로 소제목)" % len(brands)]
+            if brand_excepted(x, exc) and len(ps) >= 2 and len(brands) < 2:
+                miss = [m for m in miss if not m.startswith("브랜드")] + ["브랜드 %d개(예외 설정: 제품명으로 소제목)" % len(brands)]
                 state = "준비됨(브랜드 예외)"
             else:
                 state = "준비됨" if len(ps) >= 2 and len(brands) >= 2 else "모자람"
@@ -737,11 +796,16 @@ def plan_table(plan, prods):
     return L + [""]
 
 
-def write_outputs(week_dir, prods, plan=()):
+def write_outputs(week_dir, prods, plan=(), exc=None):
     rdir = os.path.join(week_dir, "research")
     os.makedirs(rdir, exist_ok=True)
-    for old in glob.glob(os.path.join(rdir, "*.md")):  # 다시 돌리면 덮어씀(옛 결과가 남지 않게)
-        os.remove(old)
+    olds = glob.glob(os.path.join(rdir, "*.md"))
+    if olds:  # 다시 돌리면 덮어쓰되, 지우기 전에 옛 결과를 research_backup_<시각>/ 로 옮겨 둔다
+        bdir = os.path.join(week_dir, "research_backup_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+        os.makedirs(bdir, exist_ok=True)
+        for old in olds:
+            shutil.move(old, os.path.join(bdir, os.path.basename(old)))
+        print("옛 research %d개 보관:" % len(olds), bdir)
     links = {}
     for p in prods:
         if not p["pid"]:
@@ -752,7 +816,7 @@ def write_outputs(week_dir, prods, plan=()):
             links[p["pid"]] = {"link": p["link"].strip(), "html": p["html"]}
     with open(os.path.join(week_dir, "links.json"), "w", encoding="utf-8") as f:
         json.dump(links, f, ensure_ascii=False, indent=1)
-    L = ["# 받은편지함 변환 결과", ""] + plan_table(plan, prods)
+    L = ["# 받은편지함 변환 결과", ""] + plan_table(plan, prods, exc)
     L += ["## 상품별 점검표", "", "상품 %d개 · 문제(경고 포함) 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["problems"])), "",
           "| 상품id | 쓸 글 | 상품명 | 브랜드 | 별점 | 리뷰 수 | 모은 후기 수 | 링크 정상 | 문제·경고 |",
           "|---|---|---|---|---|---|---|---|---|"]
@@ -778,8 +842,9 @@ def main():
     if not os.path.isdir(week_dir):
         sys.exit("폴더가 없습니다: %s" % week_dir)
     plan = read_plan(week_dir)
-    prods = build(week_dir, plan)
-    links = write_outputs(week_dir, prods, plan)
+    exc = read_exceptions(week_dir)
+    prods = build(week_dir, plan, exc)
+    links = write_outputs(week_dir, prods, plan, exc)
     bad = [p for p in prods if p["problems"]]
     print("상품 %d개 → research %d개, links.json %d개, 문제(경고 포함) 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["pid"]), len(links), len(bad)))
     for p in bad:

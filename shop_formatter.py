@@ -1517,7 +1517,12 @@ def _wptips_link_blocks(link: str):
     if img.lower().startswith(("http://", "https://")):
         alt = html.escape(str(cfg.get("alt") or CTA_BANNER_ALT), quote=True)
         width = re.sub(r"[^0-9.%a-z]", "", str(cfg.get("width") or "40%"))
-        minw = int(cfg.get("min_width_px") or 240)
+        try:
+            minw = int(float(cfg.get("min_width_px") or 240))  # 숫자가 아니면 240
+            if minw <= 0:
+                minw = 240
+        except (TypeError, ValueError, OverflowError):
+            minw = 240
         tag = (f'<img src="{html.escape(img, quote=True)}" alt="{alt}" '
                f'style="width:{width};min-width:{minw}px;max-width:100%;height:auto;border:0;box-shadow:none !important;" />')
         out += _wp_block("html", f'<div style="text-align:center;margin:20px 0 8px;"><a href="{html.escape(url, quote=True)}" '
@@ -1527,7 +1532,9 @@ def _wptips_link_blocks(link: str):
         out += _wp_block("html", f'<div style="text-align:center;margin:0 0 4px;">{code}</div>')
     if stars:
         out += _wp_block("html", f'<p style="text-align:center;font-size:13px;color:#666;margin:4px 0 20px;">{html.escape(stars, quote=False)}</p>')
-    return out or None
+    if not out:  # 카드가 걸러지고 배너·별점 줄도 없으면: 값 전체(‖카드‖ 표시 포함) 대신 일반 링크만 버튼 주소로
+        return _wp_button(CTA_BUTTON_TEXT["wordpress"], url)
+    return out
 
 
 def _wp_product_blocks(section: dict, images: list[dict], cta_banner_url: str | None = None) -> str:
