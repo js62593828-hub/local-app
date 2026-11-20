@@ -3,25 +3,31 @@
 
 사용:  python tools/wp_inbox_build.py --week 2026-11-23
 
-입력:  pipeline/wp_inbox/<주>/*.txt  ('_' 로 시작하는 파일(_양식·_주간계획 등)은 제품이 아님. 파일 하나 = 상품 하나)
+입력:  pipeline/wp_inbox/<주>/_제품표_*.tsv  (v1.6 제품표: 탭 구분, 한 줄 = 제품 하나, 칸 안 줄바꿈은 큰따옴표) 와/또는
+       pipeline/wp_inbox/<주>/*.txt  ('_' 로 시작하는 파일(_양식·_주간계획 등)은 제품이 아님. 파일 하나 = 상품 하나)
+       _공식사양.json(있으면): {상품id: {"brand","model","items":[{"항목","값","출처","확인일"}],"note"}} — 제조사 공식 사양(research 에 합침)
        '쓸 글: 1124 C, 1123 S' (날짜 틀 목록) 또는 옛 형식(키워드 + 쓸 글: 비교/심층/단독)
        _주간계획.txt: 한 줄 = 글 하나 '날짜 틀 | 키워드 | 카테고리 | 메모' → 글별 준비표 + 키워드 연결
 출력(같은 폴더 안, 다시 돌리면 덮어씀):
   research/<상품id>.md   상품 자료 (상품id = 쿠팡 주소 products/ 뒤 숫자)
-  links.json             {상품id: 파트너스 HTML}  (허용된 것만)
+  links.json             {상품id: {"link": 일반 링크, "html": 링크카드 HTML}}  (둘 다 정상인 것만)
   summary.md             글별 준비표 + 상품별 점검표 + 문제 목록
 
 원칙: 원문에 없는 값은 비워 두고 지어내지 않는다. 쿠팡 사이트에는 접속하지 않는다(파일만 읽음).
 앱 데이터(content_queue*·articles*)는 읽지도 쓰지도 않는다.
 """
 import argparse
+import csv
 import glob
 import json
 import os
 import re
 import sys
+from decimal import Decimal, ROUND_HALF_UP
 from html.parser import HTMLParser
 from urllib.parse import urlparse
+
+csv.field_size_limit(10 ** 8)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -29,7 +35,7 @@ except Exception:  # noqa: BLE001
     pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SECTIONS = ["상품", "파트너스 HTML", "상품 정보", "필수 표기정보", "최신순 후기", "낮은 별점 후기", "메모"]
+SECTIONS = ["상품", "파트너스 링크", "파트너스 HTML", "상품 정보", "필수 표기정보", "최신순 후기", "낮은 별점 후기", "메모"]
 POST_TYPES = ["비교", "심층", "단독"]
 ALLOWED_HOSTS = ["link.coupang.com", "coupa.ng", "coupang.com", "coupangcdn.com"]
 SPONSOR_WORDS = ["체험단", "제공받", "제공 받", "무상", "협찬", "지원받", "원고료", "광고", "서포터즈", "체험 후기"]
@@ -152,6 +158,7 @@ class _Checker(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.errors = []
         self.tags = 0
+        self.in_iframe = False
 
     def _host_ok(self, url):
         u = (url or "").strip()
@@ -163,8 +170,29 @@ class _Checker(HTMLParser):
         h = (p.hostname or "").lower()
         return any(h == d or h.endswith("." + d) for d in ALLOWED_HOSTS)
 
+    IFRAME_ATTRS = {"src", "width", "height", "frameborder", "scrolling", "referrerpolicy"}
+
+    def handle_data(self, data):
+        if self.in_iframe and data.strip():
+            self.errors.append("iframe 안에 글자가 있음")
+
+    def handle_endtag(self, tag):
+        if tag == "iframe":
+            self.in_iframe = False
+
     def handle_starttag(self, tag, attrs):
         self.tags += 1
+        if tag == "iframe":  # 쿠팡파트너스 링크카드: src 가 https://coupa.ng/ 이고 속성이 6개 안일 때만
+            self.in_iframe = True
+            for k, v in attrs:
+                k = (k or "").lower()
+                if k not in self.IFRAME_ATTRS:
+                    self.errors.append("iframe 에 허용 안 된 속성 %s" % k)
+                elif k == "src" and not (v or "").startswith("https://coupa.ng/"):
+                    self.errors.append("iframe src 가 https://coupa.ng/ 로 시작하지 않음: %s" % (v or "")[:60])
+            if "src" not in [(k or "").lower() for k, _ in attrs]:
+                self.errors.append("iframe 에 src 없음")
+            return
         if tag not in ("a", "img"):
             self.errors.append("허용 안 된 태그 <%s>" % tag)
             return
@@ -184,6 +212,23 @@ class _Checker(HTMLParser):
             self.errors.append("<img> 에 src 없음")
 
     handle_startendtag = handle_starttag
+
+
+PLAIN_HOSTS = ["link.coupang.com", "coupa.ng"]
+
+
+def check_plain_link(u):
+    """일반 링크 검사. 반환 (정상 여부, 문제 문장)."""
+    u = (u or "").strip()
+    if not u:
+        return False, "일반 링크 없음"
+    if re.search(r"\s", u):
+        return False, "일반 링크에 공백이 있음"
+    pr = urlparse(u)
+    h = (pr.hostname or "").lower()
+    if pr.scheme != "https" or not any(h == d for d in PLAIN_HOSTS):
+        return False, "일반 링크 주소가 허용 안 됨: " + u[:50]
+    return True, ""
 
 
 def check_html(html):
@@ -244,7 +289,42 @@ def read_plan(week_dir):
             continue
         plan.append({"mmdd": slots[0][0], "frame": slots[0][1], "keyword": parts[1] if len(parts) > 1 else "",
                      "category": parts[2] if len(parts) > 2 else "", "memo": parts[3] if len(parts) > 3 else ""})
+    # 열쇠: 같은 날 같은 틀이 하나면 (날짜, 틀), 둘 이상이면 (날짜, 틀, 키워드)
+    cnt, seq = {}, {}
+    for x in plan:
+        cnt[(x["mmdd"], x["frame"])] = cnt.get((x["mmdd"], x["frame"]), 0) + 1
+    for x in plan:
+        k = (x["mmdd"], x["frame"])
+        x["key"] = k if cnt[k] == 1 else k + (norm_kw(x["keyword"]),)
+        seq[x["mmdd"]] = seq.get(x["mmdd"], 0) + 1
+        x["seq"] = seq[x["mmdd"]]  # 그 날 몇 번째 글(원고 파일 이름 순번)
+        x["fname"] = "%s_%d_%s_%s" % (x["mmdd"], x["seq"], x["frame"], norm_kw(x["keyword"]))
     return plan
+
+
+def norm_kw(s):
+    return re.sub(r"\s+", "", s or "")
+
+
+def resolve_slots(slots, label, plan):
+    """제품이 적은 (날짜, 틀) → 계획의 열쇠. 같은 날 같은 틀 글이 둘 이상이면 제품 이름표·계획 메모로 가린다.
+    반환: (열쇠 목록, 문제 목록)"""
+    out, probs = [], []
+    lab = norm_kw(re.sub(r"쓸 글.*$", "", label or "").strip("# "))
+    for m, f in slots:
+        cand = [x for x in plan if x["mmdd"] == m and x["frame"] == f]
+        if len(cand) <= 1:
+            k = cand[0]["key"] if cand else (m, f)
+        else:
+            hit = [x for x in cand if lab and (lab in norm_kw(x["memo"]) or (norm_kw(x["keyword"]) and norm_kw(x["keyword"]) in lab))]
+            if len(hit) == 1:
+                k = hit[0]["key"]
+            else:
+                probs.append("같은 날 같은 틀 '%s %s' 가 여러 글인데 어느 글인지 못 정함" % (m, f))
+                continue
+        if k not in out:
+            out.append(k)
+    return out, probs
 
 
 def parse_file(path):
@@ -260,6 +340,7 @@ def parse_file(path):
         "types": post_types(get_field(head, "쓸 글", "쓸글")),
         "slots": parse_slots(get_field(head, "쓸 글", "쓸글")),
         "html": sec.get("파트너스 HTML", "").strip(),
+        "link": (sec.get("파트너스 링크", "").strip().splitlines() or [""])[0].strip(),
         "info": parse_info(sec.get("상품 정보", "")),
         "must": kv_lines(sec.get("필수 표기정보", "")),
         "latest": split_reviews(sec.get("최신순 후기", "")),
@@ -274,16 +355,173 @@ def is_sponsor(t):
     return any(w in t for w in SPONSOR_WORDS)
 
 
+
+# ---------- 제품표(TSV) 읽기 (원고지침 v1.6) ----------
+KNOWN_BRANDS = ["글라스락", "파쿠젠", "락앤락", "daroom", "듀플렉스", "한경희", "Perfectforyou", "까사베니", "샤오미", "LG전자",
+                "삼성전자", "코멧", "탐사", "뽁순이", "일상나눔", "아필코", "홈싹", "시샘", "프롬비"]  # 제품표 상품명에 적힌 이름만
+# 핵심 사양 항목: (이름표 단어들, [(항목, 정규식)...]) — 상품명·옵션명·제조사 공식 사양 어디에도 없으면 '사양 없음'
+CORE_SPECS = [
+    (("가습기",), [("용량", r"\d+(?:\.\d+)?\s*(?:L|ℓ|리터|l)\b|\d+\s*ml"), ("가습량", r"(?:ml|mL|㎖)\s*/\s*h|가습량"),
+                  ("소비전력", r"\d+\s*W\b|소비\s*전력"), ("방식", r"가열식|초음파|복합식|자연기화")]),
+    (("공기청정기",), [("사용 면적", r"\d+\s*(?:㎡|m2|m²|평)"), ("필터 등급", r"H1[0-4]|E1[0-2]|헤파|HEPA"),
+                    ("소음", r"\d+\s*dB|데시벨|소음"), ("소비전력", r"\d+\s*W\b|소비\s*전력")]),
+    (("김치통",), [("용량", r"\d+(?:\.\d+)?\s*(?:L|ℓ|리터)\b|\d+\s*ml"), ("소재", r"스테인|스텐|304|316|유리|PP|플라스틱")]),
+    (("밀폐용기", "반찬통"), [("용량 구성", r"\d+(?:\.\d+)?\s*(?:L|ℓ|리터|ml)\b|\d+\s*(?:종|개|P|pcs|호)"),
+                          ("소재", r"유리|글라스|스테인|스텐|304|316|PP|트라이탄|내열"), ("전자레인지 표시", r"전자레인지"),
+                          ("오븐 표시", r"오븐"), ("냉동 표시", r"냉동")]),
+    (("문풍지", "틈막이"), [("소재", r"실리콘|폼|스펀지|고무|EVA|PE|부직포|소재"), ("길이", r"\d+\s*(?:m|M|cm|미터)\b|길이"),
+                         ("두께", r"\d+\s*(?:mm|cm|T)\b|두께"), ("폭", r"\d+\s*(?:mm|cm)\b|폭|너비")]),
+    (("뽁뽁이", "에어캡"), [("겹 수", r"\d+\s*중|\d+\s*겹"), ("폭", r"\d+\s*(?:cm|m)\b|폭"), ("길이", r"\d+\s*(?:m|M)\b|길이"),
+                         ("부착 방식", r"물\s*없이|물로|접착|점착|양면|부착")]),
+    (("발매트",), [("크기", r"\d+\s*[xX×*]\s*\d+|\d+\s*cm"), ("두께", r"\d+\s*(?:mm|T)\b|두께"), ("소재", r"규조토|소재")]),
+    (("압축팩",), [("크기", r"\d+\s*[xX×*]\s*\d+|\d+\s*cm|대형|특대|점보|중형"), ("개수", r"\d+\s*(?:개|매|P)"),
+                  ("방식", r"진공|펌프|압축|롤|지퍼|밸브")]),
+    (("지퍼백",), [("용량", r"\d+(?:\.\d+)?\s*(?:L|ℓ|리터|ml)\b"), ("내열 온도", r"\d+\s*(?:℃|도|°C)|내열")]),
+    (("온풍기", "히터"), [("소비전력", r"\d+\s*W\b|소비\s*전력"), ("안전장치", r"과열|전도|안전|차단|센서")]),
+]
+NOISE_LINES = re.compile(r"^(?:신고하기|운영정책|갤러리 이미지|더보기|베스트순|최신순|접기|검색어를 입력|상품 리뷰|\d+:\d{2}|\d[\d,]*|"
+                         r"\d+명에게 도움이 됐어요|동일한 상품에 대해 작성된 상품 리뷰로.*)$")
+DATE_LINE = re.compile(r"^\d{4}\.\d{2}\.\d{2}\s*$")
+
+
+def tsv_read(path):
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        rows = list(csv.reader(f, delimiter="\t"))
+    start = next((i for i, r in enumerate(rows) if r and r[0].strip() == "리스트"), None)
+    if start is None:
+        raise SystemExit("제품표 머리글(리스트 / 제품명 …)을 못 찾음: " + path)
+    return [r + [""] * (6 - len(r)) for r in rows[start + 1:] if any(c.strip() for c in r)]
+
+
+def rating_from_dist(dist):
+    """분포 % (최고·좋음·보통·별로·나쁨) → 5·4·3·2·1점 가중 평균, 소수 둘째 자리 반올림('약' 없음)."""
+    w = {"최고": 5, "좋음": 4, "보통": 3, "별로": 2, "나쁨": 1}
+    tot = sum(dist.get(k, 0) for k in w)
+    if not tot:
+        return ""
+    v = Decimal(sum(w[k] * dist.get(k, 0) for k in w)) / Decimal(tot)
+    return str(v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def parse_stats(cell):
+    """별점/후기개수 칸 → (리뷰 수, 만족 문구, 분포 dict, 쿠팡 설문 [(항목, 응답, %)])"""
+    lines = [l.strip() for l in cell.replace("\r\n", "\n").replace("\r", "\n").split("\n") if l.strip()]
+    reviews, satisfied, dist, survey = None, "", {}, []
+    i = 0
+    while i < len(lines):
+        l = lines[i]
+        if reviews is None and re.fullmatch(r"[\d,]+", l):
+            reviews = to_int(l)
+        elif "만족했어요" in l:
+            satisfied = l
+        elif l in ("최고", "좋음", "보통", "별로", "나쁨") and i + 1 < len(lines) and re.fullmatch(r"\d+%", lines[i + 1]) and l not in dist:
+            dist[l] = int(lines[i + 1].rstrip("%"))
+            i += 1
+        elif satisfied and len(dist) == 5:
+            break
+        i += 1
+    # 설문: 분포 다음 '항목 / 응답 / %' 3줄 묶음(항목 이름이 다시 나오면 상세 목록이라 끝)
+    k = next((n for n, l in enumerate(lines) if l == "나쁨"), None)
+    if k is not None:
+        rest = lines[k + 2:]
+        seen = set()
+        n = 0
+        while n + 2 < len(rest) and re.fullmatch(r"\d+%", rest[n + 2]):
+            item = rest[n]
+            if item in seen:
+                break
+            seen.add(item)
+            survey.append((item, rest[n + 1], rest[n + 2]))
+            n += 3
+    return reviews, satisfied, dist, survey
+
+
+def parse_reviews(cell):
+    """후기 칸 → [{date, option, text}] (닉네임·판매자·화면 글자 뺌). 본문이 같으면 1개만."""
+    lines = [l.rstrip() for l in cell.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    starts = [i for i in range(len(lines) - 2) if DATE_LINE.match(lines[i + 1]) and lines[i + 2].strip().startswith("판매자")]
+    out, seen = [], set()
+    for a, i in enumerate(starts):
+        j = starts[a + 1] if a + 1 < len(starts) else len(lines)
+        blk = lines[i + 3:j]  # 판매자 줄 다음
+        blk = [l.strip() for l in blk]
+        opt = ""
+        for n, l in enumerate(blk):
+            if l:
+                opt = l
+                blk = blk[n + 1:]
+                break
+        body = [l for l in blk if l and not NOISE_LINES.match(l) and l != opt]
+        text = re.sub(r"\s+", " ", " ".join(body)).strip()
+        key = re.sub(r"\s+", "", text)
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        out.append({"date": lines[i + 1].strip(), "option": opt, "text": text})
+    return out
+
+
+def parse_tsv_products(path):
+    prods = []
+    for n, r in enumerate(tsv_read(path), 1):
+        label_raw, name, url, html, stats, revs = [c.strip() for c in r[:6]]
+        slots_text = re.search(r"쓸 글\s*[:：](.*?)(?:\(|$)", label_raw)
+        label = re.sub(r"쓸 글.*$", "", label_raw).strip("# ").strip()
+        slots = parse_slots(slots_text.group(1) if slots_text else "")
+        if "미니 온풍기" in label:  # 11/20 사용자 결정: '1129 C' 로 적힌 미니 온풍기는 단독 추천(S) 1개
+            slots = [("1129", "S")]
+        reviews, satisfied, dist, survey = parse_stats(stats)
+        rv = parse_reviews(revs)
+        for x in rv:
+            x["sponsor"] = is_sponsor(x["text"])
+        brand = next((b for b in KNOWN_BRANDS if b.lower() in name.lower()), "")
+        p = {"file": "제품표 %d줄(%s)" % (n, label), "label": label, "keyword": "", "url": url, "date": "2026-11-20", "types": [],
+             "slots": slots, "html": html, "link": url,
+             "info": {"name": name, "brand": brand, "model": "", "rating": rating_from_dist(dist), "reviews": reviews, "prices": [],
+                      "skipped_prices": []},
+             "must": [], "latest": [], "low": [], "memo": "", "tsv": True, "collected": rv, "satisfied": satisfied,
+             "dist": dist, "survey": survey, "options": list(dict.fromkeys(x["option"] for x in rv if x["option"]))}
+        p["pid"] = (re.search(r"link\.coupang\.com/a/([A-Za-z0-9]+)", url) or [None, ""])[1]
+        prods.append(p)
+    return prods
+
+
+def spec_missing(p, official):
+    """핵심 사양 중 상품명·옵션명·제조사 공식 어디에도 없는 항목 목록."""
+    text = " ".join([p["info"]["name"], p.get("label", "")] + p.get("options", []) +
+                    ["%s %s" % (x.get("항목", ""), x.get("값", "")) for x in (official or {}).get("items", [])])
+    key_text = p["info"]["name"] + " " + p.get("label", "")
+    for words, items in CORE_SPECS:
+        if any(w in key_text for w in words):
+            return [name for name, rx in items if not re.search(rx, text, re.I)]
+    return []
+
+
 # ---------- research 파일 ----------
 def slot_labels(p, plan):
     """'1124 C 가열식 가습기 추천' 목록. 계획에 없으면 날짜·틀만."""
-    kw = {(x["mmdd"], x["frame"]): x["keyword"] for x in plan}
-    return ["%s %s%s" % (m, f, (" " + kw[(m, f)]) if kw.get((m, f)) else "") for m, f in p["slots"]]
+    kw = {x["key"]: x["keyword"] for x in plan}
+    return ["%s %s%s" % (sl[0], sl[1], (" " + kw[sl]) if kw.get(sl) else "") for sl in p["slots"]]
 
 
-def render_research(p, plan=()):
+def render_official(off):
+    L = ["", "## 제조사 공식 사양", ""]
+    if not off or not off.get("items"):
+        return L + ["찾지 못함" + (" — " + off["note"] if off and off.get("note") else ""), ""]
+    L += ["| 항목 | 값 | 출처 주소 | 확인일 |", "|---|---|---|---|"]
+    for x in off["items"]:
+        L.append("| %s | %s | %s | %s |" % tuple(str(x.get(k, "")).replace("|", "/") for k in ("항목", "값", "출처", "확인일")))
+    if off.get("note"):
+        L += ["", off["note"]]
+    return L + [""]
+
+
+def render_research(p, plan=(), official=None):
     i = p["info"]
     L = ["# 상품 자료 %s" % (p["pid"] or "(상품id 없음)"), ""]
+    if p.get("tsv"):
+        L += ["자료 출처: 제품표 TSV", ""]
     if p["slots"]:
         L += ["- 쓸 글: %s" % " / ".join(slot_labels(p, plan))]
         if p["keyword"]:
@@ -291,13 +529,29 @@ def render_research(p, plan=()):
     else:
         L += ["- 키워드: %s" % p["keyword"], "- 쓸 글: %s" % " / ".join(p["types"])]
     L += ["- 쿠팡 주소: %s" % p["url"], "- 수집일: %s" % p["date"], ""]
-    L += ["## 상품", "", "- 상품명: %s" % i["name"], "- 브랜드: %s" % i["brand"], "- 모델명: %s" % i["model"],
-          "- 별점: %s" % i["rating"], "- 리뷰 수: %s" % ("" if i["reviews"] is None else "{:,}".format(i["reviews"])), ""]
+    brand = i["brand"] or (official or {}).get("brand", "")
+    model = i["model"] or (official or {}).get("model", "")
+    L += ["## 상품", "", "- 상품명: %s" % i["name"], "- 브랜드: %s" % brand, "- 모델명: %s" % model,
+          "- 별점: %s" % i["rating"], "- 리뷰 수: %s" % ("" if i["reviews"] is None else "{:,}".format(i["reviews"]))]
+    if p.get("tsv"):
+        d = p["dist"]
+        if d:
+            L += ["- 별점 분포: " + " · ".join("%s %d%%" % (k, d[k]) for k in ("최고", "좋음", "보통", "별로", "나쁨") if k in d),
+                  "- 별점 계산: 5·4·3·2·1점 가중 평균, 소수 둘째 자리 반올림 = %s" % i["rating"]]
+        if p["satisfied"]:
+            L += ["- 만족 문구: %s" % p["satisfied"]]
+    L += [""]
+    if p.get("tsv"):
+        L += ["## 쿠팡 설문", ""]
+        L += ["- %s / %s / %s" % x for x in p["survey"]] if p["survey"] else ["(제품표에 없음)"]
+        L += ["", "## 옵션명", ""]
+        L += ["- %s" % o for o in p["options"]] if p["options"] else ["(없음)"]
+        L += [""]
     L += ["## 옵션별 일반 판매가", ""]
     if i["prices"]:
         L += ["| 옵션 | 일반 판매가 |", "|---|---|"] + ["| %s | %s |" % (x["option"], x["price"]) for x in i["prices"]]
     else:
-        L += ["(원문에 일반 판매가 없음)"]
+        L += ["(가격 자료 없음 — 가격을 쓰지 않음)" if p.get("tsv") else "(원문에 일반 판매가 없음)"]
     if i["skipped_prices"]:
         L += ["", "와우·쿠폰·카드 등 할인가 — **쓰지 않음**:", ""]
         L += ["- %s %s: %s (쓰지 않음)" % (x["option"], x["label"], x["price"]) for x in i["skipped_prices"]]
@@ -305,27 +559,57 @@ def render_research(p, plan=()):
     if p["must"]:
         L += ["| 항목 | 값 |", "|---|---|"] + ["| %s | %s |" % (k, v.replace("|", "/")) for k, v in p["must"]]
     else:
-        L += ["(원문에 없음)"]
-    for title, key in (("최신순 후기", "latest"), ("낮은 별점 후기", "low")):
-        revs = p[key]
-        L += ["", "## %s (%d개)" % (title, len(revs)), ""]
-        if not revs:
-            L += ["(원문에 없음)"]
-        for n, t in enumerate(revs, 1):
-            L.append("%d. %s%s" % (n, "[제외 후보] " if is_sponsor(t) else "", t))
+        L += ["(제품표에 없음)" if p.get("tsv") else "(원문에 없음)"]
+    if p.get("tsv"):
+        L += render_official(official)
+        rv = p["collected"]
+        L += ["## 모은 후기 (%d개)" % len(rv), "", "(제품표에 붙은 순서 그대로 · 닉네임 뺌 · 정렬 확인 안 됨 · 괄호는 날짜·옵션)", ""]
+        if not rv:
+            L += ["(제품표에 없음)"]
+        for n, x in enumerate(rv, 1):
+            L.append("%d. %s(%s%s) %s" % (n, "[제외 후보] " if x["sponsor"] else "", x["date"],
+                                         (" · " + x["option"]) if x["option"] else "", x["text"] or "(본문 없음)"))
+    else:
+        for title, key in (("최신순 후기", "latest"), ("낮은 별점 후기", "low")):
+            revs = p[key]
+            L += ["", "## %s (%d개)" % (title, len(revs)), ""]
+            if not revs:
+                L += ["(원문에 없음)"]
+            for n, t in enumerate(revs, 1):
+                L.append("%d. %s%s" % (n, "[제외 후보] " if is_sponsor(t) else "", t))
     L += ["", "## 메모", "", p["memo"] or "(없음)", ""]
     return "\n".join(L)
 
 
+def n_collected(p):
+    """뺀 것(체험단 등 제외 후보)·본문 없는 후기를 빼고 센 후기 수. 제품표 제품은 '모은 후기', 옛 양식은 최신순."""
+    if p.get("tsv"):
+        return sum(1 for x in p["collected"] if not x["sponsor"] and x["text"])
+    return sum(1 for t in p["latest"] if not is_sponsor(t))
+
+
 # ---------- 합치기·점검 ----------
+def load_official(week_dir):
+    path = os.path.join(week_dir, "_공식사양.json")
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def build(week_dir, plan=()):
     files = sorted(f for f in glob.glob(os.path.join(week_dir, "*.txt")) if not os.path.basename(f).startswith("_"))
-    plan_keys = {(x["mmdd"], x["frame"]) for x in plan}
-    prods, problems_global = [], []
+    plan_keys = {x["key"] for x in plan}
+    official = load_official(week_dir)
+    raw = [parse_file(f) for f in files]
+    for tsv in sorted(glob.glob(os.path.join(week_dir, "_제품표_*.tsv"))):
+        raw += parse_tsv_products(tsv)
+    prods = []
     by_pid, no_url = {}, []
-    for f in files:
-        p = parse_file(f)
+    for p in raw:
         p["problems"] = []
+        p["slots"], sp = resolve_slots(p["slots"], p.get("label", ""), plan)
+        p["problems"] += sp
         if not p["pid"]:
             p["problems"].append("주소 없음")
             no_url.append(p)
@@ -344,39 +628,59 @@ def build(week_dir, plan=()):
         prods.append(p)
     prods += no_url
     for p in prods:
+        off = official.get(p["pid"])
+        p["official"] = off
+        if off and off.get("brand") and not p["info"]["brand"]:
+            p["info"]["brand"] = off["brand"]
+        if off and off.get("model") and not p["info"]["model"]:
+            p["info"]["model"] = off["model"]
+        p["spec_missing"] = spec_missing(p, off) if p.get("tsv") else []
         ok, errs = check_html(p["html"])
-        p["link_ok"] = ok
         if not ok:
             p["problems"].append("HTML 없음" if errs == ["HTML 없음"] else "링크 오류: " + "; ".join(sorted(set(errs))[:3]))
+        pl_ok, pl_msg = check_plain_link(p.get("link", ""))
+        if not pl_ok:
+            p["problems"].append(pl_msg)
+        p["link_ok"] = ok and pl_ok  # 일반 링크 + 링크카드 HTML 둘 다 정상일 때만
         if not p["info"]["name"]:
             p["problems"].append("상품명 없음")
         if not p["types"] and not p["slots"]:
             p["problems"].append("쓸 글 표시 없음")
         if p["slots"] and plan:
-            for m, f in p["slots"]:
-                if (m, f) not in plan_keys:
-                    p["problems"].append("계획에 없는 글 '%s %s'" % (m, f))
+            for sl in p["slots"]:
+                if sl not in plan_keys:
+                    p["problems"].append("계획에 없는 글 '%s'" % " ".join(sl))
         elif p["slots"] and not plan:
             p["problems"].append("_주간계획.txt 가 없어 '쓸 글' 날짜를 확인 못 함")
         if p["slots"]:  # 새 형식: 글마다 키워드는 계획에서
-            p["keyword"] = " / ".join(dict.fromkeys(
-                x["keyword"] for x in plan if (x["mmdd"], x["frame"]) in p["slots"] and x["keyword"]))
+            p["keyword"] = " / ".join(dict.fromkeys(x["keyword"] for x in plan if x["key"] in p["slots"] and x["keyword"]))
         # 제품별 경고(새 형식)
         if len(p["slots"]) >= 4:
             p["problems"].append("경고: 같은 제품이 %d편(3편까지)" % len(p["slots"]))
-        if sum(1 for _, f in p["slots"] if f == "S") >= 2:
-            p["problems"].append("경고: 같은 제품 S(단독 추천) %d편(한 주에 1편까지)" % sum(1 for _, f in p["slots"] if f == "S"))
+        if sum(1 for sl in p["slots"] if sl[1] == "S") >= 2:
+            p["problems"].append("경고: 같은 제품 S(단독 추천) %d편(한 주에 1편까지)" % sum(1 for sl in p["slots"] if sl[1] == "S"))
         days = {}
-        for m, f in p["slots"]:
-            days.setdefault(m, []).append(f)
+        for sl in p["slots"]:
+            days.setdefault(sl[0], []).append(sl[1])
         for m, fs in days.items():
             if len(fs) >= 2:
                 p["problems"].append("경고: %s 같은 날 두 틀(%s)에 같은 제품" % (m, "·".join(fs)))
-        n_latest, n_low = len(p["latest"]), len(p["low"])
-        if "심층" in p["types"] and (n_latest < 20 or n_low < 10):
-            p["problems"].append("'심층'인데 최신순 %d개(20↑ 필요)·낮은 별점 %d개(10↑ 필요)" % (n_latest, n_low))
-        if "단독" in p["types"] and n_latest < 20:
-            p["problems"].append("'단독'인데 최신순 %d개(20↑ 필요)" % n_latest)
+        if p.get("tsv"):  # v1.6 제품 경고(막지 않음)
+            try:
+                if p["info"]["rating"] and float(p["info"]["rating"]) < 4.5:
+                    p["problems"].append("경고: 별점 %s (4.5 미만)" % p["info"]["rating"])
+            except ValueError:
+                pass
+            if not p["info"]["brand"]:
+                p["problems"].append("경고: 브랜드 불명")
+            if p["spec_missing"]:
+                p["problems"].append("사양 없음: " + "·".join(p["spec_missing"]))
+        else:
+            n_latest, n_low = len(p["latest"]), len(p["low"])
+            if "심층" in p["types"] and (n_latest < 20 or n_low < 10):
+                p["problems"].append("'심층'인데 최신순 %d개(20↑ 필요)·낮은 별점 %d개(10↑ 필요)" % (n_latest, n_low))
+            if "단독" in p["types"] and n_latest < 20:
+                p["problems"].append("'단독'인데 최신순 %d개(20↑ 필요)" % n_latest)
     # 비교: 키워드별 상품 2개 미만
     cmp_count = {}
     for p in prods:
@@ -389,17 +693,20 @@ def build(week_dir, plan=()):
     return prods
 
 
+MIN_REVIEWS = {"S": 10, "D": 25}  # v1.6: 단독 추천 10개↑ · 심층 리뷰 25개↑(뺀 것 제외)
+
+
 def plan_table(plan, prods):
     """주간계획 줄 순서대로 글별 준비 상태 표(마크다운 줄 목록)."""
     L = ["## 글별 준비표", ""]
     if not plan:
         return L + ["(_주간계획.txt 가 없거나 글 줄이 없음)", ""]
-    L += ["| 날짜 | 틀 | 키워드 | 들어온 제품 | 준비 상태 | 모자란 것 |", "|---|---|---|---|---|---|"]
+    L += ["| 원고 이름 | 키워드 | 들어온 제품 | 모은 후기(센 수/전체) | 준비 상태 | 모자란 것 | 사양 없음 |", "|---|---|---|---|---|---|---|"]
     for x in plan:
-        key = (x["mmdd"], x["frame"])
-        ps = [p for p in prods if key in p["slots"]]
+        ps = [p for p in prods if x["key"] in p["slots"]]
         names = " / ".join((p["info"]["name"] or p["pid"] or p["file"]) for p in ps)
         miss = []
+        nrev = " · ".join(("%d/%d" % (n_collected(p), len(p["collected"]))) if p.get("tsv") else str(n_collected(p)) for p in ps) or "-"
         if not ps:
             state = "제품 없음"
         elif x["frame"] == "C":
@@ -408,25 +715,19 @@ def plan_table(plan, prods):
                 miss.append("제품 %d개(2개 필요)" % len(ps))
             if len(brands) < 2:
                 miss.append("브랜드 %d개(2개 필요)" % len(brands))
-            nrev = [len(p["latest"]) for p in ps]
-            if any(nrev):
-                miss.append("(참고) 후기 " + "·".join(str(n) for n in nrev) + "개")
             state = "준비됨" if len(ps) >= 2 and len(brands) >= 2 else "모자람"
-            if state == "준비됨":
-                miss = miss  # 후기 개수 참고만
         else:
             if len(ps) != 1:
                 miss.append("제품 %d개(정확히 1개 필요)" % len(ps))
-            if len(ps) == 1:
-                p = ps[0]
-                n_ok = sum(1 for t in p["latest"] if not is_sponsor(t))
-                if n_ok < 20:
-                    miss.append("최신순 후기 %d개(체험단 뺀 수, 20개 필요)" % n_ok)
-                if x["frame"] == "D" and len(p["low"]) < 10:
-                    miss.append("낮은 별점 %d개(10개 필요)" % len(p["low"]))
-            ok = len(ps) == 1 and not [m for m in miss if not m.startswith("(참고)")]
-            state = "준비됨" if ok else "모자람"
-        cells = [x["mmdd"], x["frame"], x["keyword"], names, state, " / ".join(miss) or "없음"]
+            if len(ps) == 1 and n_collected(ps[0]) < MIN_REVIEWS[x["frame"]]:
+                miss.append("모은 후기 %d개(%d개 필요)" % (n_collected(ps[0]), MIN_REVIEWS[x["frame"]]))
+            state = "준비됨" if not miss else "모자람"
+        badlink = [p["info"]["name"][:14] for p in ps if not p["link_ok"]]
+        if badlink:
+            miss.append("링크 모자람(일반 링크·카드 둘 다 필요): " + ", ".join(badlink))
+            state = "모자람"
+        nospec = " / ".join("%s: %s" % (p["info"]["name"][:14], "·".join(p["spec_missing"])) for p in ps if p["spec_missing"]) or "-"
+        cells = [x["fname"], x["keyword"], names, nrev, state, " / ".join(miss) or "없음", nospec]
         L.append("| " + " | ".join(str(c).replace("|", "/") for c in cells) + " |")
     return L + [""]
 
@@ -441,19 +742,20 @@ def write_outputs(week_dir, prods, plan=()):
         if not p["pid"]:
             continue
         with open(os.path.join(rdir, p["pid"] + ".md"), "w", encoding="utf-8") as f:
-            f.write(render_research(p, plan))
+            f.write(render_research(p, plan, p.get("official")))
         if p["link_ok"]:
-            links[p["pid"]] = p["html"]
+            links[p["pid"]] = {"link": p["link"].strip(), "html": p["html"]}
     with open(os.path.join(week_dir, "links.json"), "w", encoding="utf-8") as f:
         json.dump(links, f, ensure_ascii=False, indent=1)
     L = ["# 받은편지함 변환 결과", ""] + plan_table(plan, prods)
-    L += ["## 상품별 점검표", "", "상품 %d개 · 문제 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["problems"])), "",
-         "| 상품id | 키워드 | 쓸 글 | 상품명 | 가격 있음 | 별점 | 리뷰 수 | 표기정보 항목 수 | 최신순 후기 수 | 낮은 별점 후기 수 | 링크 정상 | 문제 |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    L += ["## 상품별 점검표", "", "상품 %d개 · 문제(경고 포함) 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["problems"])), "",
+          "| 상품id | 쓸 글 | 상품명 | 브랜드 | 별점 | 리뷰 수 | 모은 후기 수 | 링크 정상 | 문제·경고 |",
+          "|---|---|---|---|---|---|---|---|---|"]
     for p in prods:
         i = p["info"]
-        cells = [p["pid"] or "(없음)", p["keyword"], "·".join(p["types"] + ["%s %s" % sl for sl in p["slots"]]), i["name"], "예" if i["prices"] else "아니오", i["rating"],
-                 "" if i["reviews"] is None else "{:,}".format(i["reviews"]), len(p["must"]), len(p["latest"]), len(p["low"]),
+        nrev = len(p["collected"]) if p.get("tsv") else len(p["latest"])
+        cells = [p["pid"] or "(없음)", "·".join(p["types"] + [" ".join(sl) for sl in p["slots"]]), i["name"], i["brand"] or "-", i["rating"],
+                 "" if i["reviews"] is None else "{:,}".format(i["reviews"]), nrev,
                  "예" if p["link_ok"] else "아니오", " / ".join(p["problems"]) or "없음"]
         L.append("| " + " | ".join(str(c).replace("|", "/") for c in cells) + " |")
     L.append("")
@@ -474,7 +776,7 @@ def main():
     prods = build(week_dir, plan)
     links = write_outputs(week_dir, prods, plan)
     bad = [p for p in prods if p["problems"]]
-    print("상품 %d개 → research %d개, links.json %d개, 문제 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["pid"]), len(links), len(bad)))
+    print("상품 %d개 → research %d개, links.json %d개, 문제(경고 포함) 있는 상품 %d개" % (len(prods), sum(1 for p in prods if p["pid"]), len(links), len(bad)))
     for p in bad:
         print(" -", p["pid"] or p["file"], ":", " / ".join(p["problems"]))
     print("저장:", week_dir)
