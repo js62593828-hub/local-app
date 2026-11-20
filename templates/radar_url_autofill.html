@@ -44,7 +44,7 @@
       {% endif %}
       <span class="wait">옛 생활 글(2026-11-23 이전) {{ old_skipped }}개는 목록에서 뺐어요.</span><br>
       채울 글 {{ filled_rows | length }}개 / 짝 없음 {{ missed | length }}개 / 아직 예약 중 {{ waiting | length }}개
-      {% if not rows %}<br><span class="wait">채울 대상이 없어요 (이미 글 주소가 있거나 발행 날짜가 없는 글이에요).</span>{% endif %}
+      {% if not rows %}<br><span class="wait">채울 대상이 없어요 (이미 글 주소가 있거나 발행 예정일을 모르는 글이에요).</span>{% endif %}
     </div>
 
     {% if filled_rows %}

@@ -1434,7 +1434,20 @@ LB_MAX_CROP = 0.20     # 확대해 채우려 잘라 내는 양이 긴 변의 20%
 LB_MIN_KEEP_AREA = 0.40  # 띠를 잘라 낸 뒤 남는 넓이가 원본의 40% 미만이면 제품이 잘릴 위험 → 그대로
 
 
-_LB_DENY = ("_detail", "detail", "pieces", "gallery", "capture", "캡처", "card", "카드", "table", "표 그림", "앱이 만듦", "badge", "banner", "sign")
+# 제외 단어: 경로를 영어·숫자 덩어리로 쪼갠 뒤 '덩어리 하나가 단어와 똑같을 때'만 제외한다(design.jpg 의 sign, cardigan.jpg 의 card 는 제외 안 됨).
+# 덩어리 구분 = 폴더 이름·파일 이름·밑줄·점·하이픈·숫자 앞뒤. 복수형(details, cards)도 같은 단어로 본다. 한글 단어는 띄어쓰기로 구분이 안 되어 글자 포함으로 본다.
+_LB_DENY_WORDS = frozenset(("detail", "pieces", "gallery", "capture", "card", "table", "badge", "banner", "sign"))
+_LB_DENY_KO = ("캡처", "카드", "표 그림", "앱이 만듦")
+
+
+def _lb_denied(t):
+    toks = re.split(r"[^a-z]+", t)
+    for w in toks:
+        if w in _LB_DENY_WORDS or (w.endswith("s") and w[:-1] in _LB_DENY_WORDS):
+            return True
+    return any(k in t for k in _LB_DENY_KO)
+
+
 _LB_ALLOW = (re.compile(r"(^|/)research/_img/\d+/[^/]+$"), re.compile(r"(^|/)candidates_run/[^/]+/img/[^/]+$"))
 
 
@@ -1442,7 +1455,7 @@ def letterbox_source_ok(src):
     """②에서 고른 사진 파일의 출처(photos.json slot_sources 값)가 제품·장면 사진이면 True. 메모 종류는 보지 않는다.
     상세 이미지(_detail·pieces·gallery)·캡처·표·카드·배너 등에서 온 파일, 또는 출처를 모르는 경우는 False(제외)."""
     t = (src or "").replace(chr(92), "/").strip().lower()
-    if not t or any(w in t for w in _LB_DENY):
+    if not t or _lb_denied(t):
         return False
     return any(r.search(t) for r in _LB_ALLOW)
 

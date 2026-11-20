@@ -2699,17 +2699,22 @@ def _radar_autofill_plan(rss: list[dict], now: datetime | None = None, data: tup
         seen.add(aid)
         art = articles.get(aid) or {}
         url = ((art.get("platform_published_url") or {}).get("naver") or "").strip()
-        date = ((art.get("platform_published_at") or {}).get("naver") or "").strip()
-        if not date or not _radar_url_is_fillable(url):
-            continue  # 발행(예약) 날짜가 없거나, 이미 주소가 있는 글은 대상이 아님
+        # 발행 날짜: 앱에 '발행 완료'를 안 눌러도(네이버 예약발행) 대상이 되도록, 앱 날짜가 없으면 대기열 plan.publish_date 로 대신 봅니다.
+        date = ((art.get("platform_published_at") or {}).get("naver") or "").strip() or str((it.get("plan") or {}).get("publish_date") or "").strip()
+        if not _radar_url_is_fillable(url):
+            continue  # 이미 글 주소가 있는 글은 대상이 아님
         if str(aid)[:10] < since:
             old_skipped += 1  # 옛 생활 글(Desk Picker 이전)은 목록에서 뺌
             continue
+        if not date:
+            continue  # 발행 예정일을 알 수 없는 글
         title = ((art.get("platform_title") or {}).get("naver") or "").strip()
         row = {"id": aid, "keyword": it.get("keyword", ""), "title": title, "date": date, "current": url, "found": "", "result": "", "ref": "", "rss_title": ""}
-        dt = _stored_publish_dt(art, "naver")
+        dt = _publish_dt(date, ((art.get("platform_scheduled_time") or {}).get("naver")))
         if date[:10] > today or (dt and dt > now):
             row["result"] = "예약 중"
+        elif not art:
+            row["result"], row["ref"] = "못 찾음", "앱에 원고가 없는 글(쓰지 않는 글)"
         else:
             hits = by_title.get(_radar_norm_title(title), []) if title else []
             if len(hits) == 1:
