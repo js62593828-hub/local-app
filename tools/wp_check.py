@@ -31,7 +31,7 @@ MEMO_MARK = "[메모]"
 DATE_RX = re.compile(r"\d{1,2}\s*월\s*\d{1,2}\s*일")
 PRICE_RX = re.compile(r"(\d[\d,]*)\s*원")
 LINK_LINE_RX = re.compile(r"^[ \t]*링크[ \t]*[:：]")
-PLACEHOLDER_RX = re.compile(r"\[쿠팡링크:(\d+)\]")
+PLACEHOLDER_RX = re.compile(r"\[쿠팡링크:([A-Za-z0-9]+)\]")
 HTML_LINK_RX = re.compile(r"<a\b[^\n]*</a>\s*$", re.I)
 BASE_LINE_RX = re.compile(r"^\(\d{1,2}월 \d{1,2}일 쿠팡 기준 · 상품 정보와 (?:(구매 후기 [\d,]+개)|필수 표기정보)를 바탕으로 정리\)$")
 SEP_ROW_RX = re.compile(r"^\s*\|?[\s:|-]*-{3,}[\s:|-]*\|?\s*$")
@@ -95,7 +95,7 @@ def load_research_dir(folder):
     out = {}
     if folder and os.path.isdir(folder):
         for fn in sorted(os.listdir(folder)):
-            if fn.lower().endswith(".md") and re.fullmatch(r"\d+\.md", fn):
+            if fn.lower().endswith(".md") and re.fullmatch(r"[A-Za-z0-9]+\.md", fn):
                 out[fn[:-3]] = parse_research(os.path.join(folder, fn))
     return out
 
@@ -325,7 +325,7 @@ def check_text(text, name, frame, research=None, final=False, keyword="", rules=
             elif not HTML_LINK_RX.search(val) or not val.lower().startswith("<a"):
                 v("링크 형식", no, "넣기 전 검사: 링크 값이 <a …>…</a> 한 줄이거나 '일반 링크 ‖카드‖ 카드 HTML' 이어야 해요")
         else:
-            if not (re.fullmatch(r"\[쿠팡링크:\d+\]", val) or HTML_LINK_RX.search(val)):
+            if not (re.fullmatch(r"\[쿠팡링크:[A-Za-z0-9]+\]", val) or HTML_LINK_RX.search(val)):
                 v("링크 형식", no, f"링크 값은 [쿠팡링크:상품id] 여야 해요: {val[:30]}")
     if final:
         for no, ln in enumerate(lines, 1):

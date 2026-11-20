@@ -114,7 +114,7 @@ def write_sched_file(path, week, rows):
     os.replace(tmp, path)
 
 
-LINK_LINE_RX = re.compile(r"^([ \t]*링크[ \t]*[:：][ \t]*)\[쿠팡링크:(\d+)\][ \t]*$", re.M)
+LINK_LINE_RX = re.compile(r"^([ \t]*링크[ \t]*[:：][ \t]*)\[쿠팡링크:([A-Za-z0-9]+)\][ \t]*$", re.M)
 
 
 def rj(path, default=None):
