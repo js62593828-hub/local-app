@@ -5303,7 +5303,7 @@ def generate_final(article_id):
                 radar_final_fail = "대기열에서 이 글을 찾지 못해 사진 폴더 정보를 얻지 못했어요" if not item else "사진 폴더 정보를 얻지 못했어요"
                 continue
             _related, _ = _radar_related_for(article_id, _rctx[1])
-            article["platform_final"][p], _final_info = radar_screen.build_final_html(_raw_body, title, _rctx[2], related=_related, memo=article["platform_metadata"].get("naver") or "")
+            article["platform_final"][p], _final_info = radar_screen.build_final_html(_raw_body, title, _rctx[2], related=_related)
             if _final_info.get("upload_error"):
                 session["radar_upload_err"] = "업로드 폴더(naver_upload)를 만들지 못했어요: " + _final_info["upload_error"]
             else:

@@ -23,8 +23,9 @@ TARGET = ("제품",)  # + 'AI' 로 시작하는 종류
 EXCLUDE_NOTE = {"캡처": "제외(캡처)", "표": "제외(표 그림)", "카드": "제외(카드 그림)"}
 
 
-def is_target(kind):
-    return kind == "제품" or kind.startswith("AI")
+def is_target(kind, src):
+    """대상 여부는 메모 종류가 아니라 고른 사진 파일의 출처로 정한다(radar_screen.letterbox_source_ok)."""
+    return rs.letterbox_source_ok(src)
 
 
 def app_band(size):
@@ -62,8 +63,8 @@ def main():
             plan = rs.letterbox_plan(im)
             src_b = plan["bands"]
             sb = "/".join(str(x) for x in src_b)
-            if not is_target(kind):
-                proc = EXCLUDE_NOTE.get(kind, f"제외({kind})")
+            if not is_target(kind, st["slot_sources"].get(k, "")):
+                proc = "제외(" + ("표 그림" if "앱이 만듦" in st["slot_sources"].get(k, "") else "출처: 상세·캡처·카드 등 또는 모름, 메모 종류 " + kind) + ")"
             else:
                 proc = plan["decision"]
             band_txt = []
@@ -72,10 +73,10 @@ def main():
             if any(src_b):
                 band_txt.append(f"원본 안 띠 {sb}px")
             has = " + ".join(band_txt) if band_txt else "없음"
-            if is_target(kind) and plan["decision"] == "그대로" and plan["reason"].startswith("가장자리가 단색"):
+            if is_target(kind, st["slot_sources"].get(k, "")) and plan["decision"] == "그대로" and plan["reason"].startswith("가장자리가 단색"):
                 has += " (단색 배경)" if band_txt else " (단색 배경)"
             rows.append((tag, k, kind, has, proc, plan["reason"]))
-            if is_target(kind) and plan["decision"] == "확대 채우기" and (ab >= 2 or any(src_b)):
+            if is_target(kind, st["slot_sources"].get(k, "")) and plan["decision"] == "확대 채우기" and (ab >= 2 or any(src_b)):
                 shots.append((it["id"], tag, k, f, p, plan))
         # GIF 보기만
         up = os.path.join(pdir, "naver_upload")

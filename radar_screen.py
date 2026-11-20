@@ -1434,6 +1434,19 @@ LB_MAX_CROP = 0.20     # 확대해 채우려 잘라 내는 양이 긴 변의 20%
 LB_MIN_KEEP_AREA = 0.40  # 띠를 잘라 낸 뒤 남는 넓이가 원본의 40% 미만이면 제품이 잘릴 위험 → 그대로
 
 
+_LB_DENY = ("_detail", "detail", "pieces", "gallery", "capture", "캡처", "card", "카드", "table", "표 그림", "앱이 만듦", "badge", "banner", "sign")
+_LB_ALLOW = (re.compile(r"(^|/)research/_img/\d+/[^/]+$"), re.compile(r"(^|/)candidates_run/[^/]+/img/[^/]+$"))
+
+
+def letterbox_source_ok(src):
+    """②에서 고른 사진 파일의 출처(photos.json slot_sources 값)가 제품·장면 사진이면 True. 메모 종류는 보지 않는다.
+    상세 이미지(_detail·pieces·gallery)·캡처·표·카드·배너 등에서 온 파일, 또는 출처를 모르는 경우는 False(제외)."""
+    t = (src or "").replace(chr(92), "/").strip().lower()
+    if not t or any(w in t for w in _LB_DENY):
+        return False
+    return any(r.search(t) for r in _LB_ALLOW)
+
+
 def _rgb_on_white(im):
     from PIL import Image
     im = im.convert("RGBA")
@@ -1772,13 +1785,12 @@ def upload_listing(pdir, final_html):
             "size_want": want, "big_gifs": big_gifs, "bad_dims": [f"{f['name']} ({f['size_warn']})" for f in files if not f["dim_ok"]]}
 
 
-def build_final_html(raw, title, pdir, related=None, product_links=None, line_break=None, memo=None):
+def build_final_html(raw, title, pdir, related=None, product_links=None, line_break=None):
     """radar_naver 최종본. 반환 (HTML, 정보 dict). shop_formatter.build_shop_html 은 고치지 않고 그대로 불러
     글 모양을 만든 뒤, 자리표시를 사진·GIF·표·제휴 링크로 바꿔 끼운다. 이미지 생성 API·장부 쓰기 없음.
     related: pick_related 가 뽑은 목록(None 이면 안 붙임, 빈 목록이면 "다른 글 없음" 표시), product_links: 상품id→제휴 링크(None 이면 links.json 을 읽음)."""
     st = load_state(pdir)
-    # memo(메모 글)가 있고 config RADAR_LETTERBOX_FILL 이 켜져 있을 때만, 사진자리 종류가 제품·AI 장면인 사진에 띠 없애기를 쓴다.
-    lb_kinds = slot_hints(memo) if (memo and _cfg("RADAR_LETTERBOX_FILL", False)) else {}
+    lb_on = bool(_cfg("RADAR_LETTERBOX_FILL", False))  # 켜져 있어도 ②에서 고른 사진 파일의 출처가 제품·장면 사진일 때만 씀(letterbox_source_ok)
     subs, sub_cards = [], []  # "### 제품 소제목" 글자들 / 각 구간의 상품카드 이름(없으면 None)
     body, tables, photos, cards = _prepare_raw(strip_notice(raw), subs, sub_cards)  # 쇼핑커넥트 안내 문장은 글자 대신 이미지로 넣으므로 원고에서 뺌
     table_pair = [n for _rows, n in table_slot_map(strip_notice(raw))]  # 표마다 바로 아래 [사진: n] 번호(없으면 None)
@@ -1891,8 +1903,7 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
         if _exists(pdir, chosen):
             if os.path.basename(chosen).startswith(TABLE_FILE_PREFIX) and st["slot_sources"].get(str(k)) == "표 그림(앱이 만듦)":
                 return mark(add_upload(chosen, f"사진{k}", resize=False))  # 표 그림은 이미 가로 800·테두리 포함: 정사각 틀·크기 맞춤 없이 그대로
-            _kind = (lb_kinds.get(k) or {}).get("kind") or ""
-            return mark(add_upload(chosen, f"사진{k}", resize="frame_fill" if (_kind == "제품" or _kind.startswith("AI")) else "frame"))
+            return mark(add_upload(chosen, f"사진{k}", resize="frame_fill" if (lb_on and letterbox_source_ok(st["slot_sources"].get(str(k), ""))) else "frame"))
         info["empty"].append(k)
         return f'<p style="text-align:center; color:#D32F2F; font-weight:bold; font-size:16px;">사진 {k} 비어 있음</p>'
 
