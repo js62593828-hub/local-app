@@ -26,6 +26,7 @@ LINK_COUNT = {"C": (2, 3), "D": (1, 1), "S": (1, 1)}
 CATEGORIES = ("생활용품", "주방용품", "생활가전")
 META_LABELS = ["메타 디스크립션", "카테고리 제안", "글 유형", "태그 제안", "표지 배지", "표지 1줄", "표지 2줄", "표지 보조",
                "표지 장면", "대표 이미지(표지) alt 텍스트 제안", "본문 이미지 alt 텍스트 제안"]
+REVIEW_SECS = ("모은 후기", "최신순", "낮은 별점")  # v1.6: 후기 구역 = "모은 후기 N개"(옛 양식 이름도 읽음)
 MEMO_MARK = "[메모]"
 DATE_RX = re.compile(r"\d{1,2}\s*월\s*\d{1,2}\s*일")
 PRICE_RX = re.compile(r"(\d[\d,]*)\s*원")
@@ -65,7 +66,7 @@ def parse_research(path):
             sec = h.group(1).strip()
             continue
         m = re.match(r"^-\s*(상품명|브랜드|모델명|별점|리뷰 수)\s*[:：]\s*(.+)", ln)
-        if m and not sec.startswith(("최신순", "낮은 별점")):
+        if m and not sec.startswith(REVIEW_SECS):
             k, v = m.group(1), m.group(2).strip()
             if k == "상품명": d["name"] = v
             elif k == "브랜드": d["brand"] = v
@@ -77,7 +78,7 @@ def parse_research(path):
         if sec.startswith("옵션별 일반 판매가") and ln.strip().startswith("|") and "쓰지" not in ln:
             for pm in PRICE_RX.finditer(ln):
                 d["prices"].add(int(pm.group(1).replace(",", "")))
-        if sec.startswith(("최신순", "낮은 별점")):
+        if sec.startswith(REVIEW_SECS):
             rm = re.match(r"^\s*\d+\.\s*(.+)", ln)
             if rm:
                 t = re.sub(r"^\[제외 후보\]\s*", "", rm.group(1)).strip()
