@@ -1,3 +1,8 @@
+## 멈춤 (2026-11-20): N살림노트 11/23 주 제품 정리 3단계 — 사용자 "넣어" 대기
+- 끝낸 것: 남은 링크 5개 발급(발급 5·기존 20·실패 0, links.json 25칸 모두 있음, approved.json 은 48개로 복구), 자료 6개 수집(새 5개+로긴 식기건조대 재수집, 임시 복사본으로 login 판단만 좁힘), products_20261123.txt 25줄(백업 .backup_before_slots_20261120), products_20261123.json 만듦, --update-products 미리 보기(바뀔 17편, 경고 없음).
+- 다음 명령(사용자가 "넣어"라고 하면만): python tools/push_plan.py --products pipeline/final/products_20261123.json --update-products --apply
+- _keep 폴더는 본 폴더에 없는 파일 0개(지워도 되는지는 사용자가 결정).
+
 ## 완료 (2026-11-20): W싼세계 받은편지함 새 양식(날짜+틀 '쓸 글', _주간계획.txt, 글별 준비표)
 - wp_inbox_build.py(글별 준비표·'_' 파일 제외·research '쓸 글' 줄), wp_check.py(원고 이름 날짜+틀로 제품 고름), wp-writer.md 안내 추가. 시험: pipeline/wp_inbox/_test_v2/README.md. 실제 폴더 돌림: 제품 0개 → 준비표 6줄 '제품 없음'.
 - 다음: 제품 파일을 _양식.txt 복사해 채우기 → 다시 돌리기. wp_import.py 는 wp_check 를 부르므로 수정 없음.
