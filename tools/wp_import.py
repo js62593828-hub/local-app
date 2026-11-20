@@ -151,18 +151,65 @@ def write_json_atomic(path, data):
     os.replace(tmp, path)
 
 
-def convert_links(text, links):
-    """'링크: [쿠팡링크:id]' 줄을 'links[id]' HTML 한 줄로. 반환: (바뀐 글, 못 찾은 id 목록, 바꾼 수)"""
+CARD_MARK = " ‖카드‖ "   # shop_formatter.WPTIPS_CARD_MARK 와 같은 글자(앱은 이 표시가 있을 때만 배너·카드·별점 줄을 만든다)
+STAR_MARK = " ‖별점‖ "
+
+
+def star_line(research_dir, pid):
+    """research/<상품id>.md 의 별점·리뷰 수·수집일로 별점 줄 글자. 예: '★ 4.75 · 리뷰 5,300개 이상 · 11월 20일 쿠팡 기준'.
+    별점·리뷰 수가 모두 없으면 빈 글자(줄을 넣지 않음). 지어내지 않는다."""
+    path = os.path.join(research_dir or "", pid + ".md")
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return ""
+
+    def val(label):
+        m = re.search(r"^-\s*" + label + r"\s*[:：]\s*(.*)$", text, re.M)
+        return m.group(1).strip() if m else ""
+    rating = val("별점")
+    rv = re.sub(r"[^\d]", "", val("리뷰 수"))
+    dm = re.match(r"(\d{4})-(\d{2})-(\d{2})", val("수집일"))
+    bits = []
+    if re.fullmatch(r"[0-5](?:\.\d+)?", rating):
+        bits.append("★ " + rating)
+    if rv:
+        n = int(rv)
+        r = wp_check.round_reviews(n)
+        bits.append("리뷰 {:,}개".format(r) + (" 이상" if n >= 100 else ""))
+    if not bits:
+        return ""
+    if dm:
+        bits.append("%d월 %d일 쿠팡 기준" % (int(dm.group(2)), int(dm.group(3))))
+    return " · ".join(bits)
+
+
+def convert_links(text, links, research_dir=""):
+    """'링크: [쿠팡링크:id]' 줄을 바꾼다. 바꿀 때 links[id] 가
+    - {"link": 일반 링크, "html": 카드 HTML} (새 형식) 이면 '링크: <일반 링크> ‖카드‖ <카드> ‖별점‖ <별점 줄>' 한 줄
+      (앱이 배너·카드·별점 줄로 풀어 줌. 배너는 tools/wp_banner.json 이 비면 안 나옴)
+    - 글자 HTML (옛 형식) 이면 예전처럼 '링크: <HTML>' 한 줄.
+    반환: (바뀐 글, 못 찾은 id 목록, 바꾼 수)"""
     missing, n = [], 0
 
     def rep(m):
         nonlocal n
-        html = (links.get(m.group(2)) or "").strip()
+        pid = m.group(2)
+        v = links.get(pid)
+        if isinstance(v, dict):
+            url, html = (v.get("link") or "").strip(), " ".join((v.get("html") or "").split())
+            if not url or not html:
+                missing.append(pid)
+                return m.group(0)
+            n += 1
+            stars = star_line(research_dir, pid)
+            return m.group(1) + url + CARD_MARK + html + ((STAR_MARK + stars) if stars else "")
+        html = (v or "").strip()
         if not html:
-            missing.append(m.group(2))
+            missing.append(pid)
             return m.group(0)
         n += 1
-        return m.group(1) + re.sub(r"\s*\n\s*", " ", html)
+        return m.group(1) + " ".join(html.split())
 
     return LINK_LINE_RX.sub(rep, text), missing, n
 
@@ -239,7 +286,7 @@ def main():
         text = open(path, encoding="utf-8").read()
         m = wp_check.NAME_RX.match(fn)
         frame = m.group(3) if m else "?"
-        conv, missing, nlink = convert_links(text, links)
+        conv, missing, nlink = convert_links(text, links, research)
         body, memo = split_memo(conv)
         title = ""
         if body:

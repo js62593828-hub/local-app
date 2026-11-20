@@ -171,6 +171,50 @@ def is_product_heading(head, research_ids, research):
     return False
 
 
+CARD_MARK = " ‖카드‖ "
+STAR_MARK = " ‖별점‖ "
+IFRAME_ATTRS = {"src", "width", "height", "frameborder", "scrolling", "referrerpolicy"}
+
+
+def check_new_link(val, research, research_ids):
+    """새 링크 형식 한 줄의 문제 목록: 일반 링크 주소·카드 HTML(iframe 규칙)·별점 줄 숫자(research 와 같은지)."""
+    errs = []
+    url, rest = val.split(CARD_MARK, 1)
+    card, _, stars = rest.partition(STAR_MARK)
+    url, card, stars = url.strip(), card.strip(), stars.strip()
+    if not re.match(r"^https://(?:link\.coupang\.com|coupa\.ng)/\S+$", url):
+        errs.append(f"일반 링크가 https://link.coupang.com/ 또는 https://coupa.ng/ 로 시작하는 주소가 아니에요: {url[:40]}")
+    if re.match(r"<iframe\b", card, re.I):
+        tag = re.match(r"<iframe\b[^>]*>", card, re.I)
+        attrs = {x.lower() for x in re.findall(r"\s([a-zA-Z-]+)\s*=", tag.group(0))} if tag else set()
+        src = re.search(r'\ssrc\s*=\s*"([^"]*)"', card)
+        if not re.search(r"</iframe>\s*$", card, re.I) or card.count("<") != 2:
+            errs.append("링크카드 iframe 이 <iframe …></iframe> 한 개가 아니에요")
+        if not src or not src.group(1).startswith("https://coupa.ng/"):
+            errs.append("링크카드 iframe src 가 https://coupa.ng/ 로 시작하지 않아요")
+        if attrs - IFRAME_ATTRS:
+            errs.append("링크카드 iframe 에 허용 안 된 속성: " + ", ".join(sorted(attrs - IFRAME_ATTRS)))
+    elif not (card.lower().startswith("<a") and HTML_LINK_RX.search(card)):
+        errs.append("링크카드가 iframe 도 <a …>…</a> 도 아니에요")
+    if stars:
+        cand = [research[i] for i in research_ids if i in research]
+        okr = {r["rating"] for r in cand if r.get("rating")}
+        okv = {round_reviews(r["reviews"]) for r in cand if r.get("reviews") is not None}
+        mr = re.search(r"★\s*([0-9](?:\.[0-9]+)?)", stars)
+        if mr and cand and mr.group(1) not in okr:
+            errs.append(f"별점 줄 {mr.group(1)} 이 research 별점({', '.join(sorted(okr)) or '없음'})과 달라요")
+        mv = re.search(r"리뷰\s*([\d,]+)개(\s*이상)?", stars)
+        if mv and cand:
+            n = int(mv.group(1).replace(",", ""))
+            if n not in okv:
+                errs.append(f"별점 줄 리뷰 {n:,}개 가 research 내림값과 달라요")
+            elif n >= 100 and not mv.group(2):
+                errs.append("별점 줄 리뷰 수에 '이상'이 없어요")
+        if not re.search(r"\d{1,2}월\s*\d{1,2}일\s*쿠팡 기준", stars):
+            errs.append("별점 줄에 기준일(M월 D일 쿠팡 기준)이 없어요")
+    return errs
+
+
 # ───────── 검사 본체 ─────────
 def check_text(text, name, frame, research=None, final=False, keyword="", rules=None):
     rules = rules or load_rules()
@@ -275,8 +319,11 @@ def check_text(text, name, frame, research=None, final=False, keyword="", rules=
         if final:
             if "[쿠팡링크" in val:
                 v("[쿠팡링크 남음", no, "넣기 전에 [쿠팡링크:…] 가 HTML 로 바뀌지 않았어요")
+            elif CARD_MARK in val:  # 새 형식(2026-11-20): '<일반 링크> ‖카드‖ <링크카드 HTML> [‖별점‖ 별점 줄]'
+                for msg in check_new_link(val, research, research_ids):
+                    v("링크 형식", no, msg)
             elif not HTML_LINK_RX.search(val) or not val.lower().startswith("<a"):
-                v("링크 형식", no, "넣기 전 검사: 링크 값이 <a …>…</a> 한 줄이어야 해요")
+                v("링크 형식", no, "넣기 전 검사: 링크 값이 <a …>…</a> 한 줄이거나 '일반 링크 ‖카드‖ 카드 HTML' 이어야 해요")
         else:
             if not (re.fullmatch(r"\[쿠팡링크:\d+\]", val) or HTML_LINK_RX.search(val)):
                 v("링크 형식", no, f"링크 값은 [쿠팡링크:상품id] 여야 해요: {val[:30]}")

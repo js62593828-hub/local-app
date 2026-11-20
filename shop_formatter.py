@@ -32,6 +32,7 @@ A: 답변 내용
 import html
 import itertools
 import json
+import os
 import random
 import re
 from contextvars import ContextVar
@@ -1459,6 +1460,76 @@ def _wp_cta_blocks(link: str, banner_url: str) -> str:
     return _wp_button(CTA_BUTTON_TEXT["wordpress"], link or "#")
 
 
+# ── 싼세계(wp_tips) 일반글 전용 링크 블록 (2026-11-20) ─────────────────────────────────────────
+# 원고 '링크:' 값이 "<일반 링크> ‖카드‖ <쿠팡 링크카드 HTML> ‖별점‖ <별점 줄 글자>" 모양일 때만 쓴다(tools/wp_import.py 가 만듦).
+# 이 표시(‖카드‖)가 없는 글은 아무것도 달라지지 않는다. 배너 설정은 tools/wp_banner.json(img_url 이 비면 배너 없음).
+WPTIPS_CARD_MARK = " ‖카드‖ "
+WPTIPS_STAR_MARK = " ‖별점‖ "
+_WPTIPS_BANNER_FILE = os.environ.get("WP_BANNER_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools", "wp_banner.json")  # 환경 변수는 시험용
+
+
+def _wptips_banner_cfg() -> dict:
+    try:
+        with open(_WPTIPS_BANNER_FILE, encoding="utf-8") as f:
+            cfg = json.load(f)
+        return cfg if isinstance(cfg, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def split_wptips_link_value(link: str):
+    """'링크:' 값 → (일반 링크, 카드 HTML, 별점 줄 글자). ‖카드‖ 표시가 없으면 None."""
+    v = (link or "").strip()
+    if WPTIPS_CARD_MARK not in v:
+        return None
+    url, rest = v.split(WPTIPS_CARD_MARK, 1)
+    card, _, stars = rest.partition(WPTIPS_STAR_MARK)
+    return url.strip(), card.strip(), stars.strip()
+
+
+def _wptips_card_html(card: str) -> str:
+    """링크카드 HTML 을 안전할 때만 돌려준다. iframe 은 src 가 https://coupa.ng/ 로 시작하고 속성이 6개 안일 때만,
+    <a> 카드는 쿠팡 검사(analyze_coupang_html)를 통과할 때만(rel 이 없으면 sponsored noopener 만 더함). 아니면 빈 글자."""
+    if not card or not analyze_coupang_html(card)["ok"]:
+        return ""
+    if re.match(r"<iframe\b", card, re.IGNORECASE):
+        tag = re.match(r"<iframe\b[^>]*>", card, re.IGNORECASE)
+        attrs = [m.lower() for m in re.findall(r"\s([a-zA-Z-]+)\s*=", tag.group(0))] if tag else []
+        src = re.search(r'\ssrc\s*=\s*"([^"]*)"', tag.group(0)) if tag else None
+        ok_attrs = {"src", "width", "height", "frameborder", "scrolling", "referrerpolicy"}
+        if not src or not src.group(1).startswith("https://coupa.ng/") or any(a not in ok_attrs for a in attrs):
+            return ""
+        return card
+    return re.sub(r"<a\b[^>]*>", lambda m: m.group(0) if re.search(r"\srel\s*=", m.group(0), re.IGNORECASE) else m.group(0)[:2] + ' rel="sponsored noopener"' + m.group(0)[2:], card)
+
+
+def _wptips_link_blocks(link: str):
+    """싼세계 일반글 제품 끝: ① 배너(가운데, 일반 링크로) ② 링크카드(가운데) ③ 작은 글씨 별점 줄. 표시가 없으면 None(예전 구매 버튼)."""
+    parts = split_wptips_link_value(link)
+    if parts is None:
+        return None
+    url, card, stars = parts
+    if not _host_in(url, CTA_BANNER_LINK_DOMAINS):
+        return None
+    out = ""
+    cfg = _wptips_banner_cfg()
+    img = str(cfg.get("img_url") or "").strip()
+    if img.lower().startswith(("http://", "https://")):
+        alt = html.escape(str(cfg.get("alt") or CTA_BANNER_ALT), quote=True)
+        width = re.sub(r"[^0-9.%a-z]", "", str(cfg.get("width") or "40%"))
+        minw = int(cfg.get("min_width_px") or 240)
+        tag = (f'<img src="{html.escape(img, quote=True)}" alt="{alt}" '
+               f'style="width:{width};min-width:{minw}px;max-width:100%;height:auto;border:0;box-shadow:none !important;" />')
+        out += _wp_block("html", f'<div style="text-align:center;margin:20px 0 8px;"><a href="{html.escape(url, quote=True)}" '
+                                 f'target="_blank" rel="sponsored noopener" referrerpolicy="unsafe-url">{tag}</a></div>')
+    code = _wptips_card_html(card)
+    if code:
+        out += _wp_block("html", f'<div style="text-align:center;margin:0 0 4px;">{code}</div>')
+    if stars:
+        out += _wp_block("html", f'<p style="text-align:center;font-size:13px;color:#666;margin:4px 0 20px;">{html.escape(stars, quote=False)}</p>')
+    return out or None
+
+
 def _wp_product_blocks(section: dict, images: list[dict], cta_banner_url: str | None = None) -> str:
     """cta_banner_url이 None이면 예전 그대로(주황 구매 버튼). 문자열이면(워드프레스 SHOP) 배너 + 쿠팡 코드 방식."""
     parts = [_wp_heading(section["heading"])]
@@ -1470,7 +1541,10 @@ def _wp_product_blocks(section: dict, images: list[dict], cta_banner_url: str | 
         )
         parts.append(_wp_block("paragraph", f"<p>{badge}</p>"))
     parts.append(_render_body_wp(section["body"], section.get("table")))
-    if cta_banner_url is None:
+    wt_block = _wptips_link_blocks(section["link"])  # 싼세계 전용: 원고 링크 값에 ‖카드‖ 표시가 있을 때만(없으면 None → 예전 그대로)
+    if wt_block is not None:
+        parts.append(wt_block)
+    elif cta_banner_url is None:
         parts.append(_wp_button(CTA_BUTTON_TEXT["wordpress"], section["link"] or "#"))
     else:
         parts.append(_wp_cta_blocks(section["link"], cta_banner_url))
