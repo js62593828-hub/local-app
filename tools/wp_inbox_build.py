@@ -352,6 +352,8 @@ def read_exceptions(week_dir):
         label = norm_kw(SLOT_RE.sub("", val))
         if head == "브랜드예외":
             out["brand"] += [(a, b, label) for a, b in slots]
+        elif val.strip() == "제외":  # '상품id: 제외' = 이 제품은 어느 글에도 쓰지 않음
+            out["slots"][head] = {"slots": [], "label": ""}
         elif slots:
             out["slots"][head] = {"slots": slots, "label": SLOT_RE.sub("", val).strip(" ,")}
     return out
@@ -806,7 +808,7 @@ def build(week_dir, plan=(), exc=None, extra=None):
         if not p["info"]["name"]:
             p["problems"].append("상품명 없음")
         if not p["types"] and not p["slots"]:
-            p["problems"].append("쓸 글 표시 없음")
+            p["problems"].append("쓸 글 표시 없음(제외 설정이면 정상)" if p["pid"] in ((exc or {}).get("slots") or {}) else "쓸 글 표시 없음")
         if p["slots"] and plan:
             for sl in p["slots"]:
                 if sl not in plan_keys:
