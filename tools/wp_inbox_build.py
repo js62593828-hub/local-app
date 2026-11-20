@@ -40,7 +40,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECTIONS = ["상품", "파트너스 링크", "파트너스 HTML", "상품 정보", "필수 표기정보", "최신순 후기", "낮은 별점 후기", "메모"]
 POST_TYPES = ["비교", "심층", "단독"]
 ALLOWED_HOSTS = ["link.coupang.com", "coupa.ng", "coupang.com", "coupangcdn.com"]
-SPONSOR_WORDS = ["체험단", "제공받", "제공 받", "무상", "협찬", "지원받", "원고료", "광고", "서포터즈", "체험 후기"]
+SPONSOR_WORDS = ["체험단", "제공받", "제공 받", "무상", "협찬", "지원받", "원고료", "광고", "서포터즈", "체험 후기",
+                "리뷰 이벤트", "쿠팡캐시", "캐시 지급", "이벤트에 참여"]  # 뒤 4개: 11/21 대가성(이벤트·캐시 지급) 후기
 DISCOUNT_WORDS = ["와우", "쿠폰", "카드", "할인가", "즉시할인", "청구할인", "적립", "최대 혜택", "혜택가"]
 
 
@@ -738,6 +739,28 @@ def render_research(p, plan=(), official=None):
     return "\n".join(L)
 
 
+def review_key(x):
+    """같은 후기 판별: 날짜 + 본문 첫 문장(공백 뺌)."""
+    first = re.split(r"(?<=[.!?~])\s", x["text"].strip(), maxsplit=1)[0]
+    return (x["date"].strip(), re.sub(r"\s+", "", first))
+
+
+def merge_reviews(first, other):
+    """같은 상품id 가 여러 제품표에 있을 때 후기를 합친다(같은 후기는 하나만). 별점 정보는 먼저 읽은 파일 값 우선."""
+    if not (first.get("tsv") and other.get("tsv")):
+        return
+    seen = {review_key(x) for x in first["collected"]}
+    added = 0
+    for x in other["collected"]:
+        k = review_key(x)
+        if k in seen:
+            continue
+        seen.add(k)
+        first["collected"].append(x)
+        added += 1
+    first["problems"].append("후기 합침: %s 에서 %d개 추가(같은 후기 제외)" % (other["file"], added))
+
+
 def n_collected(p):
     """뺀 것(체험단 등 제외 후보)·본문 없는 후기를 빼고 센 후기 수. 제품표 제품은 '모은 후기', 옛 양식은 최신순."""
     if p.get("tsv"):
@@ -786,6 +809,7 @@ def build(week_dir, plan=(), exc=None, extra=None):
                 if sl not in first["slots"]:
                     first["slots"].append(sl)
             first["problems"].append("같은 상품id 중복(%s, 쓸 글 합침)" % p["file"])
+            merge_reviews(first, p)
             continue
         by_pid[p["pid"]] = p
         prods.append(p)
