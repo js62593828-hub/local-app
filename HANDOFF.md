@@ -1,6 +1,6 @@
-## 진행 중 (2026-11-22 Desk Picker 원고지침 v3.4 반영)
-- 1번 규칙 파일 덮어씀(cmp 같음). 다음: 2 장부(pipeline/radar_used_products.json) → 3·4 후보·키워드 → 5 radar_check → 6 앱 끝 카드 → 7 11/30 겹침표.
-- 다음 명령: python tools/radar_used_products.py (만들 예정)
+## 완료 (2026-11-22 Desk Picker 원고지침 v3.4 반영: 제품 한 번만·틀 B 카드 2번·태그 붙여쓰기)
+- 규칙 tools/radar_rules.md = docs v3.4(cmp 같음). 장부 pipeline/radar_used_products.json(38줄·27모델, 다시 만들기 python tools/radar_used_products.py). 후보(product_candidates)·키워드(keyword_pipeline)에서 장부 제외, radar_check 에 m/n/o 위반 3가지, 앱 최종본 끝 카드는 배너+링크만(GIF·별점 띠 없음). 11/30 주 겹침표 pipeline/radar_used_run/20261122_11-30_겹침.md(모델 겹침 0, 같은 주 제품군 겹침 위험 9쌍).
+- 할 일: 11/23 주 원고는 제품이 서로 겹치고(JBL GO5↔FLIP7 등 12편) 틀 B 끝 카드가 없어 radar_check 위반 48개 — 고치지 않음(사용자 판단). 11/30 주 원고 쓸 때 위 겹침표의 같은 주 위험 쌍 주의.
 
 ## 완료 (2026-11-22 혜택주머니 7차: 일괄 처리 화면 선택 버튼)
 - /lt-batch 표 위에 '전체 선택'·'일괄 선택 해제'·'고른 글 n편' 줄, 표 머리 전체 체크박스(반쯤 표시), 고른 글 0편이면 발행 버튼 잠김. templates/lt_batch.html 한 파일만, 서버 요청 0. 캡처 pipeline/lt_batch_run/20261122/선택버튼_*.png
