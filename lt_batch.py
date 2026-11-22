@@ -315,14 +315,27 @@ def make_plan(week: str, rows: list, picked_ids: list, now: datetime, wp_cat_nam
         for r in list(cand):
             if r["role"] != "세부" or not r["reps"]:
                 continue
-            fine = any(rep["posted"] or rep["id"] in ok_ids for rep in r["reps"])
-            if not fine:
+            mine = _dt(r["date"], r["time"])
+            fine = any((rep["posted"] or rep["id"] in ok_ids) for rep in r["reps"])
+            late = False
+            for rep in r["reps"]:  # 대표글 시각(이번에 같이 가면 표의 시각, 이미 예약됐으면 그 시각)이 세부글보다 늦으면 안 됨
+                rr = by_id.get(rep["id"])
+                rdt = _dt(rr["date"], rr["time"]) if rr else rep["dt"]
+                if rdt and mine and mine <= rdt:
+                    late = True
+            if late:
+                cand.remove(r)
+                ok_ids.discard(r["id"])
+                excluded.append({"id": r["id"], "title": r["title"], "reason": "같은 묶음 대표글보다 먼저(또는 같은 시각에) 나가요"})
+                changed = True
+            elif not fine:
                 cand.remove(r)
                 ok_ids.discard(r["id"])
                 excluded.append({"id": r["id"], "title": r["title"], "reason": "같은 묶음 대표글이 아직 예약 전이고 이번에도 안 가요"})
                 changed = True
     targets = sorted(({"id": r["id"], "title": r["title"], "date": r["date"], "time": r["time"], "wd": r["wd"],
-                       "category": r["category"], "tag_text": r["tag_text"], "role": r["role"]} for r in cand),
+                       "category": r["category"], "tag_text": r["tag_text"], "role": r["role"],
+                       "rep_ids": [x["id"] for x in r["reps"]]} for r in cand),
                      key=lambda t: (t["date"], t["time"]))
     return {"week": week, "targets": targets, "excluded": excluded}
 
@@ -345,6 +358,9 @@ class LtBatchRunner(wb.BatchRunner):
                 dt = _dt(it["date"], it["time"])
                 if not dt or dt < now_fn() + timedelta(minutes=wb.LEAD_MIN):
                     it["result"] = f"건너뜀 — 예약 시각이 {wb.LEAD_MIN}분 안으로 가까워짐"
+                    continue
+                if it.get("rep_ids") and not any(wb.has_post(load_article_fn(rid) or {}) for rid in it["rep_ids"]):
+                    it["result"] = "건너뜀 — 같은 묶음 대표글이 아직 워드프레스에 예약되지 않음"
                     continue
                 if sent_any and sleep_sec:
                     time.sleep(sleep_sec)
@@ -463,6 +479,8 @@ def register_routes(flask_app, m):
         if not _only_lt():
             return redirect(url_for("index"))
         week = request.form.get("week", "")
+        if RUNNER.running():  # 일괄 발행 중에는 앱 데이터를 같이 쓰지 않는다(서로 덮어쓰기 방지)
+            return redirect(url_for("lt_batch_screen", week=week, notice="저장하지 않았어요 — 일괄 예약 발행이 진행 중이에요. 끝난 뒤에 저장하세요."))
         now = datetime.now().replace(second=0, microsecond=0)
         arts = m.load_articles()
         if week not in list_weeks(arts):
