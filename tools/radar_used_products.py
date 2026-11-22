@@ -90,7 +90,7 @@ def model_key(name: str, hint: str = "") -> str:
         return _n(brand) + "|" + _n(codes[0])
     after, seen = [], False
     for t in (htoks or toks):
-        if not seen and _n(t) in (_n(brand), ):
+        if not seen and (_n(t) == _n(brand) or _n(t).startswith(_n(brand))):  # 삼성전자 = 삼성
             seen = True
             continue
         if seen and re.search(r"[가-힣]", t) and t not in _STOP_KO and not _SPEC.match(t):

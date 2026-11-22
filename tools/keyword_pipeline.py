@@ -34,6 +34,7 @@ import backtest as bt  # noqa: E402
 import plan_posts as pp  # noqa: E402
 import r1_signals as rs  # noqa: E402
 import weekly_plan as wp  # noqa: E402  (parse_seeds·read_lines 만 재사용)
+import radar_used_products as ru  # noqa: E402  (Desk Picker 사용 제품 장부, 원고지침 v3.4 '제품은 한 번만')
 
 nk, jload, jsave, log = bt.nospace, bt.jload, bt.jsave, bt.log
 
@@ -447,8 +448,34 @@ def perf_weights():
     return table, note
 
 
+def ledger_model_hit(keyword, led_models):
+    """틀 B 모델 키워드가 사용 제품 장부의 모델이면 그 글 제목, 아니면 ''.
+    led_models = (모델키 → 글 제목, 코드 → 글 제목). 브랜드+코드가 같거나, 코드(4자 이상)만 같아도 같은 모델로 본다."""
+    keys, codes = led_models
+    k = ru.model_key(keyword)
+    if k in keys:
+        return keys[k]
+    for t in model_tokens(keyword):
+        c = re.sub(r"[\s\-]", "", t).lower()
+        if len(c) >= 4 and c in codes:
+            return codes[c]
+    return ""
+
+
+def load_ledger_models():
+    keys, codes = {}, {}
+    for k, v in ru.used_model_keys().items():
+        title = v[0].get("글제목", "")
+        keys[k] = title
+        c = k.split("|", 1)[1] if "|" in k else ""
+        if len(c) >= 4 and re.search(r"\d", c):
+            codes[c] = title
+    return keys, codes
+
+
 def stage_score(cands, drops):
     perf, perf_note = perf_weights()
+    led_models = load_ledger_models()
     th_w = {th: RK["theme_weight"].get(th, 1.0) * perf[th]["가중치"] for th in RK["theme_order"]}
     led = ledger_titles()
     rows = []
@@ -462,6 +489,10 @@ def stage_score(cands, drops):
         r["reasons"] = []
         if c.get("kind_exclude"):
             r["reasons"].append(f"제품 종류 제외: 책상에서 쓰지 않는 물건 — {c['kind_exclude']}")
+        if r["type"] == "B":
+            lh = ledger_model_hit(c["keyword"], led_models)
+            if lh:
+                r["reasons"].append(f"사용 제품 장부: 이미 쓴 모델({lh[:30]})")
         if c["docs"] is None:
             r["reasons"].append("문서 수 조회 안 됨")
         if c["volume"] < vmin:
