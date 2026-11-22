@@ -1890,6 +1890,8 @@ def build_final_html(raw, title, pdir, related=None, product_links=None, line_br
             return radar_table_html(tables[k])
         if kind == "RDGIF":
             gf = st["gifs"].get(cards[k], "")
+            if cards.index(cards[k]) != k:
+                return ""  # 틀 B 끝 카드(같은 상품카드 두 번째, v3.4): GIF 는 처음 한 번만, 배너+링크 줄만 나온다
             if cards[k] in st["skip_gifs"]:
                 info["gifs_skipped"].append(cards[k])  # GIF '안 넣음': 최종본·업로드 폴더에서 뺌(GIF 파일은 그대로)
                 return ""
