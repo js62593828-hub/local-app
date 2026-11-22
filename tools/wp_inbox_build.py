@@ -611,7 +611,10 @@ def _norm_text(t):
 def apply_extra(raw, extra, plan):
     """추가 자료를 제품 목록(raw)에 합친다. 반환: 보고용 문장 목록."""
     notes = []
-    by_pid = {p.get("pid"): p for p in raw if p.get("tsv")}
+    by_pid = {}
+    for p in raw:  # 같은 상품id 가 제품표 두 군데에 있으면 build() 가 '먼저 읽은 쪽'만 남기므로, 추가 자료도 먼저 읽은 쪽에 붙인다
+        if p.get("tsv"):
+            by_pid.setdefault(p.get("pid"), p)
     for it in extra["items"]:
         p = by_pid.get(it["pid"])
         if not p:
@@ -749,6 +752,13 @@ def merge_reviews(first, other):
     """같은 상품id 가 여러 제품표에 있을 때 후기를 합친다(같은 후기는 하나만). 별점 정보는 먼저 읽은 파일 값 우선."""
     if not (first.get("tsv") and other.get("tsv")):
         return
+    have = {k for k, _ in first["must"]}  # 필수 표기정보: 먼저 읽은 쪽에 없는 항목은 뒤쪽 것을 더한다(빠지지 않게)
+    first["must"] += [(k, v) for k, v in other["must"] if k not in have]
+    for key in ("brand", "model"):
+        if not first["info"].get(key) and other["info"].get(key):
+            first["info"][key] = other["info"][key]
+    if not first.get("memo") and other.get("memo"):
+        first["memo"] = other["memo"]
     seen = {review_key(x) for x in first["collected"]}
     added = 0
     for x in other["collected"]:
