@@ -32,6 +32,8 @@ except Exception:  # noqa: BLE001
     pass
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import radar_used_products as ru  # noqa: E402  (Desk Picker 사용 제품 장부: radar_naver 에서만 씀)
 RUN_ROOT = ROOT / "pipeline" / "candidates_run"
 CHANNELS = ("naver_tips", "wp_tips", "radar_naver")
 CHANNEL_LABEL = {"naver_tips": "N살림노트", "wp_tips": "W싼세계", "radar_naver": "N데스크피커"}
@@ -486,6 +488,42 @@ def recommend(items: list[dict], n: int = PICK) -> tuple[list[dict], bool]:
     return result, relaxed
 
 
+# ───────────────────────── Desk Picker 장부 제외(radar_naver 에서만 부름) ─────────────────────────
+
+def radar_blocked(led: dict | None = None) -> dict:
+    """장부에 있는 상품id·모델키 → 쓴 글 제목. 같은 모델이면 판매처·상품id 가 달라도 막는다."""
+    led = led if led is not None else ru.load_ledger()
+    return {"ids": {k: v[0].get("글제목", "") for k, v in ru.used_ids(led).items()},
+            "keys": {k: v[0].get("글제목", "") for k, v in ru.used_model_keys(led).items()}}
+
+
+def split_blocked(items: list[dict], blocked: dict, taken: dict | None = None) -> tuple[list[dict], list[dict]]:
+    """items 를 (쓸 수 있는 것, 뺀 것[+이유]) 로 나눈다. taken = 이번 주 다른 키워드가 이미 가져간 {상품id/모델키: 키워드}."""
+    ok, out = [], []
+    for x in items:
+        pid, key = _pid(x), ru.model_key(x["name"])
+        why = ""
+        if pid in blocked["ids"]:
+            why = f"장부(상품id)·{blocked['ids'][pid][:25]}"
+        elif key in blocked["keys"]:
+            why = f"장부(같은 모델)·{blocked['keys'][key][:25]}"
+        elif taken and (pid in taken or key in taken):
+            why = f"같은 주 다른 키워드({taken.get(pid) or taken.get(key)})"
+        if why:
+            y = dict(x)
+            y["excluded_why"] = why
+            out.append(y)
+        else:
+            ok.append(x)
+    return ok, out
+
+
+def take(rec: list[dict], taken: dict, keyword: str) -> None:
+    for x in rec:
+        taken[_pid(x)] = keyword
+        taken[ru.model_key(x["name"])] = keyword
+
+
 # ───────────────────────── 쿠팡 같은 제품 확인 ─────────────────────────
 
 _MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-]{2,}[A-Za-z0-9]")
@@ -663,6 +701,11 @@ def write_summary(run: Path, data: dict) -> None:
               f"### 추천 {k.get('pick', PICK)}개" if k.get("pick", PICK) != PICK else "### 추천 3개", ""]
         if not k["recommended"]:
             L.append("- 조건에 맞는 제품이 없습니다.")
+        if k.get("shortage"):
+            L.append(f"- **{k['shortage']}**")
+        if k.get("excluded_used"):
+            L.append(f"- 사용 제품 장부·같은 주 다른 키워드라서 뺀 상품 {len(k['excluded_used'])}개: "
+                     + " / ".join(f"{x['name'][:20]}({x['why']})" for x in k["excluded_used"][:5]) + (" …" if len(k["excluded_used"]) > 5 else ""))
         for r in k["recommended"]:
             pr = f"{r['price']:,}원" if r.get("price") else NO_PRICE
             L.append(f"- **{r['name']}** — {pr} · 수수료 {r['commission']}% · {r['reason']}")
@@ -778,13 +821,27 @@ def _main() -> int:
         alt_kws = {k for k in kws if model_of(k)}  # 모델명이 든 검색어 = 틀 B 로 봄
     else:
         alt_kws = set()
+    is_radar = a.channel == "radar_naver"
+    blocked = radar_blocked() if is_radar else None
+    taken: dict = {}           # radar_naver: 이번 실행에서 키워드별로 이미 가져간 상품(한 상품은 한 키워드에만)
+    pending_alt: list = []     # radar_naver: 추천을 모두 정한 뒤에 대안을 고른다(추천이 먼저)
     for ki, r in enumerate(raw["res"], 1):
         items = [parse_naver_item(x, i, r["kw"]) for i, x in enumerate(r["items"][:TOP_N], 1)]
         n = picks.get(r["kw"], a.pick)
+        excluded: list[dict] = []
+        all_items = items
+        if is_radar:
+            items, excluded = split_blocked(all_items, blocked, taken)
         rec, relaxed = recommend(items, n)
+        if is_radar:
+            take(rec, taken, r["kw"])
         for x in rec:  # 대표 이미지: 추천 개수만큼
             x["image"] = download_image(x["image_url"], run / "img" / f"k{ki}_r{x['rank']}.jpg")
-        entry = {"keyword": r["kw"], "total": r["total"], "items": items, "recommended": rec, "relaxed": relaxed}
+        entry = {"keyword": r["kw"], "total": r["total"], "items": all_items, "recommended": rec, "relaxed": relaxed}
+        if is_radar:
+            entry["excluded_used"] = [{"name": x["name"], "rank": x["rank"], "why": x["excluded_why"]} for x in excluded]
+            if len(rec) < n:
+                entry["shortage"] = f"후보 부족: 추천 {len(rec)}개(필요 {n}개) — 장부·같은 주 다른 키워드로 {len(excluded)}개 뺌"
         if a.extra > 0:  # 다음 후보: 추천 다음 순서로 extra 개(추천 결과는 바뀌지 않음)
             have = {x["url"] for x in rec}
             nxt = [x for x in recommend(items, n + a.extra)[0] if x["url"] not in have][:a.extra]
@@ -793,8 +850,16 @@ def _main() -> int:
             entry["pick"] = n
             entry["next_candidates"] = nxt
         if not a.no_alt and r["kw"] in alt_kws:
-            entry.update(build_alt(r["kw"], items, rec, run / "raw_category_parts"))
+            if is_radar:
+                pending_alt.append((entry, r["kw"], items, rec))
+            else:
+                entry.update(build_alt(r["kw"], items, rec, run / "raw_category_parts"))
         data["keywords"].append(entry)
+    for entry, kw, its, rec in pending_alt:  # radar_naver: 대안도 장부·같은 주 다른 추천과 겹치지 않게
+        ok_items, ex = split_blocked(its, blocked, taken)
+        entry.update(build_alt(kw, ok_items, rec, run / "raw_category_parts"))
+        entry["alt_excluded_used"] = [{"name": x["name"], "why": x["excluded_why"]} for x in ex]
+        take(entry.get("alt_candidates", []), taken, kw + "(대안)")
 
     # 2) 쿠팡파트너스(W싼세계만)
     if a.channel == "wp_tips":
@@ -824,7 +889,8 @@ def _main() -> int:
     (run / "candidates.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     write_summary(run, data)
     for k in data["keywords"]:
-        print(f"[{k['keyword']}] 모음 {len(k['items'])}개 · 추천 {len(k['recommended'])}개 · 기준 낮춤 {'예' if k['relaxed'] else '아니오'}")
+        print(f"[{k['keyword']}] 모음 {len(k['items'])}개 · 추천 {len(k['recommended'])}개 · 기준 낮춤 {'예' if k['relaxed'] else '아니오'}"
+              + (f" · {k['shortage']}" if k.get("shortage") else ""))
     print(f"저장: {run}")
     return 0
 

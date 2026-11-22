@@ -57,7 +57,7 @@ def _brands() -> list[tuple[str, str]]:
 def model_key(name: str, hint: str = "") -> str:
     """같은 모델이면 판매처·상품id 가 달라도 같은 값이 나오게 만든 '브랜드|모델' 글자.
     1) 브랜드: brand_alias.json 의 대표 이름(없으면 첫 단어). 2) 모델: 상품명 안의 '글자+숫자' 코드
-    (용량·크기·출력·기능 규격 토큰은 뺌, BPD004bt → bpd004, 첫 코드만 씀). 코드가 없으면 브랜드 다음 한글 낱말 2개.
+    (용량·크기·출력·기능 규격 토큰은 뺌, BPD004bt → bpd004, 첫 코드만 씀). 코드가 없으면 브랜드 다음 한글 낱말 1개.
     hint: 원고의 ### 소제목(예: '벨킨 BPD004')이 있으면 그 안의 코드·브랜드를 먼저 쓴다."""
     s = name or ""
     s = re.sub(r"\[[^\]]*\]", " ", s)  # [N배송] 같은 판매처 표시
@@ -95,7 +95,7 @@ def model_key(name: str, hint: str = "") -> str:
             continue
         if seen and re.search(r"[가-힣]", t) and t not in _STOP_KO and not _SPEC.match(t):
             after.append(t)
-        if len(after) == 2:
+        if len(after) == 1:  # 코드가 없는 제품은 브랜드 다음 한글 낱말 1개(판매처마다 뒷말이 달라서)
             break
     if not after and htoks:  # 소제목만 있는 제품(예: '삼성 20000mAh 45W')은 소제목 나머지 전체
         after = [t for t in htoks if _n(t) != _n(brand)]
@@ -130,8 +130,9 @@ def used_model_keys(led: dict | None = None) -> dict[str, list[dict]]:
     led = led if led is not None else load_ledger()
     out: dict[str, list[dict]] = {}
     for p in led.get("products", []):
-        if p.get("모델키"):
-            out.setdefault(p["모델키"], []).append(p)
+        for k in {p.get("모델키")} | set(p.get("모델키목록") or []):
+            if k:
+                out.setdefault(k, []).append(p)
     return out
 
 
@@ -185,7 +186,7 @@ def parse_article(raw: str, frame: str) -> dict:
             heading, in_h3 = l[4:].strip(), True
         elif l.startswith("## "):
             in_h3 = False
-        mm = re.match(r"^\[상품카드: ([^\]\n]+)\]$", l.strip())
+        mm = re.match(r"^\[상품카드: (.+)\]$", l.strip())  # 상품명 안에 [N배송] 처럼 ] 가 있어도 읽는다
         if mm:
             prods.append({"card": mm.group(1), "heading": heading if in_h3 else "", "h3": in_h3})
     out = []
@@ -240,7 +241,7 @@ def build(write: bool = True) -> dict:
             key = model_key(p["card"], p["heading"])
             card_keys.add(key)
             rows.append({"상품id": info["id"] if info else "", "모델명": _display(p, key), "모델키": key, "상품명": p["card"],
-                         "글id": aid, "글제목": a["title"], "날짜": a["date"], "틀": a["frame"], "역할": p["role"]})
+                         "모델키목록": sorted({key, model_key(p["card"])}), "글id": aid, "글제목": a["title"], "날짜": a["date"], "틀": a["frame"], "역할": p["role"]})
         # 이름만 나온 대안: 같은 글에서 카드로 안 쓴 다른 글의 제품 이름이 본문에 나오면 대안으로 올린다
         if a["frame"] == "B":
             for nm, key in mention.items():
@@ -249,7 +250,7 @@ def build(write: bool = True) -> dict:
                 if _mentioned(nm, a["text"]):
                     other = next((r for r in rows if r["모델키"] == key), None)
                     rows.append({"상품id": other["상품id"] if other else "", "모델명": nm, "모델키": key,
-                                 "상품명": other["상품명"] if other else nm, "글id": aid, "글제목": a["title"], "날짜": a["date"],
+                                 "상품명": other["상품명"] if other else nm, "모델키목록": (other or {}).get("모델키목록", [key]), "글id": aid, "글제목": a["title"], "날짜": a["date"],
                                  "틀": "B", "역할": "틀B대안", "비고": "이름만 나옴(상품카드 없음)"})
     # 이름만 나온 대안(코드 검사): 다른 글 제품의 모델 코드(예: g304)가 본문에 붙여 쓴 글자로 나오면 대안으로 올린다
     codes = {}
@@ -262,7 +263,7 @@ def build(write: bool = True) -> dict:
         flat = re.sub(r"[\s\-]", "", a["text"]).lower()
         for key, (c, src) in codes.items():
             if key not in have and c in flat:
-                rows.append({"상품id": src["상품id"], "모델명": src["모델명"], "모델키": key, "상품명": src["상품명"], "글id": aid,
+                rows.append({"상품id": src["상품id"], "모델명": src["모델명"], "모델키": key, "상품명": src["상품명"], "모델키목록": src.get("모델키목록", [key]), "글id": aid,
                              "글제목": a["title"], "날짜": a["date"], "틀": a["frame"], "역할": "틀B대안", "비고": "이름만 나옴(모델 코드가 본문에 있음, 상품카드 없음)"})
                 have.add(key)
     # 같은 모델의 다른 상품id(판매처만 다른 경우)
@@ -270,7 +271,7 @@ def build(write: bool = True) -> dict:
     for x in cand_items:
         by_key.setdefault(model_key(x["name"]), set()).add(x["id"])
     for r in rows:
-        others = sorted(by_key.get(r["모델키"], set()) - {r["상품id"]})
+        others = sorted(set().union(*[by_key.get(k, set()) for k in (r.get("모델키목록") or [r["모델키"]])]) - {r["상품id"]})
         if others:
             r["같은모델_다른상품id"] = others
     data = {"설명": "Desk Picker 사용 제품 장부. 한 제품은 한 글에만 쓴다(원고지침 v3.4). 다시 만들기: python tools/radar_used_products.py",
