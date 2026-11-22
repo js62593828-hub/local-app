@@ -39,6 +39,7 @@ import shop_judge
 import similarity
 import wp_browser_publisher
 import wp_batch
+import lt_batch
 import wp_publisher
 import radar_board
 import radar_cards
@@ -8347,6 +8348,7 @@ def product_check_save():
 
 
 wp_batch.register_routes(app, sys.modules[__name__])  # 싼세계 '주간 원고 일괄 처리' 화면(wp_tips 에서만 동작)
+lt_batch.register_routes(app, sys.modules[__name__])  # 혜택주머니 '주간 원고 일괄 처리' 화면(longterm_wp 에서만 동작)
 
 
 def open_browser():

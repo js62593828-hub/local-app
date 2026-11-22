@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>W혜택주머니 일괄 예약 발행 확인</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 28px 32px 60px; max-width: 1000px; }
+  h1 { font-size: 22px; margin: 0 0 8px; color: #f5f5f5; }
+  .lead { color: #bbb; font-size: 14px; line-height: 1.7; margin-bottom: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin-bottom: 18px; }
+  th, td { border-bottom: 1px solid #2a2a2a; padding: 7px 8px; text-align: left; }
+  th { color: #888; font-size: 12px; }
+  .ex td { color: #f87171; }
+  .btn { background: #1e3a5f; color: #e0f2fe; border: 1px solid #2c5282; padding: 10px 20px; border-radius: 8px; font-size: 14px; text-decoration: none; display: inline-block; cursor: pointer; font-family: inherit; }
+  .btn.go { background: #7c2d12; border-color: #c2410c; color: #ffedd5; }
+  .btn.sec { background: #262626; color: #ddd; border-color: #3a3a3a; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+    <h1>⚠ 일괄 예약 발행 — 마지막 확인</h1>
+    {% if plan.targets %}
+    <p class="lead"><b>{{ plan.targets | length }}편</b>을 아래 시각으로 워드프레스에 <b>예약</b>합니다. (즉시 발행 아님 · 한 편씩 차례로, 사이 5초 · 한 편이라도 실패하면 거기서 멈춤 · 이미 보낸 글은 다시 보내지 않음)</p>
+    <table>
+      <thead><tr><th>제목</th><th>날짜(요일)</th><th>시각</th><th>카테고리</th><th>태그</th></tr></thead>
+      <tbody>
+      {% for t in plan.targets %}
+        <tr><td>{{ t.title }}</td><td>{{ t.date }}({{ t.wd }})</td><td>{{ t.time }}</td><td>{{ t.category }}</td><td>{{ t.tag_text }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="lead">보낼 수 있는 글이 없어요.</p>
+    {% endif %}
+
+    {% if plan.excluded %}
+    <p class="lead">아래 글은 조건이 안 맞아 <b>빼고</b> 진행해요:</p>
+    <table>
+      <thead><tr><th>제목</th><th>빠지는 이유</th></tr></thead>
+      <tbody>{% for e in plan.excluded %}<tr class="ex"><td>{{ e.title }}</td><td>{{ e.reason }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+
+    <div style="display:flex; gap:12px;">
+      <a class="btn sec" href="/lt-batch?week={{ week }}">← 돌아가기 (아무것도 보내지 않음)</a>
+      {% if plan.targets and not running %}
+      <form method="POST" action="/lt-batch/run" onsubmit="if(!confirm('정말로 {{ plan.targets | length }}편을 워드프레스에 예약합니다. 진행할까요?')) return false; this.querySelector('button').disabled = true;">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="btn go" type="submit">예, {{ plan.targets | length }}편 예약합니다</button>
+      </form>
+      {% elif running %}<span class="lead">다른 일괄 발행이 진행 중이에요.</span>{% endif %}
+    </div>
+  </div>
+</div>
+</body>
+</html>
