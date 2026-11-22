@@ -1,3 +1,7 @@
+## 진행 중 (2026-11-22 Desk Picker 원고지침 v3.4 반영)
+- 1번 규칙 파일 덮어씀(cmp 같음). 다음: 2 장부(pipeline/radar_used_products.json) → 3·4 후보·키워드 → 5 radar_check → 6 앱 끝 카드 → 7 11/30 겹침표.
+- 다음 명령: python tools/radar_used_products.py (만들 예정)
+
 ## 완료 (2026-11-22 혜택주머니 7차: 일괄 처리 화면 선택 버튼)
 - /lt-batch 표 위에 '전체 선택'·'일괄 선택 해제'·'고른 글 n편' 줄, 표 머리 전체 체크박스(반쯤 표시), 고른 글 0편이면 발행 버튼 잠김. templates/lt_batch.html 한 파일만, 서버 요청 0. 캡처 pipeline/lt_batch_run/20261122/선택버튼_*.png
 - 할 일: 없음.
