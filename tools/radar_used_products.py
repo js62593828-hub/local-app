@@ -102,6 +102,12 @@ def model_key(name: str, hint: str = "") -> str:
     return _n(brand) + "|" + "".join(_n(a) for a in after)
 
 
+def strong_key(k: str) -> bool:
+    """모델 코드(숫자가 든 글자)가 있는 키만 '같은 모델' 비교에 쓴다. 코드 없는 키는 다른 모델과 섞일 수 있어 상품id·상품명 일치로만 막는다."""
+    c = k.split("|", 1)[1] if "|" in k else ""
+    return bool(c) and bool(re.search(r"\d", c))
+
+
 def pid_of(url: str) -> str:
     return (url or "").rstrip("/").rsplit("/", 1)[-1]
 
@@ -131,7 +137,7 @@ def used_model_keys(led: dict | None = None) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     for p in led.get("products", []):
         for k in {p.get("모델키")} | set(p.get("모델키목록") or []):
-            if k:
+            if k and strong_key(k):
                 out.setdefault(k, []).append(p)
     return out
 

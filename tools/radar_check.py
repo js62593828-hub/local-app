@@ -374,7 +374,8 @@ def ledger_conflicts(title, products, led=None):
         for r in led.get("products", []):
             if re.sub(r"\s+", " ", r.get("글제목", "")).strip() == same:
                 continue  # 이 글 자신
-            if r.get("상품명") == card or set(keys) & ({r.get("모델키")} | set(r.get("모델키목록") or [])):
+            lk = {k for k in ({r.get("모델키")} | set(r.get("모델키목록") or [])) if k and ru.strong_key(k)}
+            if r.get("상품명") == card or {k for k in keys if ru.strong_key(k)} & lk:
                 out.append(f"제품 중복 · {head or card[:20]} ← 장부 글 '{r.get('글제목', '')[:28]}'({r.get('날짜', '')}, {r.get('역할', '')})")
                 break
     return out
@@ -620,7 +621,7 @@ def run_drafts(paths, run_arg="", frame=""):
     for fp, r in results:
         for card, head, keys in r.get("products", []):
             for fp2, r2 in results:
-                if fp2 != fp and any(c2 == card or set(k2) & set(keys) for c2, h2, k2 in r2.get("products", [])):
+                if fp2 != fp and any(c2 == card or {k for k in k2 if ru.strong_key(k)} & {k for k in keys if ru.strong_key(k)} for c2, h2, k2 in r2.get("products", [])):
                     if any(v.startswith(f"제품 중복 · {head or card[:20]} ←") for v in r["items"]["m"]["viol"]):
                         break  # 장부에서 이미 잡힌 제품은 한 번만 센다
                     r["items"]["m"]["viol"].append(f"제품 중복 · {head or card[:20]} ← 같은 폴더 원고 {os.path.basename(fp2)}")
