@@ -1,6 +1,7 @@
-## 진행 중: 11/30 주 제품 풀 (2026-11-22)
-- 21칸 후보 풀을 pipeline/stage_productpool_run/20261130/ (pool.md·pool.json·check.md)에만 저장. 앱 데이터·장부·대기열은 안 건드림. 새 스크립트 tools/productpool_1130.py(쇼핑커넥트 읽기만, 에고라이트).
-- 지금: 쇼핑커넥트 목록 수집 단계. 다음 명령: python tools/productpool_1130.py (받은 것은 이어서 씀).
+## 완료 (2026-11-22 11/30 주 제품 풀 21칸)
+- 결과 pipeline/stage_productpool_run/20261130/ (pool.md·pool.json·check.md). 새 스크립트 tools/productpool_1130.py(collect→select→final, 쇼핑커넥트 읽기만·에고라이트, 계정 주소는 이 스크립트 안에서만 1020008…로 교체). 앱 데이터·장부·대기열 변경 0.
+- 후보 부족: B8 머그워머(2개·대안 0), B13 미니PC(대안 1). 검색량 부족: B4·B8·B10. B본상품 중 모델 코드 없는 것은 pool.md 비고에 표시.
+- 할 일: 사용자가 풀을 보고 칸별 제품 확정. 다시 돌리려면 쇼핑커넥트 에고라이트 로그인 필요.
 
 ## 완료 (2026-11-22 N살림노트 최종본: 카테고리 표시 + 이미지 번호 사본)
 - 최종본 화면 위쪽에 '카테고리: …'(메모 값, 없으면 '메모에 없음', 복사 본문엔 안 들어감). 플랫폼별 콘텐츠 생성 때 이미지 폴더에 01_표지·02_본문1… 사본 생성, 본문 사진 다운로드도 같은 이름·순서. naver_tips 한정. 다른 채널 전후 비교 0곳, reviewer 통과. 백업 articles_naver_tips.backup_before_final_order_20261122.json

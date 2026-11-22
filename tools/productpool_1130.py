@@ -203,6 +203,9 @@ def cat_bad(cell: str, pid: str, cats: dict[str, str]) -> str:
     if not whole:
         return ""
     g = cat_group_1123(whole)
+    # 무선충전 패드는 네이버 카테고리가 그냥 '충전기'라 고속충전기와 카테고리로 못 가름 → 이름(무선충전)으로 이미 가렸음
+    if g == "고속충전기" and cell == "B3":
+        g = ""
     if g:
         return f"11/23 주 제품군({g})"
     if cell in CATOK and not re.search(CATOK[cell], whole):
@@ -324,6 +327,191 @@ def catdump() -> None:
 
 
 
+
+# ───────────────────────── 검색량(검색광고 키워드 도구, 모델명 검색어) ─────────────────────────
+VOL_CACHE = OUT / "volume_cache.json"
+VOL_MIN = 30
+
+
+def qlabel(x: dict) -> str:
+    m = x["model"]
+    if m.startswith("("):
+        toks = [t for t in re.split(r"\s+", re.sub(r"\[[^\]]*\]", " ", x["name"])) if t and t != x["brand_label"]]
+        return f'{x["brand_label"]} {" ".join(toks[:2])}'.strip()
+    return f'{x["brand_label"]} {m}'.strip()
+
+
+def fetch_volumes(queries: list[str]) -> dict[str, dict]:
+    sys.path.insert(0, str(pc.ROOT))
+    import naver_api  # noqa: E402
+    cache = json.loads(VOL_CACHE.read_text(encoding="utf-8")) if VOL_CACHE.exists() else {}
+    todo = [q for q in dict.fromkeys(queries) if q not in cache]
+    calls = 0
+    for i in range(0, len(todo), 5):
+        part = todo[i:i + 5]
+        rows = naver_api.get_keyword_stats(part, expand=False)
+        calls += 1
+        by = {re.sub(r"\s", "", r["keyword"]).lower(): r for r in rows}
+        for q in part:
+            r = by.get(re.sub(r"\s", "", q).lower())
+            if r:
+                tot = r["pc_count"] + r["mobile_count"]
+                cache[q] = {"pc": r["pc_count"], "mobile": r["mobile_count"], "total": tot,
+                            "note": "10 미만" if tot <= 10 else ""}
+            else:
+                cache[q] = {"pc": 0, "mobile": 0, "total": 0, "note": "조회 결과에 없음(10 미만으로 봄)"}
+        VOL_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+    ads_log = OUT / "ads_calls.txt"
+    prev = int(ads_log.read_text()) if ads_log.exists() else 0
+    ads_log.write_text(str(prev + calls), encoding="utf-8")
+    return cache
+
+
+# ───────────────────────── 최종 파일 ─────────────────────────
+
+def won(v) -> str:
+    return f"{v:,}원" if v else "가격 표시 안 됨"
+
+
+def row_of(cell: str, x: dict, cats: dict, role: str, vol: dict | None) -> dict:
+    whole = cats.get(x["pid"], "")
+    r = {"칸": cell, "역할": role, "상품id": x["pid"], "브랜드": x["brand_label"], "모델명": x["model"], "상품명": x["name"],
+         "실제 종류": pc.lowest_category(whole) if whole else "확인 못 함(이름 기준)", "전체 카테고리": whole,
+         "가격": x["price"], "평점": x["rating"], "리뷰 수": x["reviews"], "판매처": x["store"], "검색어": x["query"],
+         "주소": x["url"], "모델키": x["mkey"]}
+    if vol is not None:
+        r["모델명 검색어"] = qlabel(x)
+        r["월간 검색량"] = vol["total"]
+        r["검색량 비고"] = vol["note"]
+    return r
+
+
+def final() -> None:
+    pools, sel, cats = select_loop(fetch=False)
+    led = ru.load_ledger()
+    bq = [qlabel(x) for c in CELLS if CELLS[c][0] == "B" for x in sel[c]["main"]]
+    vols = fetch_volumes(bq)
+    out_cells = {}
+    for c, (frame, gal, grp, qs) in CELLS.items():
+        m, a = sel[c]["main"], sel[c]["alt"]
+        rows = [row_of(c, x, cats, "본상품" if frame == "B" else "후보", vols[qlabel(x)] if frame == "B" else None) for x in m]
+        arows = [row_of(c, x, cats, "대안", None) for x in a]
+        note = []
+        if frame == "A":
+            nb = len({x["canon"] for x in m if x["brand_label"] != pc.UNKNOWN_BRAND})
+            if len(m) < 6 or nb < 3:
+                note.append(f"후보 부족: {c}·{len(m)}개(브랜드 {nb}개)")
+        else:
+            if len(m) < 3 or len(a) < 2:
+                note.append(f"후보 부족: {c}·본상품 {len(m)}개·대안 {len(a)}개")
+            if m and all(vols[qlabel(x)]["total"] < VOL_MIN for x in m):
+                note.append("검색량 부족")
+        out_cells[c] = {"틀": frame, "갈래": gal, "제품군": grp, "검색어": qs, "후보": rows, "대안": arows, "메모": note,
+                        "뺀 개수": pools[c]["info"], "풀 크기": len(pools[c]["pool"])}
+    (OUT / "pool.json").write_text(json.dumps({"기준일": "2026-11-22", "대상 주": "2026-11-30", "cells": out_cells},
+                                              ensure_ascii=False, indent=1), encoding="utf-8")
+    write_pool_md(out_cells)
+    write_check_md(out_cells, led, cats)
+    print("저장:", OUT)
+
+
+def write_pool_md(cells: dict) -> None:
+    L = ["# 11/30 주 제품 후보 풀 (21칸)", "",
+         "- 만든 날: 2026-11-22 · 출처: 네이버 쇼핑커넥트 검색 목록(읽기만) · 평점·리뷰 수는 네이버 기준",
+         "- 실제 종류 = 상품 스토어 페이지의 가장 아래 카테고리. '확인 못 함'이면 이름으로만 판단.",
+         "- 기준: 평점 4.5 이상, 리뷰 많은 순, 해외 전용·장부 모델·11/23 주 제품군 제외, 한 모델은 한 칸에만.", ""]
+    for c, v in cells.items():
+        isb = v["틀"] == "B"
+        L += [f"## {c} · {v['제품군']} (틀 {v['틀']} · {v['갈래']})", ""]
+        if v["메모"]:
+            L += [f"- **{' / '.join(v['메모'])}**", ""]
+        head = ["칸", "상품id", "브랜드", "모델명", "상품명", "실제 종류", "가격", "평점", "리뷰 수", "판매처"] \
+            + (["모델명 월간 검색량"] if isb else []) + ["비고"]
+        L += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+        for r in v["후보"] + v["대안"]:
+            nm = r["상품명"].replace("|", "/")[:60]
+            extra = []
+            if r["역할"] == "대안":
+                extra.append("대안(다른 브랜드)")
+            elif isb:
+                extra.append("본상품")
+            if isb and r["역할"] == "본상품" and r.get("검색량 비고"):
+                extra.append(r["검색량 비고"])
+            if isb and r["역할"] == "본상품" and not re.search(r"\d", r["모델명"]):
+                extra.append("모델 코드 없음(검색어는 브랜드+이름 앞부분)")
+            vcol = []
+            if isb:
+                vcol = [f"{r['월간 검색량']:,} (검색어: {r['모델명 검색어']})" if r["역할"] == "본상품" else "-"]
+            row = [c, r["상품id"], r["브랜드"], r["모델명"], nm, r["실제 종류"], won(r["가격"]), str(r["평점"]),
+                   f"{r['리뷰 수']:,}", r["판매처"]] + vcol + [" · ".join(extra)]
+            L.append("| " + " | ".join(x.replace("|", "/") for x in row) + " |")
+        L.append("")
+    (OUT / "pool.md").write_text("\n".join(L), encoding="utf-8")
+
+
+def write_check_md(cells: dict, led: dict, cats: dict) -> None:
+    from collections import defaultdict
+    allr = [r for v in cells.values() for r in v["후보"] + v["대안"]]
+    L = ["# 11/30 주 제품 풀 검수표", "", "## 1. 21칸 표 · 후보 부족", "", "| 칸 | 표 있음 | 후보 부족/메모 |", "|---|---|---|"]
+    for c, v in cells.items():
+        L.append(f"| {c} {v['제품군']} | {'O' if v['후보'] else 'X'} | {' / '.join(v['메모']) or '-'} |")
+    L += ["", "## 2. 칸별 기준 충족 (O/X)", "",
+          "| 칸 | 후보(본상품) 수 | 브랜드 수 | 기준 | 대안 수 | 대안 기준(2개↑) | 비고 |", "|---|---|---|---|---|---|---|"]
+    for c, v in cells.items():
+        m, a = v["후보"], v["대안"]
+        nb = len({r["브랜드"] for r in m if r["브랜드"] != pc.UNKNOWN_BRAND})
+        if v["틀"] == "A":
+            ok = "O" if len(m) >= 6 and nb >= 3 else "X"
+            L.append(f"| {c} | {len(m)} | {nb} | 6개↑·브랜드 3↑: {ok} | - | - | |")
+        else:
+            ok = "O" if len(m) >= 3 else "X"
+            ok2 = "O" if len(a) >= 2 else "X"
+            L.append(f"| {c} | {len(m)} | {nb} | 본상품 3개↑: {ok} | {len(a)} | {ok2} | 대안 3개: {'O' if len(a) >= 3 else 'X'} |")
+    hits = []
+    for r in allr:
+        h = ru.find_used(r["상품명"], r["주소"], led)
+        if h:
+            hits.append((r["칸"], r["상품명"][:30], h[0].get("글제목", "")))
+    L += ["", "## 3. 사용 제품 장부 대조", "",
+          f"- 대조한 장부: pipeline/radar_used_products.json · 장부 줄 {led.get('줄수', len(led.get('products', [])))}개 (제품 {len(led.get('products', []))}개, 모델 {led.get('모델수', '?')}개)",
+          f"- 대조한 후보 {len(allr)}개 중 장부와 겹친 모델: **{len(hits)}개**"]
+    L += [f"  - {h}" for h in hits]
+    seen = defaultdict(list)
+    for r in allr:
+        k = r["모델키"] if ru.strong_key(r["모델키"]) else "pid:" + r["상품id"]
+        seen[k].append(r["칸"])
+    dup = {k: v for k, v in seen.items() if len(v) > 1}
+    L += ["", "## 4. 칸끼리 같은 모델", "", f"- 같은 모델이 둘 이상의 칸(또는 한 칸에 두 번)에 있는 경우: **{len(dup)}개**"]
+    L += [f"  - {k}: {v}" for k, v in dup.items()]
+    L += ["", "## 5. B칸 검색량 (본상품 후보 모델명 검색어, PC+모바일 월간)", "",
+          "| 칸 | 최고 검색량 | 30 이상 개수 | 판정 |", "|---|---|---|---|"]
+    for c, v in cells.items():
+        if v["틀"] != "B":
+            continue
+        t = [r["월간 검색량"] for r in v["후보"]]
+        L.append(f"| {c} {v['제품군']} | {max(t) if t else 0:,} | {sum(1 for x in t if x >= VOL_MIN)}/{len(t)} | "
+                 f"{'검색량 부족' if not t or max(t) < VOL_MIN else 'O'} |")
+    bad = []
+    for r in allr:
+        g = cat_group_1123(r["전체 카테고리"])
+        if g == "고속충전기" and r["칸"] == "B3":
+            g = ""
+        if g:
+            bad.append((r["칸"], r["상품명"][:30], g))
+    unk = [r["칸"] + ":" + r["상품id"] for r in allr if not r["전체 카테고리"]]
+    L += ["", "## 6. 11/23 주 제품군 15개로 분류되는 상품", "",
+          f"- 카테고리로 분류된 상품: **{len(bad)}개**" + ("" if not bad else " " + str(bad)),
+          "- B3(무선충전 패드)는 네이버 카테고리가 그냥 '충전기'라 고속충전기와 카테고리로 못 가려서, 이름이 무선충전 패드·무선충전기인 것만 넣음.",
+          f"- 카테고리를 못 읽어 이름으로만 판단한 상품: {len(unk)}개" + (f" ({', '.join(unk)})" if unk else "")]
+    ads = int((OUT / "ads_calls.txt").read_text()) if (OUT / "ads_calls.txt").exists() else 0
+    L += ["", "## 사용량", "",
+          f"- 네이버 쇼핑 검색 API: 3회(시험 호출, 404 — 종료된 API라 못 씀) · 검색광고 키워드 도구: {ads}회 · Claude 하위 호출(에이전트): 0회",
+          "- 쇼핑커넥트(에고라이트, 읽기만): 검색 목록 41개 검색어 + 상품 페이지 카테고리 확인",
+          "- 앱 데이터·대기열·사용 제품 장부·링크 발급·글쓰기·발행: 건드리지 않음"]
+    (OUT / "check.md").write_text("\n".join(L), encoding="utf-8")
+
+
+
 def collect(extra: list[str] | None = None) -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     qs = all_queries() + [q for q in (extra or []) if q not in all_queries()]
@@ -341,6 +529,9 @@ if __name__ == "__main__":
         elif cmd == "select":      # 선별 + 카테고리 확인(읽기만)
             select_loop()
             catdump()
+            rc = 0
+        elif cmd == "final":
+            final()
             rc = 0
         elif cmd == "catdump":
             catdump()
