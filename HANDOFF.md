@@ -1,6 +1,6 @@
-## 진행 중 (2026-11-22 싼세계 배너 투명 PNG 교체 + 별점 줄 강조)
-- 1단계 새 도구 tools/wp_banner_upload.py 로 투명 PNG 를 그대로 올리는 중. 다음: 별점 줄 모양(shop_formatter) → wp_banner.json → 미발송 글 반영 → 확인·검수.
-- 지시문 pipeline/wp_setup_run/_보낼것_모음.md, 결과 pipeline/wp_setup_run/20261122_배너투명/ , 보고 20261122_배너투명_보고.md
+## 완료 (2026-11-22 싼세계 배너 투명 PNG 교체 + 별점 줄 강조)
+- 새 미디어 1071(.png, 투명 유지 확인)·wp_banner.json 교체·별점 줄 강조(shop_formatter)·미발송 20편 최종본 반영. reviewer 통과. 보고 pipeline/wp_setup_run/20261122_배너투명_보고.md
+- 할 일: 이미 워드프레스로 보낸 예약 글 1070(2026-11-23_bd57a241)은 옛 .jpg 배너·옛 별점 모양 그대로 — 사용자 판단으로 처리.
 
 ## 완료 (2026-11-22 혜택주머니 주간 원고 일괄 처리 화면 6차)
 - 메뉴 '📦 주간 원고 일괄 처리'(/lt-batch) 보기·시각 변경 저장·일괄 예약 발행 완성(lt_batch.py). 시험은 임시 사본·가짜 발행, 실제 발행 0회, reviewer 통과. 보고 pipeline/lt_batch_run/20261122_보고.md
