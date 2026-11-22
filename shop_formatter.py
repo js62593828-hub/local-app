@@ -1503,6 +1503,22 @@ def _wptips_card_html(card: str) -> str:
     return re.sub(r"<a\b[^>]*>", lambda m: m.group(0) if re.search(r"\srel\s*=", m.group(0), re.IGNORECASE) else m.group(0)[:2] + ' rel="sponsored noopener"' + m.group(0)[2:], card)
 
 
+_WPTIPS_STAR_RE = re.compile(r"^★\s*(\d+\.\d+)\s*·\s*(리뷰 [\d,]+개 이상)\s*·\s*(.+)$")
+
+
+def _wptips_star_line(stars: str) -> str:
+    """별점 줄 HTML. '★ 4.62 · 리뷰 720개 이상 · 11월 20일 쿠팡 기준' 모양이면 별·점수·리뷰 수만 크게·색 강조(글자는 그대로),
+    모양이 다르면 예전 작은 회색 한 줄 그대로. 좁은 화면에서는 줄바꿈 허용."""
+    base = "text-align:center;font-size:13px;color:#666;margin:4px 0 20px;"
+    m = _WPTIPS_STAR_RE.match(stars.strip())
+    if not m:
+        return f'<p style="{base}">{html.escape(stars, quote=False)}</p>'
+    score, reviews, rest = (html.escape(x, quote=False) for x in m.groups())
+    return (f'<p style="{base}"><span style="font-size:18px;color:#F5A000;">★</span> '
+            f'<span style="font-size:18px;font-weight:bold;color:#222222;">{score}</span> · '
+            f'<span style="font-size:16px;font-weight:bold;color:#D42010;">{reviews}</span> · {rest}</p>')
+
+
 def _wptips_link_blocks(link: str):
     """싼세계 일반글 제품 끝: ① 배너(가운데, 일반 링크로) ② 링크카드(가운데) ③ 작은 글씨 별점 줄. 표시가 없으면 None(예전 구매 버튼)."""
     parts = split_wptips_link_value(link)
@@ -1531,7 +1547,7 @@ def _wptips_link_blocks(link: str):
     if code:
         out += _wp_block("html", f'<div style="text-align:center;margin:0 0 4px;">{code}</div>')
     if stars:
-        out += _wp_block("html", f'<p style="text-align:center;font-size:13px;color:#666;margin:4px 0 20px;">{html.escape(stars, quote=False)}</p>')
+        out += _wp_block("html", _wptips_star_line(stars))
     if not out:  # 카드가 걸러지고 배너·별점 줄도 없으면: 값 전체(‖카드‖ 표시 포함) 대신 일반 링크만 버튼 주소로
         return _wp_button(CTA_BUTTON_TEXT["wordpress"], url)
     return out
