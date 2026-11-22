@@ -17,7 +17,7 @@ except Exception:  # noqa: BLE001
 pc.BRANDCONNECT = "https://brandconnect.naver.com/1020008901769280/affiliate/products/search"
 OUT = pc.ROOT / "pipeline" / "stage_productpool_run" / "20261130"
 RAW = OUT / "raw_naver_parts"
-TOPN = 60
+TOPN = 40   # 화면에 하나씩 보이게 하는 읽기가 15초 안에 끝나도록(60은 시간 초과)
 
 # 칸 번호 → (틀, 갈래, 제품군, 검색어 목록)
 CELLS = {
