@@ -7,6 +7,7 @@ import json
 import io
 import os
 import re
+import sys
 import tempfile
 import threading
 import time
@@ -8343,6 +8344,9 @@ def product_check_save():
     with open(os.path.join(_PC_ROOT, run, "approved.json"), "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=1)
     return jsonify({"ok": True, "saved_at": payload["approved_at"], "count": sum(len(k["picks"]) for k in out)})
+
+
+wp_batch.register_routes(app, sys.modules[__name__])  # 싼세계 '주간 원고 일괄 처리' 화면(wp_tips 에서만 동작)
 
 
 def open_browser():

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>W싼세계 주간 원고 일괄 처리</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #121212; margin: 0; color: #e5e5e5; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; min-width: 0; padding: 28px 32px 60px; }
+  h1 { font-size: 22px; margin: 0 0 6px; color: #f5f5f5; }
+  .lead { color: #aaa; font-size: 13.5px; line-height: 1.7; margin-bottom: 14px; }
+  .notice { background: #1c2a1f; border: 1px solid #25452d; color: #86efac; padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 13.5px; }
+  .notice.bad { background: #3b1212; border-color: #5c1a1a; color: #fca5a5; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid #2a2a2a; padding: 7px 8px; text-align: left; vertical-align: middle; }
+  th { color: #888; font-weight: 600; font-size: 12px; white-space: nowrap; }
+  tr.locked td { color: #777; background: #181818; }
+  tr.err td { background: #2a1414; }
+  .thumb { width: 54px; height: 54px; object-fit: cover; border-radius: 4px; display: block; }
+  .nocover { color: #f87171; font-size: 12px; font-weight: 600; }
+  .st { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; background: #17202b; color: #7dd3fc; border: 1px solid #1e3a5f; }
+  .st.ok { background: #1c2a1f; color: #86efac; border-color: #25452d; }
+  .st.bad { background: #3b1212; color: #fca5a5; border-color: #5c1a1a; }
+  .st.gray { background: #222; color: #9ca3af; border-color: #3a3a3a; }
+  .why { color: #f87171; font-size: 12px; margin-top: 3px; }
+  .warnline { color: #facc15; font-size: 12px; margin-top: 3px; }
+  .tags { color: #999; font-size: 12px; max-width: 260px; }
+  input[type=datetime-local] { background: #1e1e1e; color: #e5e5e5; border: 1px solid #3a3a3a; border-radius: 6px; padding: 5px 7px; font-family: inherit; font-size: 13px; }
+  tr.err input[type=datetime-local] { border-color: #ef4444; }
+  .btn { background: #1e3a5f; color: #e0f2fe; border: 1px solid #2c5282; padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .btn.sec { background: #262626; color: #ddd; border-color: #3a3a3a; }
+  .btn.go { background: #7c2d12; border-color: #c2410c; color: #ffedd5; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .sum { color: #aaa; font-size: 13px; line-height: 1.9; margin-top: 14px; }
+  a.lnk { color: #60a5fa; text-decoration: none; }
+  select { background: #1e1e1e; color: #e5e5e5; border: 1px solid #3a3a3a; border-radius: 6px; padding: 5px 8px; font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  {% include "_sidebar.html" %}
+  <div class="main-content">
+    <h1>📦 W싼세계 주간 원고 일괄 처리</h1>
+    <p class="lead">한 주 글을 한 화면에서 보고, 예약 날짜·시각을 바꾸고, 골라서 한꺼번에 워드프레스에 <b>예약 발행</b>합니다. 날짜·시각은 <b>_예약표.md 에만</b> 저장되고(바꾸기 전 백업), 앱 데이터는 발행 버튼을 눌렀을 때만 기존 발행 코드가 기록합니다. 지금 시각 {{ now }}</p>
+
+    {% if notice %}<div class="notice{{ ' bad' if '않았' in notice else '' }}">{{ notice }}</div>{% endif %}
+    {% if running %}<div class="notice bad">일괄 예약 발행이 진행 중이에요 — <a class="lnk" href="/wp-batch/progress">진행 화면 보기</a></div>{% endif %}
+
+    {% if not weeks %}
+      <div class="notice bad">pipeline/wp_drafts 안에 _예약표.md 가 있는 주 폴더가 없어요.</div>
+    {% else %}
+    <form method="GET" action="/wp-batch" class="bar">
+      <label>주 고르기
+        <select name="week" onchange="this.form.submit()">
+          {% for w in weeks %}<option value="{{ w }}"{{ ' selected' if w == week else '' }}>{{ w }} 주</option>{% endfor %}
+        </select>
+      </label>
+    </form>
+
+    <form method="POST" action="/wp-batch/save" id="batchform">
+      <input type="hidden" name="week" value="{{ week }}">
+      <table>
+        <thead><tr><th>고르기</th><th>날짜(요일)</th><th>시각</th><th>틀</th><th>표지</th><th>제목</th><th>카테고리</th><th>태그</th><th>상태</th></tr></thead>
+        <tbody>
+        {% for r in data.rows %}
+          <tr class="{{ 'locked' if r.locked else '' }} {{ 'err' if r.err else '' }}">
+            <td><input type="checkbox" name="pick" value="{{ r.id }}" class="pk"{{ '' if r.pickable else ' disabled' }}{% if not r.pickable %} title="{{ (r.problems | join(' · ')) or r.state }}"{% endif %}></td>
+            {% if r.editable %}
+            <td colspan="2"><input type="datetime-local" name="dt_{{ r.id }}" value="{{ r.in_val }}" step="60" onclick="try{this.showPicker()}catch(e){}">
+              <div class="tags">{{ r.date }}({{ r.wd }}) {{ r.time }} 저장값</div>
+              {% if r.err %}<div class="why">⛔ {{ r.err }}</div>{% endif %}
+              {% if r.warn %}<div class="warnline">⚠ {{ r.warn }}</div>{% endif %}</td>
+            {% else %}
+            <td>{{ r.date[5:] }}({{ r.wd }})</td><td>{{ r.time }}</td>
+            {% endif %}
+            <td>{{ r.frame }}</td>
+            <td>{% if r.cover %}<img class="thumb" src="{{ r.cover }}" alt="표지" loading="lazy">{% else %}<span class="nocover">표지 없음</span>{% endif %}</td>
+            <td>{% if r.aid %}<a class="lnk" href="/article/{{ r.aid }}/final/wordpress">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}
+              {% if r.problems %}<div class="why">{{ r.problems | join(' · ') }}</div>{% endif %}</td>
+            <td>{{ r.category or '—' }}</td>
+            <td><div class="tags">{{ r.tag_text }}{% if r.tag_count %} ({{ r.tag_count }}개){% endif %}</div></td>
+            <td><span class="st {{ 'ok' if r.state == '워드프레스 예약됨' else ('gray' if r.state == '발행됨' else ('bad' if r.state == '문제' else '')) }}">{{ r.state }}</span></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9">이 주 예약표에 글이 없어요.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="bar">
+        <button class="btn sec" type="button" onclick="document.querySelectorAll('.pk:not(:disabled)').forEach(c=>c.checked=true)">보낼 수 있는 글 모두 고르기</button>
+        <button class="btn sec" type="button" onclick="document.querySelectorAll('.pk').forEach(c=>c.checked=false)">고른 것 모두 해제</button>
+        <button class="btn" type="submit">변경 저장 (_예약표.md 만)</button>
+        <button class="btn go" type="submit" formaction="/wp-batch/confirm"{{ ' disabled' if running else '' }}>고른 글 일괄 예약 발행</button>
+      </div>
+      <p class="lead">'일괄 예약 발행'은 <b>저장된 시각</b> 기준이에요. 시각을 바꿨다면 먼저 '변경 저장'을 누르세요. 누르면 한 번 더 확인 화면이 나오고, 거기서 확인해야 실제로 워드프레스에 예약됩니다.</p>
+    </form>
+
+    <div class="sum">
+      <b>날짜별</b>: {% for k, v in data.summary.by_date.items() %}{{ k }} {{ v }}편{{ ' · ' if not loop.last else '' }}{% endfor %}<br>
+      <b>카테고리별</b>: {% for k, v in data.summary.by_cat.items() %}{{ k }} {{ v }}편{{ ' · ' if not loop.last else '' }}{% endfor %}<br>
+      <b>문제</b>: {{ data.summary.problems }}편
+    </div>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

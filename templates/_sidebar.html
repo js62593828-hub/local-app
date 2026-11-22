@@ -44,7 +44,7 @@
     <div class="channel-menu {{ 'old' if old else '' }}">
       <a class="{{ 'active' if request.path == '/' else '' }}" href="/">주간 승인</a>
       <a class="{{ 'active' if request.path == '/status' else '' }}" href="/status">발행 현황</a>
-      {% if cid == 'longterm_wp' %}<a class="{{ 'active' if request.path.startswith('/lt-cleanup') else '' }}" href="/lt-cleanup">🧹 묶음 정리</a>{% endif %}
+      {% if cid == 'longterm_wp' %}<a class="{{ 'active' if request.path.startswith('/lt-cleanup') else '' }}" href="/lt-cleanup">🧹 묶음 정리</a>{% endif %}{% if cid == 'wp_tips' %}<a class="{{ 'active' if request.path.startswith('/wp-batch') else '' }}" href="/wp-batch">📦 주간 원고 일괄 처리</a>{% endif %}
       {% for p in platforms %}
       <a class="{{ 'active' if request.path == '/platform/' ~ p else '' }}" href="/platform/{{ p }}">{{ platform_labels[p] }} 이력</a>
       {% endfor %}
