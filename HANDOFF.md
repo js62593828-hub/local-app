@@ -1,3 +1,7 @@
+## 완료 (2026-11-22 11/30 주 대기열 21개 뺌)
+- push_plan --undo-run-id kw_radar_naver_20261130 로 2026-11-30_ 항목 21개만 뺌(대기열 115→94, 글 json 변화 없음, 11/23 주 항목 그대로). 백업 content_queue_radar_naver·articles_radar_naver .backup_before_remove_1130_20261122.json. keyword_run/2026-11-30_radar_naver 폴더는 유지, README.txt '사용 안 함'.
+- 할 일: 없음(11/30 주를 다시 쓰려면 push_plan --apply 로 다시 넣거나 키워드 단계부터 새로).
+
 ## 완료 (2026-11-22 Desk Picker 원고지침 v3.4 반영: 제품 한 번만·틀 B 카드 2번·태그 붙여쓰기)
 - 규칙 tools/radar_rules.md = docs v3.4(cmp 같음). 장부 pipeline/radar_used_products.json(38줄·27모델, 다시 만들기 python tools/radar_used_products.py). 후보(product_candidates)·키워드(keyword_pipeline)에서 장부 제외, radar_check 에 m/n/o 위반 3가지, 앱 최종본 끝 카드는 배너+링크만(GIF·별점 띠 없음). 11/30 주 겹침표 pipeline/radar_used_run/20261122_11-30_겹침.md(모델 겹침 0, 같은 주 제품군 겹침 위험 9쌍).
 - 할 일: 11/23 주 원고는 제품이 서로 겹치고(JBL GO5↔FLIP7 등 12편) 틀 B 끝 카드가 없어 radar_check 위반 48개 — 고치지 않음(사용자 판단). 11/30 주 원고 쓸 때 위 겹침표의 같은 주 위험 쌍 주의.
