@@ -37,6 +37,7 @@ import shop_formatter
 import shop_judge
 import similarity
 import wp_browser_publisher
+import wp_batch
 import wp_publisher
 import radar_board
 import radar_cards
@@ -7237,6 +7238,8 @@ def view_final(article_id, platform):
     lt_plan_view = _lt_plan_view(article) if (platform == "wordpress" and active_channel == "longterm_wp") else None
     # 싼세계(wp_tips): _예약표.md 의 이 글 날짜·시각을 '예약 발행' 입력칸에만 미리 채웁니다(읽기만 — 저장·발행 안 함).
     wp_sched_view = _wp_tips_sched_prefill(article_id) if (platform == "wordpress" and active_channel == "wp_tips") else None
+    # 싼세계(wp_tips): 원고 메타데이터(카테고리 제안·태그 제안)를 카테고리·태그 입력칸에만 미리 채웁니다(읽기만 — 저장·발행 안 함).
+    wp_meta_view = wp_batch.meta_view(article) if (platform == "wordpress" and active_channel == "wp_tips") else None
 
     return render_template(
         "final_view.html",
@@ -7244,6 +7247,7 @@ def view_final(article_id, platform):
         platform=platform,
         lt_plan_view=lt_plan_view,
         wp_sched_view=wp_sched_view,
+        wp_meta_view=wp_meta_view,
         radar_meta=radar_meta,
         radar_screen_content=radar_screen_content,
         radar_banner_missing=radar_banner_missing,

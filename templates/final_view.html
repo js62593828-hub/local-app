@@ -663,9 +663,11 @@
         </div>{% if wp_sched_view %}
         <div class="hint" style="margin:-4px 0 8px; font-size:13px; color:{{ '#f87171' if wp_sched_view.past else '#999' }};">예약표: {{ wp_sched_view.label }}{% if wp_sched_view.past %} — 시각이 지났어요{% endif %} · '예약 발행'을 고르면 입력칸에 이 시각이 들어 있어요(미리 채운 것일 뿐, 버튼을 누르기 전에는 저장되지 않아요)</div>{% endif %}
         <div class="row">
-          <input type="text" name="category" placeholder="카테고리 (예: 4대보험·연금)">
-          <input type="text" name="tag" placeholder="태그 (예: 실업급여)">
-        </div>
+          <input type="text" name="category" placeholder="카테고리 (예: 4대보험·연금)"{% if wp_meta_view and wp_meta_view.category %} value="{{ wp_meta_view.category }}"{% endif %}>
+          <input type="text" name="tag" placeholder="태그 (예: 실업급여)"{% if wp_meta_view and wp_meta_view.tag_text %} value="{{ wp_meta_view.tag_text }}"{% endif %}>
+        </div>{% if wp_meta_view %}
+        <div class="hint" style="margin:-4px 0 8px; font-size:13px; color:#999;">{{ wp_meta_view.info }}</div>{% for w in wp_meta_view.warns %}
+        <div class="hint" style="margin:-4px 0 8px; font-size:13px; color:#facc15;">⚠ {{ w }}</div>{% endfor %}{% endif %}
         <button class="publish-btn" type="submit">지금 이 내용으로 발행하기</button>
       </form>
       {% else %}
