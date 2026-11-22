@@ -61,7 +61,7 @@
     <form method="POST" action="/wp-batch/save" id="batchform">
       <input type="hidden" name="week" value="{{ week }}">
       <table>
-        <thead><tr><th>고르기</th><th>날짜(요일)</th><th>시각</th><th>틀</th><th>표지</th><th>제목</th><th>카테고리</th><th>태그</th><th>상태</th></tr></thead>
+        <thead><tr><th>고르기<br><input type="checkbox" id="pkall" title="보낼 수 있는 글 전체 선택/해제" aria-label="전체 선택/해제"></th><th>날짜(요일)</th><th>시각</th><th>틀</th><th>표지</th><th>제목</th><th>카테고리</th><th>태그</th><th>상태</th></tr></thead>
         <tbody>
         {% for r in data.rows %}
           <tr class="{{ 'locked' if r.locked else '' }} {{ 'err' if r.err else '' }}">
@@ -105,5 +105,16 @@
     {% endif %}
   </div>
 </div>
+<script>
+(function(){
+  var all=document.getElementById('pkall'); if(!all) return;
+  function rows(){return document.querySelectorAll('.pk:not(:disabled)');}
+  function sync(){var r=rows(),n=0;r.forEach(function(c){if(c.checked)n++;});all.checked=r.length>0&&n===r.length;all.indeterminate=n>0&&n<r.length;}
+  all.addEventListener('change',function(){rows().forEach(function(c){c.checked=all.checked;});sync();});
+  document.getElementById('batchform').addEventListener('change',function(e){if(e.target!==all)sync();});
+  document.getElementById('batchform').addEventListener('click',function(e){if(e.target.tagName==='BUTTON')setTimeout(sync,0);});
+  sync();
+})();
+</script>
 </body>
 </html>
