@@ -174,6 +174,151 @@ def cell_items(cell: str) -> tuple[list[dict], dict]:
 
 
 
+
+# ───────────────────────── 칸별 카테고리 허용(첫 실행 뒤 catdump 로 보고 정함) ─────────────────────────
+CATOK: dict[str, str] = {}
+CAT_DIR = OUT / "raw_category_parts"
+LOG = {"ads_calls": 0, "cat_pages": 0}
+
+
+def load_cats() -> dict[str, str]:
+    out = {}
+    if CAT_DIR.exists():
+        for f in CAT_DIR.glob("*.json"):
+            if f.name.startswith("_"):
+                continue
+            d = json.loads(f.read_text(encoding="utf-8"))
+            out[str(d["id"])] = d.get("category", "")
+    return out
+
+
+def cat_bad(cell: str, pid: str, cats: dict[str, str]) -> str:
+    """카테고리를 읽었는데 이 칸에 안 맞으면 이유, 맞거나 못 읽었으면 ''."""
+    whole = cats.get(pid)
+    if not whole:
+        return ""
+    g = cat_group_1123(whole)
+    if g:
+        return f"11/23 주 제품군({g})"
+    if cell in CATOK and not re.search(CATOK[cell], whole):
+        return "카테고리 불일치"
+    return ""
+
+
+def dedup_models(items: list[dict]) -> list[dict]:
+    seen, out = set(), []
+    for x in items:   # 리뷰 많은 순으로 들어옴 → 같은 모델은 리뷰 많은 것 하나만
+        k = x["mkey"] if ru.strong_key(x["mkey"]) else x["mkey"] + "|" + x["pid"] if not x["mkey"] else x["mkey"]
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(x)
+    return out
+
+
+def build_pools(banned: set[str], cats: dict[str, str]):
+    """칸마다 후보 풀(장부·교차 칸 중복·카테고리 불량 제외). 반환 {칸: {'pool': [...], 'info': {...}}}"""
+    led = ru.load_ledger()
+    blocked = pc.radar_blocked(led)
+    pools = {}
+    for c in CELLS:
+        items, why = cell_items(c)
+        ok, out = pc.split_blocked(items, blocked)
+        why["장부 제외"] = len(out)
+        ok2 = []
+        for x in ok:
+            if x["pid"] in banned:
+                continue
+            r = cat_bad(c, x["pid"], cats)
+            if r:
+                why[r] = why.get(r, 0) + 1
+                continue
+            ok2.append(x)
+        pools[c] = {"pool": dedup_models(ok2), "info": why}
+    # 같은 모델은 21칸 중 한 칸에만: 리뷰가 더 많은 칸에 둠
+    best: dict[str, tuple[int, str]] = {}
+    for c, v in pools.items():
+        for x in v["pool"]:
+            k = x["mkey"] if ru.strong_key(x["mkey"]) else "pid:" + x["pid"]
+            if k not in best or (x["reviews"] or 0) > best[k][0]:
+                best[k] = (x["reviews"] or 0, c)
+    for c, v in pools.items():
+        keep = []
+        for x in v["pool"]:
+            k = x["mkey"] if ru.strong_key(x["mkey"]) else "pid:" + x["pid"]
+            if best[k][1] == c:
+                keep.append(x)
+            else:
+                v["info"]["다른 칸에 둠"] = v["info"].get("다른 칸에 둠", 0) + 1
+        v["pool"] = keep
+    return pools
+
+
+def pick_cell(cell: str, pool: list[dict]) -> dict:
+    frame = CELLS[cell][0]
+    if frame == "A":
+        main = pool[:7]
+        names = lambda L: {x["canon"] for x in L if x["canon"] and x["brand_label"] != pc.UNKNOWN_BRAND}
+        i = 7
+        while len(names(main)) < 3 and i < len(pool):   # 브랜드 3개 미만이면 다른 브랜드 것으로 아래쪽을 바꿈
+            if pool[i]["canon"] not in names(main) and pool[i]["brand_label"] != pc.UNKNOWN_BRAND:
+                main = main[:-1] + [pool[i]]
+            i += 1
+        return {"main": main, "alt": []}
+    main = pool[:4]
+    mb = {x["canon"] for x in main}
+    alt, ab = [], set()
+    for x in pool[4:]:
+        if x["canon"] in mb or x["canon"] in ab or x["brand_label"] == pc.UNKNOWN_BRAND:
+            continue
+        alt.append(x)
+        ab.add(x["canon"])
+        if len(alt) == 3:
+            break
+    return {"main": main, "alt": alt}
+
+
+def need_cats(sel: dict) -> list[dict]:
+    out = []
+    for c, v in sel.items():
+        for x in v["main"] + v["alt"]:
+            out.append({"id": x["pid"], "url": x["url"]})
+    return out
+
+
+def fetch_cats(prods: list[dict]) -> str:
+    return pc.collect_in_batches(prods, lambda q: q["id"], CAT_DIR, pc.BATCH_CAT,
+                                 lambda part, tmp: pc._js_category(part, tmp), "category", "카테고리 확인")
+
+
+def select_loop(max_rounds: int = 8, fetch: bool = True):
+    banned: set[str] = set()
+    for rnd in range(1, max_rounds + 1):
+        cats = load_cats()
+        pools = build_pools(banned, cats)
+        sel = {c: pick_cell(c, v["pool"]) for c, v in pools.items()}
+        if not fetch:
+            return pools, sel, cats
+        todo = [p for p in need_cats(sel) if p["id"] not in cats]
+        print(f"[선별 {rnd}회차] 카테고리 확인 필요 {len(todo)}개")
+        if not todo:
+            return pools, sel, cats
+        st = fetch_cats(todo)
+        if st != "ok":
+            print("카테고리 확인 중단:", st)
+            return pools, sel, load_cats()
+    return pools, sel, load_cats()
+
+
+def catdump() -> None:
+    pools, sel, cats = select_loop(fetch=False)
+    from collections import Counter
+    for c in CELLS:
+        cnt = Counter(pc.lowest_category(cats[x["pid"]]) for x in sel[c]["main"] + sel[c]["alt"] if cats.get(x["pid"]))
+        print(c, CELLS[c][2], dict(cnt), "| 풀", len(pools[c]["pool"]))
+
+
+
 def collect(extra: list[str] | None = None) -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     qs = all_queries() + [q for q in (extra or []) if q not in all_queries()]
@@ -188,6 +333,13 @@ if __name__ == "__main__":
     try:
         if cmd == "collect":
             rc = collect(sys.argv[2:])
+        elif cmd == "select":      # 선별 + 카테고리 확인(읽기만)
+            select_loop()
+            catdump()
+            rc = 0
+        elif cmd == "catdump":
+            catdump()
+            rc = 0
         else:
             rc = 1
     finally:
