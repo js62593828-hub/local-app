@@ -11,7 +11,9 @@
   4 이미지 일괄 생성(표지 1 + 본문 3, 앱 기본값) → 5 최종본 만들기
 한 번 실행에서 제목이 같은 원고가 2편 이상이면 모두 '문제 — 제목 중복'으로 건너뛴다(예약표에도 안 넣음).
 같은 제목이 이미 대기열에 있고 글(원고)도 들어 있으면 건너뛴다('이미 있음'). 고친 원고 다시 넣기(--update)는 아직 없음.
-예약 시각(v1.4 11장): 틀별 기준 시각 C 07:40 · S 12:30 · D 18:40 에서 분 단위 ±10분(끝 분 포함)을 랜덤으로 고른다.
+예약 시각(v1.7 11장): 틀별 기준 시각 C 07:40 · S 12:30 · D 18:40 에서 분 단위 ±10분(끝 분 포함)을 랜덤으로 고른다.
+  같은 날 같은 틀이 2편이면 두 번째 글은 기준 시각 +3시간 ±10분(예: S 15:20~15:40). 두 번째 = 표에 이미 시각이 있으면 더 늦은 쪽,
+  아니면 파일 이름 순. 표에 이미 있는 시각이 이 규칙에 어긋나는 두 번째 글만 새로 뽑고 나머지는 그대로 둔다.
   날짜 = 원고 파일 이름 MMDD(주 월~일 안이어야 함), 시드 = 주차 문자열(다시 돌려도 같은 시각), --reroll 이면 새로.
   같은 주 같은 '시:분' 금지, 앱 wp_tips 글(읽기만)과 <원고폴더>/_예약표.md 에 이미 있는 그 주 시각도 피한다.
   _예약표.md 에 이미 있는 글(제목 같음)은 시각을 그대로 유지한다(--reroll 이면 새로 뽑음).
@@ -45,6 +47,7 @@ BASE_URL = "http://127.0.0.1:5000"
 STEPS = ["키워드", "붙여넣기", "메타", "이미지", "최종본"]
 BASE_TIMES = {"C": (7, 40), "S": (12, 30), "D": (18, 40)}  # 틀별 기준 시각(v1.4 11장)
 JITTER_MIN = 10  # ±10분, 끝 분 포함
+SECOND_SHIFT_MIN = 180  # 같은 날 같은 틀 두 번째 글: 기준 시각 +3시간(v1.7 11장)
 
 
 def draft_date(fn, week):
@@ -64,12 +67,12 @@ def draft_date(fn, week):
 
 
 def pick_times(items, week, taken, reroll=False):
-    """items: [(fn, frame, date)] 파일 이름 순. 반환 {fn: 'HH:MM'}.
+    """items: [(fn, 틀, date)] 파일 이름 순. 틀 끝에 '+' 가 붙으면(예: 'S+') 같은 날 두 번째 글이라 기준 시각 +3시간. 반환 {fn: 'HH:MM'}.
     taken: 그 주에 이미 잡힌 'HH:MM' 집합(같은 주 안 같은 시:분 금지)."""
     out, used = {}, set(taken)
     for fn, frame, _d in items:
-        h, mi = BASE_TIMES[frame]
-        base = h * 60 + mi
+        h, mi = BASE_TIMES[frame.rstrip("+")]
+        base = h * 60 + mi + (SECOND_SHIFT_MIN if frame.endswith("+") else 0)
         rng = random.Random(None if reroll else f"{week}|{fn}")
         pool = [t for t in range(base - JITTER_MIN, base + JITTER_MIN + 1) if f"{t // 60:02d}:{t % 60:02d}" not in used]
         if not pool:
@@ -257,6 +260,15 @@ def find_by_title(queue, title):
     return [q for q in queue if ((q.get("plan") or {}).get("final_title") or "").strip() == title]
 
 
+def append_result(path, kind, body):
+    """_import_result.md 에 실행마다 시각을 단 절을 뒤에 덧붙인다(지난 결과가 남게 — 덮어쓰지 않음)."""
+    first = not os.path.isfile(path) or os.path.getsize(path) == 0
+    with open(path, "a", encoding="utf-8", newline="\n") as f:
+        if first:
+            f.write("# wp_import 결과 (실행마다 절이 뒤에 덧붙음)\n")
+        f.write(f"\n## {datetime.now():%Y-%m-%d %H:%M:%S} — {kind}\n\n{body}\n")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--week", required=True, help="월요일 YYYY-MM-DD")
@@ -268,6 +280,7 @@ def main():
     ap.add_argument("--data-dir", default="", help="시험용: 큐·글 복사본 폴더")
     ap.add_argument("--reroll", action="store_true", help="예약 시각을 새로 뽑는다(기본은 주차 문자열 시드라 다시 돌려도 같음)")
     ap.add_argument("--mock-images", action="store_true", help="시험용: 가짜 이미지(비용 0)")
+    ap.add_argument("--write-sched", action="store_true", help="미리보기에서도 _예약표.md 를 다시 만들고 _import_result.md 에 미리보기 절을 덧붙인다(앱 데이터는 안 씀)")
     a = ap.parse_args()
     for st in (sys.stdout, sys.stderr):
         try:
@@ -371,19 +384,30 @@ def main():
         t_ = ((art_.get("platform_scheduled_time") or {}).get("wordpress") or "")[:5]
         if d_ in week_days and t_:
             taken.add(t_)
-    redo = {(it["title"], it["frame"]) for it in plan if a.reroll and it["status"] == "넣을 예정"}  # 새로 뽑을 글은 표의 옛 시각을 피하지 않음
+    # 같은 날 같은 틀이 2편이면 두 번째 글은 기준 시각 +3시간(v1.7 11장). 두 번째 = 표 시각이 있으면 더 늦은 쪽, 없으면 파일 이름 순.
+    groups = {}
+    for it in plan:
+        d0 = draft_date(it["fn"], week)
+        if d0 is not None and it["frame"] in BASE_TIMES and not it.get("dup"):
+            groups.setdefault((d0, it["frame"]), []).append(it)
+    second = set()
+    for its in groups.values():
+        if len(its) >= 2:
+            def _k(it):
+                r_ = saved_by_key.get((it["title"], it["frame"]))
+                return (r_["time"] if r_ else "99:99", it["fn"])
+            second.update(it["fn"] for it in sorted(its, key=_k)[1:])
+
+    def in_band(t, frame, is_second):
+        h_, m_ = BASE_TIMES[frame]
+        return abs(int(t[:2]) * 60 + int(t[3:5]) - (h_ * 60 + m_ + (SECOND_SHIFT_MIN if is_second else 0))) <= JITTER_MIN
+    # 표에 이미 있는 두 번째 글 시각이 새 규칙 밖이면 그 글만 새로 뽑는다
+    rule_redo = {it["fn"] for it in plan if it["fn"] in second and saved_by_key.get((it["title"], it["frame"]))
+                 and not in_band(saved_by_key[(it["title"], it["frame"])]["time"], it["frame"], True)}
+    redo = {(it["title"], it["frame"]) for it in plan if (a.reroll and it["status"] == "넣을 예정") or it["fn"] in rule_redo}
     for r in saved_rows:
         if r["date"] in week_days and (r["title"], r["frame"]) not in redo:
             taken.add(r["time"])
-    # 같은 날 S(단독 추천)가 둘이면 순번이 작은 쪽은 C 시간대(07:30~07:50)를 쓴다(11/20 결정)
-    band_of, s_by_day = {}, {}
-    for it in plan:
-        d0 = draft_date(it["fn"], week)
-        if it["frame"] == "S" and d0 is not None:
-            s_by_day.setdefault(d0, []).append(it["fn"])
-    for d0, fns in s_by_day.items():
-        if len(fns) >= 2:
-            band_of[sorted(fns)[0]] = "C"
     todo_sched = []
     for it in plan:
         it["sched_date"], it["sched_time"], it["sched_note"] = "", "", ""
@@ -397,19 +421,28 @@ def main():
         if it.get("dup"):
             continue
         row = saved_by_key.get((it["title"], it["frame"]))
+        bandkey = it["frame"] + ("+" if it["fn"] in second else "")
         if it["status"] != "넣을 예정":
             if row:
                 it["sched_date"], it["sched_time"], it["sched_note"] = row["date"], row["time"], "표 시각 유지"
+                if it["fn"] in rule_redo:  # 이미 앱에 들어간 글이어도 표의 시각만 새 규칙으로 다시 뽑는다(앱 데이터는 안 씀)
+                    it["sched_time"], it["sched_note"] = "", "새 규칙(같은 날 두 번째 +3시간)으로 다시 뽑음"
+                    todo_sched.append((it["fn"], bandkey, dd))
             continue
         it["sched_date"] = dd.isoformat()
-        if row and not a.reroll:
+        if row and not a.reroll and it["fn"] not in rule_redo:
             it["sched_time"], it["sched_note"] = row["time"], "표 시각 유지"
         else:
-            todo_sched.append((it["fn"], band_of.get(it["fn"], it["frame"]), dd))
+            if it["fn"] in rule_redo:
+                it["sched_note"] = "새 규칙(같은 날 두 번째 +3시간)으로 다시 뽑음"
+            todo_sched.append((it["fn"], bandkey, dd))
     picked = pick_times(todo_sched, week, taken, a.reroll)
     for it in plan:
         if it["fn"] in picked:
             it["sched_time"] = picked[it["fn"]]
+        elif it["status"] != "넣을 예정" and it["fn"] in rule_redo and not it["sched_time"]:
+            row_ = saved_by_key.get((it["title"], it["frame"]))
+            it["sched_time"], it["sched_note"] = row_["time"], "표 시각 유지(새로 뽑을 분이 없음)"
         elif it["status"] == "넣을 예정" and not it["sched_time"]:
             it["errs"].append("예약 시각: 고를 수 있는 분이 모두 사용 중")
             it["status"] = "문제 — 건너뜀"
@@ -436,6 +469,13 @@ def main():
     print(f"\n넣을 글 {len(todo)}편 · 이미지 표지 {len(todo)}장 + 본문 {len(todo) * BODY_IMAGES}장 · 예상 비용 어림 {cost:,}원"
           f"{' [가짜 이미지 모드: 비용 0]' if a.mock_images else ''} · 예약 날짜·시각은 _예약표.md 를 보고 최종본 화면에서 사람이 입력(앱에는 안 씀)")
     if not a.apply:
+        if a.write_sched:  # 앱 데이터는 안 쓰고 _예약표.md 만 다시 만들고, 결과 파일에 미리보기 절을 덧붙인다
+            write_sched_file(sched_path, week, build_rows())
+            print("저장:", sched_path)
+            append_result(os.path.join(drafts, "_import_result.md"), "미리보기",
+                          "| 파일 | 제목 | 틀 | 상태 |\n|---|---|---|---|\n"
+                          + "\n".join(f"| {it['fn']} | {it['title']} | {it['frame']} | {it['status']} |" for it in plan)
+                          + "\n\n예약표\n\n" + render_sched_table(build_rows()))
         print("\n(미리보기 끝 — 실제로 넣으려면 --apply)")
         return
     if not todo:
@@ -535,9 +575,8 @@ def main():
     write_sched_file(sched_path, week, build_rows(ids))
     print("저장:", sched_path)
     out = os.path.join(drafts, "_import_result.md")
-    with open(out, "w", encoding="utf-8") as f:
-        f.write(f"# wp_import 결과 ({datetime.now():%Y-%m-%d %H:%M})\n\n" + "\n".join(lines) + "\n\n" + "\n".join(cmp_lines) + "\n")
-    print("저장:", out)
+    append_result(out, "적용", "\n".join(lines) + "\n\n" + "\n".join(cmp_lines))
+    print("저장(덧붙임):", out)
 
 
 if __name__ == "__main__":
