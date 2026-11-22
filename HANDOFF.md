@@ -1,3 +1,7 @@
+## 완료 (2026-11-22 N살림노트 최종본: 카테고리 표시 + 이미지 번호 사본)
+- 최종본 화면 위쪽에 '카테고리: …'(메모 값, 없으면 '메모에 없음', 복사 본문엔 안 들어감). 플랫폼별 콘텐츠 생성 때 이미지 폴더에 01_표지·02_본문1… 사본 생성, 본문 사진 다운로드도 같은 이름·순서. naver_tips 한정. 다른 채널 전후 비교 0곳, reviewer 통과. 백업 articles_naver_tips.backup_before_final_order_20261122.json
+- 할 일: 없음(기존 글은 '플랫폼별 콘텐츠 생성'을 다시 눌러야 번호 사본이 생김).
+
 ## 완료 (2026-11-22 11/30 주 대기열 21개 뺌)
 - push_plan --undo-run-id kw_radar_naver_20261130 로 2026-11-30_ 항목 21개만 뺌(대기열 115→94, 글 json 변화 없음, 11/23 주 항목 그대로). 백업 content_queue_radar_naver·articles_radar_naver .backup_before_remove_1130_20261122.json. keyword_run/2026-11-30_radar_naver 폴더는 유지, README.txt '사용 안 함'.
 - 할 일: 없음(11/30 주를 다시 쓰려면 push_plan --apply 로 다시 넣거나 키워드 단계부터 새로).

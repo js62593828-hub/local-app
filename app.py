@@ -7,6 +7,7 @@ import json
 import io
 import os
 import re
+import shutil
 import sys
 import tempfile
 import threading
@@ -5243,11 +5244,68 @@ def _naver_body_info(article: dict) -> dict:
     return {"photos": photos, "msg": ""}
 
 
-def _naver_body_downloads(article: dict) -> list[dict]:
-    """네이버(naver_tips) 최종본 화면의 [이미지 다운로드] 목록: 본문 사진(원본)."""
+def _naver_final_image_order(article: dict) -> list[dict]:
+    """N살림노트(naver_tips) 최종본에 나오는 이미지 순서대로 번호 매긴 목록: 표지(01_표지) → 본문(02_본문1…).
+    본문 번호는 메모의 alt 순서가 아니라 최종본 본문에서 실제로 나오는 위치 순서입니다.
+    각 항목: no, name(번호 사본 이름), path(원본 주소), heading(그 이미지가 붙은 소제목), ok(원본 파일 있음)."""
+    final = (article.get("platform_final") or {}).get("naver") or ""
     out = []
-    for i, ph in enumerate(_naver_body_info(article)["photos"], start=1):
-        out.append({"label": f"본문 사진 {i}", "path": ph["path"], "name": f"네이버_본문{i}.jpg", "ok": ph["ok"]})
+    cover = (article.get("covers") or {}).get("naver") or ""
+    if cover:
+        out.append({"no": 1, "name": "01_표지" + (os.path.splitext(cover)[1] or ".jpg"), "path": cover, "heading": "(표지)", "kind": "cover"})
+    body_set = set((article.get("platform_body_images") or {}).get("naver") or [])
+    seen = set()
+    k = 0
+    for m in re.finditer(r'<img\b[^>]*>', final):
+        tag = m.group(0)
+        if "seo-cover-img" in tag:
+            continue
+        sm = re.search(r'\bsrc="([^"]+)"', tag)
+        src = html.unescape(sm.group(1)) if sm else ""
+        if not src or src not in body_set or src in seen:
+            continue
+        seen.add(src)
+        k += 1
+        # 소제목: 이 이미지 앞의 마지막 "❝" 표시 뒤에 나오는 19px 굵은 글자(줄이 나뉜 소제목은 이어 붙임)
+        before = final[:m.start()]
+        q = before.rfind("❝")
+        heads = re.findall(r'<strong[^>]*font-size:19px[^>]*>(.*?)</strong>', before[q:] if q >= 0 else "")
+        heading = " ".join(re.sub(r"<[^>]+>", "", h).strip() for h in heads)
+        out.append({"no": len(out) + 1, "name": f"{len(out) + 1:02d}_본문{k}" + (os.path.splitext(src)[1] or ".jpg"), "path": src, "heading": heading})
+    for e in out:
+        e["ok"] = os.path.exists(e["path"].lstrip("/"))
+    return out
+
+
+_NAVER_NUMBERED_RE = re.compile(r"^\d{2}_(표지|본문\d+)\.[A-Za-z0-9]+$")
+
+
+def _naver_write_numbered_copies(article: dict) -> list[dict]:
+    """N살림노트 [플랫폼별 콘텐츠 생성] 때: 이미지 폴더에 최종본 순서대로 번호 붙인 사본(01_표지.jpg, 02_본문1.jpg…)을 만듭니다.
+    원본 파일과 앱 데이터의 이미지 경로는 건드리지 않고, 이전에 만든 번호 사본만 새 순서로 덮어씁니다(남는 옛 번호 사본은 지움)."""
+    order = [e for e in _naver_final_image_order(article) if e["ok"]]
+    if not order:
+        return []
+    folder = os.path.dirname(order[0]["path"].lstrip("/"))
+    if os.path.isdir(folder):
+        keep = {e["name"] for e in order}
+        for fn in os.listdir(folder):
+            if _NAVER_NUMBERED_RE.match(fn) and fn not in keep:
+                try:
+                    os.remove(os.path.join(folder, fn))
+                except OSError:
+                    pass
+    for e in order:
+        shutil.copyfile(e["path"].lstrip("/"), os.path.join(folder, e["name"]))
+    return order
+
+
+def _naver_body_downloads(article: dict) -> list[dict]:
+    """네이버(naver_tips) 최종본 화면의 [이미지 다운로드] 목록: 최종본에 나오는 순서·번호 사본과 같은 이름(01_표지 포함)."""
+    out = []
+    for e in _naver_final_image_order(article):
+        label = e["name"].rsplit(".", 1)[0]
+        out.append({"label": label, "path": e["path"], "name": e["name"], "ok": e["ok"]})
     return out
 
 
@@ -5500,6 +5558,11 @@ def generate_final(article_id):
             article["platform_final"][p] = built
             _LINK_REPLACED[(get_active_channel_id(), article_id, p)] = changes
 
+    if get_active_channel_id() == "naver_tips":
+        try:
+            _naver_write_numbered_copies(article)
+        except Exception as e:  # 번호 사본을 못 만들어도 최종본 생성은 그대로 진행
+            print(f"[naver_tips] 번호 사본 만들기 실패: {e}")
     set_article(article_id, article)
     if get_active_channel_id() in RADAR_CHANNELS:
         if radar_final_fail:
@@ -7315,6 +7378,9 @@ def view_final(article_id, platform):
         meta_seo=_meta_description_seo_check(article["platform_metadata"].get(platform) or ""),
         sc_box=_sc_box(article, get_active_channel_id(), platform),
         radar_downloads=_radar_downloads(article) if get_active_channel_id() in RADAR_CHANNELS else None,
+        nt_category=(
+            (metadata_parser.parse_metadata_memo(article["platform_metadata"].get("naver") or "").get("category") or "").strip() or "메모에 없음"
+        ) if (get_active_channel_id() == "naver_tips" and platform == "naver") else None,
         body_downloads=_naver_body_downloads(article) if (get_active_channel_id() in NV75_CHANNELS and platform == "naver") else None,
         radar_sources=(article.get("radar_sources") or []) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
         radar_table_skipped=radar_screen.table_skipped_from(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
