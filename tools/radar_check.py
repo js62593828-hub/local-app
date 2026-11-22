@@ -13,6 +13,8 @@
 - 사진·표지 파일이 폴더에 없으면 그 항목은 '파일 없음(미확인)'으로 두고 실패로 세지 않는다."""
 import argparse, json, os, re, sys
 from PIL import Image
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import radar_used_products as ru  # 사용 제품 장부(원고지침 v3.4 '제품은 한 번만')
 
 NOTICE = "이 포스팅은 네이버 쇼핑커넥트 활동의 일환으로, 판매 시 수수료를 제공받습니다."
 BANNED = ["최고", "무조건", "100%", "완벽", "강력 추천", "1위", "써보니", "써 보니", "직접 사용", "내돈내산", "써봤", "직접 써 보고", "직접 써보고", "바탕으로 정리했어요"]
@@ -234,6 +236,7 @@ ITEM_NAMES = {
     "d": "d 상품카드 이름 = approved.json", "e": "e 사진 번호·장수", "f": "f 옛 표시·안내 문구", "g": "g 제목 길이·금지 단어",
     "h": "h 카테고리·태그", "i": "i 표지 글자 수", "j": "j 사진자리 = 본문 사진",
     "k": "k 표 칸 '없음'(→ 표시 없음)", "l": "l 못 찾았다·적혀 있지 않다 류 말투",
+    "m": "m 제품 한 번만(장부·같은 폴더, v3.4)", "n": "n 틀 B 본상품 카드 2개(v3.4)", "o": "o 태그 띄어쓰기 금지(v3.4)",
 }
 NOT_FOUND_WORDS = ["찾지 못했", "적혀 있지 않", "말하기 어려워요"]
 
@@ -331,7 +334,79 @@ def _memo_block(memo, name):
     return None
 
 
-def check_draft(text, run_arg=""):
+def _queue_frame(title):
+    """대기열(content_queue_radar_naver.json)에서 제목이 같은 글의 틀(A/B). 못 찾으면 ''. 읽기만 한다."""
+    try:
+        q = json.load(open(os.path.join(ROOT, "content_queue_radar_naver.json"), encoding="utf-8"))
+    except Exception:
+        return ""
+    t = re.sub(r"\s+", " ", title or "").strip()
+    for x in q:
+        pl = x.get("plan") or {}
+        if t and t in {re.sub(r"\s+", " ", str(v)).strip() for v in (pl.get("final_title"), pl.get("title"))} and x.get("planned_type") in ("A", "B"):
+            return x["planned_type"]
+    return ""
+
+
+def frame_of(title, frame_arg="", fname=""):
+    """틀 A/B: --frame 이 있으면 그것, 없으면 파일 이름의 _A_/_B_, 그것도 없으면 대기열에서 같은 제목을 찾는다. 모르면 ''."""
+    f = (frame_arg or "").strip().upper()
+    if f in ("A", "B"):
+        return f
+    m = re.search(r"_([AB])_", os.path.basename(fname or ""))
+    return m.group(1) if m else _queue_frame(title)
+
+
+def draft_products(text):
+    """원고 한 편의 제품들: [(상품명, 소제목, 모델키 목록)]. 상품카드 기준(같은 카드 두 번은 한 제품)."""
+    out = []
+    for p in ru.parse_article(text, "A")["products"]:
+        out.append((p["card"], p["heading"], sorted({ru.model_key(p["card"], p["heading"]), ru.model_key(p["card"])})))
+    return out
+
+
+def ledger_conflicts(title, products, led=None):
+    """장부에서 '다른 글'(제목이 다른 글)에 이미 쓴 제품을 찾는다. 반환: 위반 글 목록."""
+    led = led if led is not None else ru.load_ledger()
+    same = re.sub(r"\s+", " ", title or "").strip()
+    out = []
+    for card, head, keys in products:
+        for r in led.get("products", []):
+            if re.sub(r"\s+", " ", r.get("글제목", "")).strip() == same:
+                continue  # 이 글 자신
+            if r.get("상품명") == card or set(keys) & ({r.get("모델키")} | set(r.get("모델키목록") or [])):
+                out.append(f"제품 중복 · {head or card[:20]} ← 장부 글 '{r.get('글제목', '')[:28]}'({r.get('날짜', '')}, {r.get('역할', '')})")
+                break
+    return out
+
+
+def b_card_problems(plain):
+    """틀 B 본상품 상품카드가 정확히 2개인지: ① 기본 정보 ### 구간 안, ② 마지막 ## 구간 맨 끝 줄. 문제 목록을 돌려준다."""
+    lines = plain.split("\n")
+    cards, in_h3 = [], False
+    for i, l in enumerate(lines):
+        if l.startswith("### "):
+            in_h3 = True
+        elif l.startswith("## "):
+            in_h3 = False
+        m = re.match(r"^\[상품카드: (.+)\]$", l.strip())
+        if m:
+            cards.append((i, m.group(1), in_h3))
+    main = next((c for c in cards if c[2]), None)
+    if not main:
+        return ["① 기본 정보 ### 구간 안에 본상품 상품카드가 없어요"]
+    out = []
+    n = sum(1 for c in cards if c[1] == main[1])
+    if n != 2:
+        out.append(f"본상품 상품카드 {n}개(정확히 2개여야 해요) · {main[1][:30]}")
+    last = max((i for i, l in enumerate(lines) if l.strip()), default=-1)
+    lc = next((c for c in cards if c[0] == last), None)
+    if not lc or lc[1] != main[1] or lc[2]:
+        out.append("② 글 마지막 ## 구간 맨 끝 줄이 본상품 상품카드가 아니에요")
+    return out
+
+
+def check_draft(text, run_arg="", frame="", fname=""):
     """원고 파일 하나 검사. 돌려주는 값: {"title","format_errors","items":{키:{"viol":[...],"warn":[...]}},"violations","warnings"}"""
     body, memo, ferr = split_draft(text)
     title = draft_title(body)
@@ -493,6 +568,26 @@ def check_draft(text, run_arg=""):
         for w in NOT_FOUND_WORDS:
             if w in ln:
                 it["l"]["viol"].append(f"{no}줄 · '{w}' · {ln.strip()[:40]}")
+    # m. 제품 한 번만(v3.4): 장부의 다른 글에 이미 나온 제품 (같은 폴더 다른 원고는 run_drafts 에서 더함)
+    prods = draft_products(text)
+    res["products"] = prods
+    it["m"]["viol"] += ledger_conflicts(title, prods)
+    # n. 틀 B 본상품 상품카드 2개(v3.4)
+    fr = frame_of(title, frame, fname)
+    res["frame"] = fr
+    if fr == "B":
+        it["n"]["viol"] += b_card_problems(plain)
+    elif not fr:
+        it["n"]["warn"].append("틀(A/B)을 몰라서 본상품 카드 2개 검사를 못 했어요 → --frame A|B 를 주세요")
+    # o. 태그 띄어쓰기 금지(v3.4)
+    if tag:
+        v = tag.group(1)
+        if "," in v:
+            bad = [t.strip() for t in v.split(",") if re.search(r"\s", t.strip())]
+        else:
+            bad = [v.strip()] if re.search(r"\s", v.strip()) else []
+        for t in bad:
+            it["o"]["viol"].append(f"태그에 띄어쓰기 · {t[:40]}")
     res["violations"] = len(ferr) + sum(len(v["viol"]) for v in it.values())
     res["warnings"] = sum(len(v["warn"]) for v in it.values())
     return res
@@ -512,7 +607,7 @@ def draft_report(name, r):
     return L
 
 
-def run_drafts(paths, run_arg=""):
+def run_drafts(paths, run_arg="", frame=""):
     files = []
     for p in paths:
         if os.path.isdir(p):
@@ -520,8 +615,18 @@ def run_drafts(paths, run_arg=""):
         else:
             files.append(p)
     tot = 0
-    for fp in files:
-        r = check_draft(open(fp, encoding="utf-8").read(), run_arg)
+    results = [(fp, check_draft(open(fp, encoding="utf-8").read(), run_arg, frame, fp)) for fp in files]
+    # m(같은 폴더 다른 원고): 두 원고에 같은 제품이 있으면 양쪽에 위반으로 적는다
+    for fp, r in results:
+        for card, head, keys in r.get("products", []):
+            for fp2, r2 in results:
+                if fp2 != fp and any(c2 == card or set(k2) & set(keys) for c2, h2, k2 in r2.get("products", [])):
+                    if any(v.startswith(f"제품 중복 · {head or card[:20]} ←") for v in r["items"]["m"]["viol"]):
+                        break  # 장부에서 이미 잡힌 제품은 한 번만 센다
+                    r["items"]["m"]["viol"].append(f"제품 중복 · {head or card[:20]} ← 같은 폴더 원고 {os.path.basename(fp2)}")
+                    r["violations"] += 1
+                    break
+    for fp, r in results:
         print("\n".join(draft_report(os.path.basename(fp), r)))
         tot += r["violations"]
     print(f"\n결과: 파일 {len(files)}개 · 위반 합계 {tot}개 ({'실패' if tot else '통과'})")
@@ -555,7 +660,7 @@ def main():
     drafts = [f for f in a.folders if _is_draft_arg(f)]
     if drafts:
         a.folders = [f for f in a.folders if f not in drafts]
-        code = run_drafts(drafts, a.run)
+        code = run_drafts(drafts, a.run, a.frame)
         if not a.folders:
             sys.exit(code)
     if a.text:
