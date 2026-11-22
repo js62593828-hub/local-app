@@ -1524,9 +1524,9 @@ def _wptips_link_blocks(link: str):
         except (TypeError, ValueError, OverflowError):
             minw = 240
         tag = (f'<img src="{html.escape(img, quote=True)}" alt="{alt}" '
-               f'style="width:{width};min-width:{minw}px;max-width:100%;height:auto;border:0;box-shadow:none !important;" />')
-        out += _wp_block("html", f'<div style="text-align:center;margin:20px 0 8px;"><a href="{html.escape(url, quote=True)}" '
-                                 f'target="_blank" rel="sponsored noopener" referrerpolicy="unsafe-url">{tag}</a></div>')
+               f'style="display:block;margin:0 auto;width:{width};min-width:{minw}px;max-width:100%;height:auto;border:0;box-shadow:none !important;" />')
+        out += _wp_block("html", f'<div style="text-align:center;margin:20px 0 4px;"><a href="{html.escape(url, quote=True)}" '
+                                 f'target="_blank" rel="sponsored nofollow noopener" referrerpolicy="unsafe-url">{tag}</a></div>')
     code = _wptips_card_html(card)
     if code:
         out += _wp_block("html", f'<div style="text-align:center;margin:0 0 4px;">{code}</div>')
