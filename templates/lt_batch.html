@@ -34,6 +34,8 @@
   .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
   .sum { color: #aaa; font-size: 13px; line-height: 1.9; margin-top: 14px; }
   a.lnk { color: #60a5fa; text-decoration: none; }
+  .pkcount { color: #ddd; font-size: 14px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
   select { background: #1e1e1e; color: #e5e5e5; border: 1px solid #3a3a3a; border-radius: 6px; padding: 5px 8px; font-family: inherit; }
 </style>
 </head>
@@ -60,8 +62,13 @@
 
     <form method="POST" action="/lt-batch/save" id="batchform">
       <input type="hidden" name="week" value="{{ week }}">
+      <div class="bar" id="topbar">
+        <button class="btn sec" type="button" data-act="all">전체 선택</button>
+        <button class="btn sec" type="button" data-act="none">일괄 선택 해제</button>
+        <span class="pkcount">고른 글 <b class="pkn">0</b>편</span>
+      </div>
       <table>
-        <thead><tr><th>고르기</th><th>날짜(요일)</th><th>시각</th><th>오전/오후</th><th>표지</th><th>제목</th><th>대표/세부 · 묶음</th><th>카테고리</th><th>태그</th><th>상태</th></tr></thead>
+        <thead><tr><th>고르기<br><input type="checkbox" id="pkall" title="고를 수 있는 글 전체 선택/해제" aria-label="전체 선택/해제"></th><th>날짜(요일)</th><th>시각</th><th>오전/오후</th><th>표지</th><th>제목</th><th>대표/세부 · 묶음</th><th>카테고리</th><th>태그</th><th>상태</th></tr></thead>
         <tbody>
         {% for r in data.rows %}
           <tr class="{{ 'locked' if r.locked else '' }} {{ 'err' if r.err else '' }}">
@@ -90,10 +97,10 @@
       </table>
 
       <div class="bar">
-        <button class="btn sec" type="button" onclick="document.querySelectorAll('.pk:not(:disabled)').forEach(c=>c.checked=true)">보낼 수 있는 글 모두 고르기</button>
-        <button class="btn sec" type="button" onclick="document.querySelectorAll('.pk').forEach(c=>c.checked=false)">고른 것 모두 해제</button>
+        <button class="btn sec" type="button" data-act="all">전체 선택</button>
+        <button class="btn sec" type="button" data-act="none">일괄 선택 해제</button>
         <button class="btn" type="submit"{{ ' disabled' if running else '' }}>변경 저장 (예약 시각만)</button>
-        <button class="btn go" type="submit" formaction="/lt-batch/confirm"{{ ' disabled' if running else '' }}>고른 글 일괄 예약 발행</button>
+        <button class="btn go" id="gobtn" type="submit" formaction="/lt-batch/confirm"{{ ' disabled' if running else '' }}>고른 글 일괄 예약 발행</button>
       </div>
       <p class="lead">'일괄 예약 발행'은 <b>저장된 시각</b> 기준이에요. 시각을 바꿨다면 먼저 '변경 저장'을 누르세요. 누르면 한 번 더 확인 화면이 나오고, 거기서 확인해야 실제로 워드프레스에 예약됩니다.</p>
     </form>
@@ -107,5 +114,26 @@
     {% endif %}
   </div>
 </div>
+<script>
+(function(){
+  var form=document.getElementById('batchform'); if(!form) return;
+  var all=document.getElementById('pkall'), go=document.getElementById('gobtn');
+  var running={{ 'true' if running else 'false' }};
+  function boxes(){return document.querySelectorAll('.pk:not(:disabled)');}
+  function sync(){
+    var r=boxes(),n=0; r.forEach(function(c){if(c.checked)n++;});
+    if(all){all.checked=r.length>0&&n===r.length; all.indeterminate=n>0&&n<r.length;}
+    document.querySelectorAll('.pkn').forEach(function(e){e.textContent=n;});
+    if(go) go.disabled=running||n===0;
+  }
+  if(all) all.addEventListener('change',function(){boxes().forEach(function(c){c.checked=all.checked;});sync();});
+  form.addEventListener('change',function(e){if(e.target!==all)sync();});
+  form.addEventListener('click',function(e){
+    var a=e.target.getAttribute&&e.target.getAttribute('data-act'); if(!a) return;
+    boxes().forEach(function(c){c.checked=(a==='all');}); sync();
+  });
+  sync();
+})();
+</script>
 </body>
 </html>
