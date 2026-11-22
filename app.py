@@ -7077,6 +7077,33 @@ def _lt_plan_view(article: dict) -> dict | None:
     return {"scheduled_at": dt.strftime("%Y-%m-%dT%H:%M"), "category": category, "tag": tag, "label": label, "past": dt < datetime.now()}
 
 
+def _wp_tips_sched_prefill(article_id: str) -> dict | None:
+    """싼세계(wp_tips) 최종본 화면용: pipeline/wp_drafts/<주>/_예약표.md 에서 이 글(대기열 id)의 예약 날짜·시각을 읽기만 한다.
+    입력칸 미리 채우기 전용 — 아무것도 저장하지 않는다(화면을 열어도 앱 데이터가 안 바뀜). 없으면 None."""
+    base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pipeline", "wp_drafts")
+    try:
+        weeks = sorted(os.listdir(base), reverse=True)
+    except OSError:
+        return None
+    for wk in weeks:
+        path = os.path.join(base, wk, "_예약표.md")
+        try:
+            with open(path, encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except OSError:
+            continue
+        for ln in lines:
+            cells = [c.strip() for c in ln.strip().strip("|").split("|")]
+            if len(cells) >= 6 and cells[5] == article_id and re.fullmatch(r"\d{4}-\d{2}-\d{2}", cells[0]) and re.fullmatch(r"\d{2}:\d{2}", cells[2]):
+                try:
+                    dt = datetime.strptime(f"{cells[0]}T{cells[2]}", "%Y-%m-%dT%H:%M")
+                except ValueError:
+                    return None
+                return {"scheduled_at": dt.strftime("%Y-%m-%dT%H:%M"),
+                        "label": f"{dt.month}월 {dt.day}일({'월화수목금토일'[dt.weekday()]}) {dt:%H:%M}", "past": dt < datetime.now()}
+    return None
+
+
 @app.route("/article/<article_id>/final/<platform>")
 def view_final(article_id, platform):
     queue = load_queue()
@@ -7208,12 +7235,15 @@ def view_final(article_id, platform):
 
     # 혜택주머니(longterm_wp) 자동 입력 글: 발행 칸(API·브라우저)에 예약 시각·카테고리·태그를 미리 채웁니다. lt_plan 이 없으면 None(화면 그대로).
     lt_plan_view = _lt_plan_view(article) if (platform == "wordpress" and active_channel == "longterm_wp") else None
+    # 싼세계(wp_tips): _예약표.md 의 이 글 날짜·시각을 '예약 발행' 입력칸에만 미리 채웁니다(읽기만 — 저장·발행 안 함).
+    wp_sched_view = _wp_tips_sched_prefill(article_id) if (platform == "wordpress" and active_channel == "wp_tips") else None
 
     return render_template(
         "final_view.html",
         idx=article_id,
         platform=platform,
         lt_plan_view=lt_plan_view,
+        wp_sched_view=wp_sched_view,
         radar_meta=radar_meta,
         radar_screen_content=radar_screen_content,
         radar_banner_missing=radar_banner_missing,
