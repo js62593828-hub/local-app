@@ -575,7 +575,7 @@ def register_routes(flask_app, m):
         if r.status_code == 302 and "wp_published=" in loc:
             pid = (((_wp_articles().get(it["id"]) or {}).get("platform_post_id")) or {}).get("wordpress")
             return True, "", pid
-        body = re.sub(r"<[^>]+>", " ", r.get_data(as_text=True))
+        body = re.sub(r"<[^>]+>", " ", re.sub(r"(?s)<style.*?</style>", "", r.get_data(as_text=True)))
         return False, f"HTTP {r.status_code} " + re.sub(r"\s+", " ", body).strip()[:250], ""
 
     @flask_app.route("/wp-batch/run", methods=["POST"])
