@@ -13,6 +13,8 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
+# 지금 에고라이트에 로그인된 쇼핑커넥트 계정 주소(기존 도구의 번호와 다름). 이 스크립트 안에서만 바꿔 씀.
+pc.BRANDCONNECT = "https://brandconnect.naver.com/1020008901769280/affiliate/products/search"
 OUT = pc.ROOT / "pipeline" / "stage_productpool_run" / "20261130"
 RAW = OUT / "raw_naver_parts"
 TOPN = 60
