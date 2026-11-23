@@ -1,6 +1,7 @@
 ## 이어갈 것 (2026-11-23 집 PC): 11/30 주 확정 끝 — 앱 넣기 미리 보기에서 멈춤(--apply 안 함)
 - run4 명령(그대로): python tools/weekly_plan.py --week 2026-11-30 --seeds pipeline/final/seeds_20261130b.txt --must pipeline/final/must_20261130b.txt --skip pipeline/final/skip_20261130.txt --theme-cap 2 --out pipeline/stage_w1130_run4 (--exclude-plan 은 '후보에서 뺌' 뜻이라 안 붙임). 저장된 검색량·추세·판정은 다시 안 받고 이어서 기획 호출 2번(4편·3편)+설계 검사 2번만 새로 씀. 데이터랩·검색광고·블로그 0회.
 - 확정: python tools/weekly_plan.py --finalize --week 2026-11-30 --edits pipeline/final/edits_20261130.json --out pipeline/stage_w1130_run3 → 일정 17편·예비 5편, 경고 없음. 결과 pipeline/final/plan_20261130.json.
+- 홈판 실험 글(한파대비·세탁기동파) 기준 — 결정은 원고·제목 정할 때, 지금은 기준만 기록: ① 표지는 오버레이 텍스트 없이 이미지만 ② 평일 발행(세탁기동파는 지금 12/06 일요일이라 평일로 옮겨야 함) ③ 일반 글보다 짧게 ④ 쇼핑링크 없는 글(제품 필요 need=false) ⑤ 소제목 최대 4개(지금 설계는 둘 다 5개라 줄여야 함) ⑥ 확실한 답을 주는 형태의 원고. 확정 계획(plan_20261130.json)에는 홈판 표시 칸이 없음.
 - 다음: 사용자 확인 후 push_plan --apply (제품 링크는 22편 모두 없음, products_20261130.json 은 아직 없음). 베란다결로·지역난방공기빼기·보일러물보충·차량김서림은 카테고리 미정.
 
 ## 완료 (2026-11-23): 11/30 주 계획 채우기 run3 — 확정·앱 넣기·코드 수정 안 함
