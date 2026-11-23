@@ -1,3 +1,7 @@
+## 완료 (2026-11-23 N살림노트 가격보기 배너 교체)
+- static/salim/banner_naver_price.png 를 새 배너(2721×408, 투명)로 교체, 옛 것은 banner_naver_price_old.png 로 이름만 바꿈(static/ 은 git 에 안 올라감). 데스크피커 배너·다른 채널·앱 데이터 변경 0. 코드 수정 없음(기준점 커밋 c9e8bfc).
+- 업로드 폴더 줄인 크기 455×68, 투명 PNG 그대로 유지(검게 안 변함). 시안 pipeline/salim_upload_run/banner_test/2026-11-23_a7490ca5/naver_upload/06_배너1.png. 4개 채널 최종본 전후 해시 같음(banner_hash_before/after.json).
+
 ## 완료 (2026-11-23 N살림노트 네이버 올리기 편하게: 업로드 폴더·상품 블록·주소 미리 보기·정보 줄) — 코드 커밋 6703453, 앱 재시작 전
 - 새 파일 salim_images.py(별점 상자)·salim_upload.py·salim_urlfill.py·templates/salim_url_autofill.html, static/salim/banner_naver_price.png(데스크피커 배너 복사본, 원본 그대로). 고친 곳: app.py(naver_tips 가지·새 라우트 3개)·shop_formatter.py(salim_blocks 옵션 기본 꺼짐)·final_view/index/status 템플릿(naver_tips 한정). 시안·전후 해시·RSS 저장본·주소 미리 보기 표 pipeline/salim_upload_run/.
 - 안 한 것: 앱 데이터 쓰기 0(articles·대기열 해시 전후 같음), 주소 [채움만 저장] 안 누름, 쇼핑커넥트 접속 0, 네이버 접속은 RSS 1회, API·Claude 0회. 다른 채널 최종본·화면 전후 해시 같음.
