@@ -1,3 +1,9 @@
+## 완료 (2026-11-24 TK-X1E): salim-writer 에이전트 파일 11/30 주용으로 고침 (에이전트 파일만, 원고 안 씀)
+- 바뀐 파일: .claude/agents/salim-writer.md 만. 요청에 주 날짜(월요일)를 받아 경로를 정함(확정 목록 Claude outputs/weekly_final_<주>.md, 자료 pipeline/candidates_run/<주8>_naver_tips/research·links.json·salim_slots.json, 저장 pipeline/salim_drafts/<주>/). 확정 제목 그대로, 대안은 원고 밖 메모. 분량 등 숫자는 원고지침 V5.2·글뼈대규칙 V2.2 를 읽어 따름(대기열 target_* 안 읽음).
+- 안 고친 것(금지 범위): docs/살림노트/agent_salim-writer.md(사본, 옛 판 그대로), 원고작업지시_Claude-Code.md(11/23 주 값·제목 새로 만들기 들어 있음, 에이전트 파일에서 공통 절차만 참고하도록 막음), tools/salim_check.py(5,000~6,000자·굵게 3~5·인용구 1~2·확정 목록 경로 11/23 기준 등 V5.2 와 다름).
+- 11/30 주 확정 목록: 앱에서 [주간 확정 목록 내보내기] → Claude outputs/weekly_final_2026-11-30.md 로 저장됨(제품 연결 뒤에 내보내야 C 글 링크가 들어감).
+- 다음 실행 명령: 에이전트 호출 때 요청에 "주 날짜 2026-11-30" 포함 / 검사는 python tools/salim_check.py --week 2026-11-30 (기준 값 차이 때문에 ✖ 가 V5.2 와 어긋나게 나올 수 있음)
+
 ## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 연결 --apply (11편, 대기열 191 그대로)
 - 명령: python tools/push_plan.py --products pipeline/final/products_20261130.json --update-products --apply. 백업 backup\content_queue_naver_tips.backup_before_update_products_20261123_223634.json. 옷솔·세탁망·실리콘 용기 3곳은 사용자 결정으로 그대로 사용.
 
