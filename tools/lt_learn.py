@@ -200,6 +200,12 @@ def main():
         md += group_table(its, lambda r: [r.get("제목 말투")] if r.get("제목 말투") else [], "제목 말투(해요/격식/질문)", order=["해요", "격식", "질문", "(미기록)"])
         md += group_table(its, lambda r: [("숫자 있음" if r.get("제목 숫자") == "예" else "숫자 없음")], "제목에 숫자 유무")
         md += group_table(its, lambda r: [("질문형" if r.get("제목 질문") == "예" else "질문 아님")], "제목 질문 유무")
+        # 교차표(8-1): 질문형 × 대표/세부, 제목 말투 × 대표/세부 — 8편 미만 칸은 group_table 이 '참고'로 표시
+        rs = lambda r: r.get("대표/세부") or "(미기록)"
+        md += group_table(its, lambda r: [("질문형" if r.get("제목 질문") == "예" else "질문 아님") + " × " + rs(r)], "교차표: 질문형 × 대표/세부",
+                          order=[a + " × " + b for a in ("질문형", "질문 아님") for b in ("대표", "세부", "(미기록)")])
+        md += group_table(its, lambda r: [(r.get("제목 말투") or "(미기록)") + " × " + rs(r)], "교차표: 제목 말투 × 대표/세부",
+                          order=[a + " × " + b for a in ("해요", "격식", "질문", "(미기록)") for b in ("대표", "세부", "(미기록)")])
         md += group_table(its, lambda r: [D.norm_cat(r.get("카테고리"))] if r.get("카테고리") else [], "카테고리(옛 이름은 새 이름으로 묶음)" + (" · 수명 포함" if life else ""), extra_life=life)
         md += group_table(its, lambda r: [r.get("대상")] if r.get("대상") else [], "대상")
         md += group_table(its, lambda r: [r.get("의도")] if r.get("의도") else [], "의도")

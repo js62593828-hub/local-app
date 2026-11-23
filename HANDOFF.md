@@ -1,3 +1,12 @@
+## 진행 중: 혜택주간 2026-11-30, 5단계 기획표에서 멈춤 (2026-11-23)
+- A 보강 끝(글 장부 옛 글 제목 장치·성적표 교차표·reviewer 검수). 1~5단계 끝: 주간기획/혜택_2026-11-30/05_기획표.md 완성, 실적학습.md 맨 위 칸 추가.
+- 다음: 사용자 [확인](D 폐업지원 넣을지·갱신 글·근로장려금 5%/10% 확인) → 6단계 원고(hyetaek-writer) → 7단계 lt_auto_input --apply 뒤 09_기획표저장·시즌달력 자동 생성 확인.
+- 열린 문제: tools/lt_google_check.py 가 상위 도메인을 전부 google.com 으로 읽음(안 고침). lt_auto_input.py 건너뛰기 판정은 이미지 유무를 안 봄(reviewer 지적, 안 고침). 글장부 백업: 주간기획/_누적/글장부.backup_before_oldtitle_20261123.json. tools/lt_learn.py 교차표 추가(커밋 전).
+
+## 진행 중: 혜택주간 2026-11-30, 1단계 (2026-11-23)
+- A 보강 끝(글 장부 옛 글 제목 장치 채움, 성적표 교차표 추가). B 진행: 1단계 실적 분석 → 기획표(05)에서 멈춤.
+- 다음 명령: python tools/lt_perf_report.py --week 2026-11-30 → lt_ledger.py --all → lt_learn.py --week 2026-11-30
+
 ## 완료 (2026-11-23 혜택주머니 8차: 실적 학습 루프) — 앱 코드 변경 0, 새 도구·새 파일만
 - 새 도구: tools/lt_data.py(공통)·lt_ledger.py(글 장부)·lt_learn.py(성적표)·lt_bank.py(키워드 은행)·lt_save_plan.py(09 기획표 저장+시즌달력 월별). 고친 도구: lt_perf_report.py(일별·검색어 쌓기·주소 맞추기)·lt_keyword_volume.py·lt_google_check.py(30일 은행 값 사용)·lt_auto_input.py(이미 들어간 글 건너뜀+끝나면 장부·09 자동). 스킬 docs 판 고침 후 .claude/skills 로 복사.
 - 새 자료: 주간기획/_누적/(perf_daily.json 2026-08-30~11-20, queries/, 글장부.json 122편, 키워드은행.json 179개, 주소맞춤.json) · 주간기획/혜택_2026-11-23/(01b_성적표.md·02a_다시볼후보.md·06_확정_장부.json·09_기획표저장.md·01_실적분석_1119판.md) · docs/혜택주머니/실적학습.md · docs/혜택주머니/시즌달력_월별/(01~03월 빈 틀, 12·1월 줄).
