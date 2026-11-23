@@ -1,3 +1,8 @@
+## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 후보 수집 (후보만, 링크 발급 안 함)
+- 복사: Claude outputs/살림노트_20261123/product_search_20261130.tsv → pipeline/final/product_search_20261130.tsv (18검색어·11키워드)
+- 실행 명령 전체: python tools/product_candidates.py --channel naver_tips --sheet pipeline/final/product_search_20261130.tsv --extra 2
+- 결과 폴더: pipeline/candidates_run/20261123_naver_tips (앱 /product-check 에서 보임). 추천 0개: 가정용 눈삽, 추천 부족: 승용차 스노우체인(1/2). 링크 발급·대기열·plan 안 건드림.
+
 ## 완료 (2026-11-23 TK-X1E): N살림노트 승인 화면 발행일순 정렬 [앱 수정]
 - 바뀐 파일: app.py 만(index() 의 naver_tips 분기 + 함수 3개: _plan_file_order·_sort_by_publish_date·group_by_cluster_by_seed). 발행 시간 값은 대기열·앱 어디에도 비어 있어(platform_scheduled_time 전부 None) 같은 날은 plan 파일 순서로 정렬. 대기열·articles·plan 파일 안 건드림. 다른 3채널 화면 순서 전후 동일 확인, reviewer 통과.
 - 확인 명령: run.bat → N살림노트 채널 → 주 선택. (11/16 주도 날짜순으로 바뀜)
