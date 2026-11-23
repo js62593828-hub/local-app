@@ -1,3 +1,8 @@
+## 완료 (2026-11-23 11/30 주 plan 2차 고침 + 대기열·제품 체크 연결 준비)
+- 결과 pipeline/stage_plan1130_run/20261123/ (plan.md·plan.json 고친 판, 전 판 _before_20261123b/, connect_test.md). 제목 10개·키워드 3개(A6 의자허리쿠션·B3 벨킨 3in1 충전기·B8 샤오미 스마트 공기청정기 4) 바꿈, B8 제품 샤오미 4 컴팩트+필립스 AC0650 둘 다 판매 중 확인, 다시 검사 전부 O. 새 스크립트 tools/plan1130_fix.py·plan1130_build.py(plan_push.json, run_id kw_radar_naver_20261130_v2, 복사본 시험: 94→115, 실제 대기열 변화 0)·plan1130_cand.py(pipeline/candidates_run/20261130_radar_naver_plan/ 49개·사진 49장, 🧾 제품 체크 화면에 뜸).
+- 안 한 것: push_plan --apply(실제 대기열), 확정 저장(approved.json), 링크 발급. 앱 대기열·장부·articles 변경 0.
+- 할 일: 사용자가 connect_test.md 의 dry-run 표·제품 체크 화면을 보고 OK 하면 --apply(connect_test.md 6번에 명령). 링크 발급 전 issue_links.py 옛 계정 번호(997658…) 문제 먼저.
+
 ## 완료 (2026-11-23 11/30 주 기획 마무리: B8 공기청정기·49개 확인·제목 21개·연결 조사)
 - 결과 pipeline/stage_plan1130_run/20261123/ (plan.md·plan.json·check.md·connect.md). B8 은 탁상 공기청정기로 교체(pool.md B8 구간만, 옛 표는 pool_B8_mugwarmer_old.md). 49개 모두 판매 중, 바꾼 제품 0, B5 제닉스 SB9 는 장부 '제닉스 타이탄'(손목받침대)과 다른 제품이라 유지. 새 스크립트 tools/plan1130_*.py(읽기만). 앱 데이터·대기열·장부·링크 변경 0, 검색광고 22회.
 - 할 일: 사용자가 plan.md 의 제목·키워드(특히 B8 임시, '궁금증 값 확인 필요' 5편, A6 등받이쿠션↔허리쿠션)를 보고 확정 → 확정 뒤 connect.md 방법 A+D 로 대기열·제품 체크 연결.
