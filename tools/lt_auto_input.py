@@ -104,9 +104,26 @@ def main():
         want = {int(x) for x in a.only.split(",") if x.strip()}
         posts = [p for p in posts if p.get("order") in want]
 
+    if a.mock_images and not a.data_dir:
+        raise SystemExit("--mock-images 는 시험용입니다. 실제 데이터에는 쓸 수 없으니 --data-dir 시험 폴더와 같이 쓰세요.")
     app = C.load_app(a.data_dir or None)
     if a.mock_images:
         app.image_gen.USE_MOCK = True
+    if a.data_dir:
+        # 시험 모드: 이미지(표지·본문·최종 표지)는 반드시 시험 폴더 안에만 저장한다. 실제 폴더(static/generated)는 건드리지 않는다.
+        safe_root = os.path.abspath(os.path.join(a.data_dir, "generated_test"))
+        real_root = os.path.abspath(os.path.join(C.ROOT, "static", "generated"))
+        if safe_root.startswith(real_root):
+            raise SystemExit("시험 폴더가 실제 이미지 폴더(static/generated) 안에 있습니다. 다른 곳을 쓰세요.")
+
+        def _test_image_ctx(article_id, _root=safe_root, _ig=app.image_gen):
+            out = os.path.join(_root, article_id)
+            os.makedirs(out, exist_ok=True)
+            _ig.set_output_context(out)
+            return out
+        app._apply_image_output_context = _test_image_ctx
+        app.image_gen.OUTPUT_DIR = safe_root  # 맥락 없이 부르는 저장도 시험 폴더로
+        os.makedirs(safe_root, exist_ok=True)
     cfg = app.CHANNELS[C.CHANNEL]
     qpath, apath = cfg["queue_file"], cfg["articles_file"]
     queue = C.read_json(qpath, [])
