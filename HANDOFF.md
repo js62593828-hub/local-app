@@ -1,6 +1,8 @@
-## 진행 중: 날짜 고치기→11/30 주 계획 다시(stage_w1130_run2)→글별 유입경로 수집 (2026-11-23)
-- 1단계 끝(커밋 25eaeff: weekly_plan 에 rs.TODAY 한 줄). 지금 2단계: python tools/weekly_plan.py --week 2026-11-30 --seeds pipeline/final/seeds_20261130.txt --skip pipeline/final/skip_20261130.txt --theme-cap 2 --out pipeline/stage_w1130_run2 (끊기면 같은 명령으로 이어 감).
-- 3단계(유입경로, perf_inbox/2026-11-16/post_referrers.csv)는 2단계 뒤. 확정·앱 넣기·네이버 쓰기 안 함.
+## 완료 (2026-11-23): 날짜 고치기 → 11/30 주 계획 다시 → 글별 유입경로 수집
+- 1단계: tools/weekly_plan.py 에 rs.TODAY = TODAY 한 줄(커밋 25eaeff). 붙이는핫팩 1.65·핫팩 1.49 추세 비율 채워짐, 데이터랩 마지막 주 11/16 확인. 같은 박힌 날짜: r1_signals.py 28행·r1c.py 43행·r1b.py MONDAY/found_date(옛 r1 도구, weekly_plan 은 안 씀), adsense_audit.py 13행, backtest.py WP_RANGE(10/14~11/10, 싼세계 비교용). 손 안 댐.
+- 2단계: 결과 pipeline/stage_w1130_run2 (옛 stage_w1130_run 그대로). 11편(목표 21, 10편 부족)·예비 0. 확정·앱 넣기 안 함. seeds_20261130.txt·skip_20261130.txt 는 pipeline/ 안이라 git 제외(파일만 고침). skip 파일은 줄마다 낱말 1개 방식이라 10개를 줄로 추가.
+- 3단계: perf_inbox/2026-11-16/post_referrers.csv (89편 읽음, 5편은 주소 없음). 장부에 홈판·검색 비율 칸(커밋은 salim_ledger 줄 참고).
+- 유입경로 수집 요령(다음 주도 같게): 화면 = 크리에이터 어드바이저 글별 통계 주소 https://creator-advisor.naver.com/new-windows/article-stats?channelId=beafather&contentId=<http://blog.naver.com/beafather/글번호 를 URL 인코딩>&contentType=text&endDate=<일요일>&interval=week&service=naver_blog&startDate=<월요일>. 화면에 '유입 경로'(경로 이름+조회수)·'더보기' 버튼(누르면 전체). 에고라이트로 글마다 주소 열기→3.5초→더보기 누르기→경로 읽기, 글 사이 약 2~3초(글당 약 6초, 89편 약 9분). 스크립트: C:/Users/taeky/ego/referrers-20261123/all.mjs (targets.json 의 주소 목록, results.jsonl 에 한 줄씩 저장, 같은 명령으로 이어 감). 글 주소 목록은 perf_inbox/<주>/advisor_posts.csv. 막힌 곳: ① 실행을 죽일 때 ego-browser 만 끄면 브라우저 안 스크립트가 계속 돌아 결과가 섞임 → NodeService 프로세스까지 종료 후 다시 시작 ② 앱 장부에 주소 없는 옛 글 5편은 못 읽음 ③ 경로 조회수 합이 글 조회수보다 조금 작은 글이 있음(4편).
 
 ## 완료(조사만): 11/30 주 추세 비율 전부 빔 — 원인 찾음 (2026-11-23)
 - 원인: tools/r1_signals.py 28행 TODAY 가 2026-11-14 로 박혀 있음. weekly_plan 은 bt.TODAY 만 오늘로 바꾸고 rs.TODAY 는 안 바꿔서, 데이터랩을 '11/13 까지'만 요청 → 마지막 주 11/09. 기준 주(11/16)가 없어 비율 None. 데이터랩 응답 자체는 11/16 주까지 정상(직접 호출 3회). 캐시 재사용 아님(--cache-from 안 씀). 11/23 주 실행은 우연히 기준 주가 11/09 라 멀쩡했음.
