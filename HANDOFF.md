@@ -1,3 +1,9 @@
+## 완료 (2026-11-23 혜택주머니 8차: 실적 학습 루프) — 앱 코드 변경 0, 새 도구·새 파일만
+- 새 도구: tools/lt_data.py(공통)·lt_ledger.py(글 장부)·lt_learn.py(성적표)·lt_bank.py(키워드 은행)·lt_save_plan.py(09 기획표 저장+시즌달력 월별). 고친 도구: lt_perf_report.py(일별·검색어 쌓기·주소 맞추기)·lt_keyword_volume.py·lt_google_check.py(30일 은행 값 사용)·lt_auto_input.py(이미 들어간 글 건너뜀+끝나면 장부·09 자동). 스킬 docs 판 고침 후 .claude/skills 로 복사.
+- 새 자료: 주간기획/_누적/(perf_daily.json 2026-08-30~11-20, queries/, 글장부.json 122편, 키워드은행.json 179개, 주소맞춤.json) · 주간기획/혜택_2026-11-23/(01b_성적표.md·02a_다시볼후보.md·06_확정_장부.json·09_기획표저장.md·01_실적분석_1119판.md) · docs/혜택주머니/실적학습.md · docs/혜택주머니/시즌달력_월별/(01~03월 빈 틀, 12·1월 줄).
+- 안 한 것: articles·queue 변경 0(해시 전후 같음), 워드프레스·perf_cache.json 변경 0(--skip-app-cache), 이미지 API 0회. 01_실적분석.md 는 새 형식으로 다시 만듦(옛 판은 _1119판).
+- 할 일: /hyetaek-weekly 11/30 시작 가능(1단계가 서치콘솔을 새로 받아 일별 자료를 이어 쌓음). 기획지침 파일은 안 고침(규칙 제안은 실적학습.md 3주 연속 뒤).
+
 ## 완료 (2026-11-23 radar 링크 발급 준비)
 - 새 도구 tools/radar_issue_links.py(커밋 d588726): 계정 1020008901769280 은 스크립트 안에서만, 기본 dry-run, --execute 일 때만 발급, 최대 20개, 발급 직전 화면 채널 번호 확인, 이 채널 옛 링크만 재사용, links.json 백업 후 쓰기. issue_links.py 변경 0.
 - 시험: 49개 dry-run 전부 '새로 발급' 대상, 화면 채널 번호 읽기 성공, naver_tips 계정 997658… 그대로. 결과 pipeline/stage_radarlinks_run/20261123/test.md. 실제 발급 0건.

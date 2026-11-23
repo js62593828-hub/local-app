@@ -12,6 +12,8 @@
   6 articles.json 의 그 글에 lt_plan = {scheduled_at, category, tag} (새 칸만 추가)
   7 결과 표: 순서 / 시각 / 키워드 / 단계별 성공·실패 / 최종본 주소
 이미 발행된 글(platform_post_id.wordpress 있음)은 건너뛴다.
+이미 앱에 다 들어간 글(같은 주·같은 키워드의 대기열 항목이 있고 원고·메타·최종본·예약 정보가 모두 있음)도 건너뛴다 → 다시 돌려도 중복 없음(--force 로 끄기).
+--apply 가 끝나면 그 주 글을 글 장부(글장부.json)에 더하고 09_기획표저장.md 를 만든다(실제 데이터일 때만).
 
 06_확정.json 형식:
 {"week": "2026-11-23",
@@ -84,6 +86,7 @@ def main():
     ap.add_argument("--apply", action="store_true", help="실제로 앱에 넣는다(없으면 미리보기)")
     ap.add_argument("--only", default="", help="이 순서 번호만 처리(예: 1,3)")
     ap.add_argument("--skip-images", action="store_true", help="이미지 생성 단계를 건너뜀(이미 만든 글 다시 돌릴 때)")
+    ap.add_argument("--force", action="store_true", help="이미 앱에 다 들어간 글도 건너뛰지 않고 다시 처리한다")
     ap.add_argument("--data-dir", default="", help="시험용: 큐·글 복사본이 있는 폴더")
     ap.add_argument("--mock-images", action="store_true", help="시험용: 이미지를 가짜(비용 없음)로")
     a = ap.parse_args()
@@ -138,11 +141,16 @@ def main():
                 warns.append("메타데이터에 '카테고리 제안' 이 없음")
             elif memo["category"] != p.get("category"):
                 warns.append(f"메타 카테고리 제안('{memo['category']}')과 확정표 카테고리('{p.get('category')}')가 다름")
-        if not published:
-            total_body += n_body
+        already = bool(
+            not published and not a.force and q and q.get("week") == week and q.get("keyword") == p.get("keyword")
+            and art.get("parse_ok") and (art.get("platform_raw") or {}).get("wordpress")
+            and (art.get("platform_metadata") or {}).get("wordpress") and (art.get("platform_final") or {}).get("wordpress")
+            and (art.get("lt_plan") or {}).get("scheduled_at"))
         todo = []
         if published:
             todo.append("이미 발행된 글 — 건너뜀")
+        elif already:
+            todo.append("이미 앱에 다 들어간 글(같은 주·같은 키워드·원고 있음) — 건너뜀")
         else:
             if p.get("action") == "approve":
                 todo.append("1 키워드: " + ("이미 승인 — 그대로" if (q or {}).get("approved") else "승인으로 바꿈"))
@@ -150,11 +158,12 @@ def main():
                 todo.append("1 키워드: " + ("대기열에 이미 있음 — 승인만 확인" if q else "직접 추가(대표/세부 · confirm_dup=1)"))
             todo += ["2 원고 A 붙여넣기 + B 메타데이터 저장", f"3 이미지 일괄 생성(표지 1 + 본문 {n_body}장)", "4 최종본 만들기",
                      f"5 예약 정보 저장 lt_plan = {p.get('slot')} · {p.get('category')} · 태그 '{p.get('cluster_seed')}'"]
-        plan.append({"p": p, "aid": aid, "errs": errs, "warns": warns, "A": A, "B": B, "published": published, "todo": todo, "n_body": n_body})
+        plan.append({"p": p, "aid": aid, "errs": errs, "warns": warns, "A": A, "B": B, "published": published, "already": already, "todo": todo, "n_body": n_body})
 
+    total_body = sum(it["n_body"] for it in plan if not it["published"] and not it["already"])
     for it in plan:
         p = it["p"]
-        flag = "✗ 문제" if it["errs"] else ("· 건너뜀" if it["published"] else "✓")
+        flag = "✗ 문제" if it["errs"] else ("· 건너뜀" if (it["published"] or it["already"]) else "✓")
         print(f"\n{p.get('order')}. {p.get('slot')} {p.get('keyword')} ({p.get('role')}) [{flag}]")
         for t in it["todo"]:
             print("   -", t)
@@ -162,7 +171,7 @@ def main():
             print("   ✗", e)
         for w in it["warns"]:
             print("   ⚠", w)
-    n_run = sum(1 for it in plan if not it["published"] and not it["errs"])
+    n_run = sum(1 for it in plan if not it["published"] and not it["already"] and not it["errs"])
     cost = n_run * COST_COVER_WON + total_body * COST_BODY_WON
     print(f"\n이미지: 넣을 글 {n_run}편 · 표지 {n_run}장 + 본문 약 {total_body}장 = 약 {n_run + total_body}장 · 예상 비용 어림 {cost:,}원"
           f"(표지 장당 약 {COST_COVER_WON}원, 본문 장당 약 {COST_BODY_WON}원 · 실제는 달라질 수 있음){' [가짜 이미지 모드: 비용 0]' if a.mock_images else ''}")
@@ -188,6 +197,11 @@ def main():
         results.append(row)
         if it["published"]:
             row["note"] = "이미 발행됨 — 건너뜀"
+            continue
+        if it["already"]:
+            row["steps"] = {s_: "이미" for s_ in STEPS}
+            row["note"] = "이미 앱에 다 들어간 글 — 건너뜀"
+            row["final_url"] = f"{BASE_URL}/article/{aid}/final/wordpress"
             continue
         if it["errs"]:
             row["note"] = "점검 문제로 건너뜀: " + "; ".join(it["errs"])
@@ -267,11 +281,27 @@ def main():
     table = "\n".join(lines)
     print("\n" + table)
     ok = sum(1 for r in results if r["steps"]["예약저장"] == "성공")
-    print(f"\n성공 {ok}편 / 전체 {len(results)}편")
-    out = os.path.join(wdir, "07_앱입력결과.md")
+    skipped = sum(1 for r in results if r["steps"]["예약저장"] == "이미")
+    print(f"\n성공 {ok}편 · 이미 들어 있어 건너뜀 {skipped}편 / 전체 {len(results)}편")
+    out = os.path.join(a.data_dir or wdir, "07_앱입력결과.md")  # 시험용 데이터 폴더면 결과표도 그 안에
     with open(out, "w", encoding="utf-8") as f:
         f.write(f"# 07 앱 입력 결과 ({datetime.now():%Y-%m-%d %H:%M})\n\n{table}\n")
     print("저장:", out)
+    # 8차: 끝나면 그 주 글을 장부에 더하고 기획표 저장(09)을 만든다. 실패해도 앱 입력 결과는 그대로(메시지만).
+    try:
+        import lt_ledger
+        lpath = os.path.join(a.data_dir, "글장부.json") if a.data_dir else None  # 시험용 데이터 폴더면 장부도 그 안에
+        led, n_led = lt_ledger.update_ledger(app, {week}, lpath)
+        print(f"글 장부에 더함: {n_led}편 → {lpath or lt_ledger.D.LEDGER_PATH}")
+        if not a.data_dir:
+            import subprocess
+            import sys
+            r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lt_save_plan.py"), "--week", week],
+                               capture_output=True, text=True, encoding="utf-8", errors="replace")
+            out_txt = (r.stdout or r.stderr).strip()
+            print(out_txt.splitlines()[-1] if out_txt else "기획표 저장 실행됨")
+    except Exception as e:  # noqa: BLE001
+        print(f"※ 장부·기획표 저장 단계에서 오류(앱 입력 결과에는 영향 없음): {type(e).__name__}: {e}"[:300])
 
 
 if __name__ == "__main__":
