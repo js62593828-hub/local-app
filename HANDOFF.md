@@ -1,3 +1,8 @@
+## 진행 중 (2026-11-23 N살림노트 네이버 올리기 편하게: 업로드 폴더·상품 블록·주소 채우기·정보 줄)
+- 단계: 0 조사 끝 → 기준 해시(다른 채널 최종본) 만드는 중. 다음: 1~5단계 코드(salim_images.py·salim_upload.py 새 파일 + app.py·shop_formatter 한 줄 옵션).
+- 지킬 것: radar_naver·wp_tips·longterm_wp·shop_naver 출력 그대로, articles*·content_queue* 쓰기 0, 결과·시안 pipeline/salim_upload_run/.
+- 끊기면: 이 줄 읽고 '이어서 해' 하면 다음 단계부터.
+
 ## 완료 (2026-11-23 11/30 주 21편 실제 대기열 투입)
 - keyword 3개 띄어쓰기만 고침(미니가습기·노트북거치대·USB허브, 전 판 pipeline/stage_plan1130_run/20261123/_before_20261123c/) 후 push_plan --apply: content_queue_radar_naver.json 94→115, run_id kw_radar_naver_20261130_v2, 백업 backup/content_queue_radar_naver.backup_before_push_plan_20261123_092911.json, 되돌리기 python tools/push_plan.py --undo. 안 한 것: approved.json·링크 발급·글쓰기·발행.
 
