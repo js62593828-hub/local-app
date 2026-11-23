@@ -463,6 +463,54 @@ def group_by_cluster(items: list[dict]) -> list[dict]:
     return sections
 
 
+def _plan_file_order(plan_file: str, cache: dict) -> dict:
+    """plan 파일(pipeline/final/plan_*.json)의 plans 목록 순서: {키워드: 몇 번째}. 읽기만, 파일이 없으면 빈 값."""
+    if plan_file not in cache:
+        order: dict = {}
+        try:
+            path = plan_file if os.path.isabs(plan_file) else os.path.join(os.path.dirname(os.path.abspath(__file__)), plan_file)
+            with open(path, encoding="utf-8") as f:
+                for n, p in enumerate((json.load(f) or {}).get("plans") or []):
+                    order.setdefault(p.get("keyword"), n)
+        except Exception:
+            order = {}
+        cache[plan_file] = order
+    return cache[plan_file]
+
+
+def _sort_by_publish_date(items: list[dict]) -> list[dict]:
+    """N살림노트 승인 화면용 정렬(표시만): ① plan.publish_date 오름차순 ② 같은 날은 plan 파일 순서 ③ 발행일 없는 글은 맨 아래(지금 순서 유지)."""
+    cache: dict = {}
+
+    def key(pair):
+        n, it = pair
+        pl = it.get("plan") if isinstance(it.get("plan"), dict) else {}
+        date = str(pl.get("publish_date") or "")
+        if not date:
+            return (1, "", 0, n)
+        idx = _plan_file_order(str(pl.get("plan_file") or ""), cache).get(it.get("keyword"), 10**6) if pl.get("plan_file") else 10**6
+        return (0, date, idx, n)
+
+    return [it for _, it in sorted(enumerate(items), key=key)]
+
+
+def group_by_cluster_by_seed(items: list[dict]) -> list[dict]:
+    """같은 cluster_seed 를 (떨어져 있어도) 한 묶음으로. 묶음 자리는 그 안 첫 글(이미 정렬됨 = 가장 이른 발행일) 기준. seed 없는 글은 각자 한 묶음."""
+    sections: list[dict] = []
+    by_seed: dict = {}
+    for item in items:
+        seed = item.get("cluster_seed")
+        if seed is None or seed not in by_seed:
+            sec = {"seed": seed, "entries": []}
+            sections.append(sec)
+            if seed is not None:
+                by_seed[seed] = sec
+        else:
+            sec = by_seed[seed]
+        sec["entries"].append(item)
+    return sections
+
+
 # ---------- 비슷한 키워드·글 확인 (조회 전용 — 큐/글 데이터는 건드리지 않습니다) ----------
 
 _SIM_STATE_RANK = {"published": 3, "scheduled": 2, "generated": 1, "empty": 0}
@@ -876,7 +924,12 @@ def index():
                 item["platform_status"][p] = "empty"
 
     approved_count = sum(1 for i in week_items if i["approved"])
-    sections = group_by_cluster(week_items)
+    if active_channel_id == "naver_tips":
+        # 화면 표시 순서만 (N살림노트 전용): 발행일 → 같은 날은 plan 파일 순서. 파일은 바꾸지 않습니다.
+        week_items = _sort_by_publish_date(week_items)
+        sections = group_by_cluster_by_seed(week_items)
+    else:
+        sections = group_by_cluster(week_items)
     # 화면 표시 순서만: 승인된 항목이 하나라도 있는 묶음을 앞으로 (sorted는 안정 정렬이라 각 그룹 안 점수 순서는 유지)
     sections = sorted(sections, key=lambda s: not any(e.get("approved") for e in s["entries"]))
     sim = get_similarity(queue, articles_data, week=current_week)

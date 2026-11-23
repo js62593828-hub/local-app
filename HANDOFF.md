@@ -1,3 +1,7 @@
+## 완료 (2026-11-23 TK-X1E): N살림노트 승인 화면 발행일순 정렬 [앱 수정]
+- 바뀐 파일: app.py 만(index() 의 naver_tips 분기 + 함수 3개: _plan_file_order·_sort_by_publish_date·group_by_cluster_by_seed). 발행 시간 값은 대기열·앱 어디에도 비어 있어(platform_scheduled_time 전부 None) 같은 날은 plan 파일 순서로 정렬. 대기열·articles·plan 파일 안 건드림. 다른 3채널 화면 순서 전후 동일 확인, reviewer 통과.
+- 확인 명령: run.bat → N살림노트 채널 → 주 선택. (11/16 주도 날짜순으로 바뀜)
+
 ## 완료 (2026-11-23 TK-X1E): 11/30 주 N살림노트 앱 넣기 (제품 링크 없이)
 - categories_20261130.json 빈 값 4개 채움(백업 categories_20261130_bak.json). 대기열 168 → 191(+23: 승인 19·예비 4). 백업 backup\content_queue_naver_tips.backup_before_push_plan_20261123_204523.json, 되돌리기 python tools/push_plan.py --undo.
 - 명령: python tools/push_plan.py --plan pipeline/final/plan_20261130.json --categories pipeline/final/categories_20261130.json (미리 보기) → 같은 명령에 --apply. products 파일 없음이 정상(제품 링크 23편 없음).
