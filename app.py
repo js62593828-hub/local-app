@@ -45,6 +45,8 @@ import wp_publisher
 import radar_board
 import radar_cards
 import radar_screen
+import salim_upload
+import salim_urlfill
 import shop_wp_resync
 import source_capture
 import v4_board
@@ -4962,6 +4964,57 @@ def radar_open_upload_folder(article_id):
     return redirect(url_for("view_final", article_id=article_id, platform="naver", upload_msg=msg))
 
 
+# ---------- N살림노트(naver_tips) 업로드 폴더 열기 · 발행 주소 확인/저장 ----------
+@app.route("/article/<article_id>/open-naver-upload", methods=["POST"])
+def open_naver_upload(article_id):
+    """최종본 화면 [업로드 폴더 열기]: 그 글 사진 폴더 안 naver_upload 를 윈도우 탐색기로 연다. static 안 폴더만 열고, 폴더가 없으면 안내만."""
+    if get_active_channel_id() != "naver_tips":
+        return redirect(url_for("index"))
+    article = get_article(article_id)
+    target, msg = salim_upload.open_target(article)
+    if target and not hasattr(os, "startfile"):
+        msg = "이 컴퓨터에서는 폴더를 열 수 없어요: " + target
+    elif target:
+        try:
+            os.startfile(target)
+        except OSError as e:
+            msg = "폴더를 열지 못했어요: " + str(e)
+    return redirect(url_for("view_final", article_id=article_id, platform="naver", nt_msg=msg))
+
+
+@app.route("/salim-url-check", methods=["POST"])
+def salim_url_check():
+    """N살림노트 [발행 주소 확인]: RSS(beafather)를 1회 읽어 표만 보여 준다(아무것도 저장하지 않음)."""
+    if get_active_channel_id() != "naver_tips":
+        return redirect(url_for("index"))
+    back = url_for("status") if request.form.get("back") == "status" else url_for("index")
+    rss = salim_urlfill.fetch_rss()
+    rows = []
+    if rss is not None:
+        queue, articles = _read_channel_data("naver_tips")
+        rows = salim_urlfill.plan(rss, queue, articles)
+    return render_template("salim_url_autofill.html", rss_failed=rss is None, rows=rows, saved=None, back_url=back)
+
+
+@app.route("/salim-url-save", methods=["POST"])
+def salim_url_save():
+    """[채움만 저장]: 화면 값을 믿지 않고 RSS 를 다시 읽어 계산해, 미리 보기와 같은 '채움' 행만 저장(저장 전 백업)."""
+    if get_active_channel_id() != "naver_tips":
+        return redirect(url_for("index"))
+    back = url_for("status") if request.form.get("back") == "status" else url_for("index")
+    rss = salim_urlfill.fetch_rss()
+    if rss is None:
+        return render_template("salim_url_autofill.html", rss_failed=True, rows=[], saved=None, back_url=back)
+    approved = set(request.form.getlist("pair"))
+    queue, articles = _read_channel_data("naver_tips")
+    rows = salim_urlfill.plan(rss, queue, articles)
+    for r in rows:
+        if r["result"] == "채움" and f"{r['id']}|{r['found']}" not in approved:
+            r["result"], r["ref"], r["found"] = "못 찾음", "미리 보기와 달라져 채우지 않음(다시 눌러 확인해 주세요)", ""
+    count, backup = salim_urlfill.apply(rows, CHANNELS["naver_tips"]["articles_file"], _read_text_retry, _write_json_atomic)
+    return render_template("salim_url_autofill.html", rss_failed=False, rows=rows, saved={"count": count, "backup": os.path.basename(backup)}, back_url=back)
+
+
 @app.route("/article/<article_id>/radar/desk/cover", methods=["POST"])
 def radar_desk_cover(article_id):
     ctx = _radar_desk_context(article_id)
@@ -5375,6 +5428,7 @@ def generate_final(article_id):
     # 워드프레스 일반도 같은 방식으로 자기 플랫폼(워드프레스)만 만듭니다.
     final_platforms = get_active_platforms() if get_active_channel_id() in MANUAL_KEYWORD_CHANNELS else PLATFORMS
     radar_final_fail = ""  # N데스크피커: 최종본을 못 만든 이유(조용히 넘어가지 않고 화면에 알림)
+    salim_ok = False  # N살림노트: 번호 붙은 업로드 폴더(naver_upload)를 새 방식으로 만들었는지
     for p in final_platforms:
         raw = article["platform_raw"].get(p, "")
         title = article["platform_title"].get(p, "")
@@ -5480,6 +5534,16 @@ def generate_final(article_id):
                     if p == "naver"
                     else None
                 )
+            # N살림노트(naver_tips) 전용: 링크가 있는 상품 섹션은 소제목 → 대표 사진 → 별점 상자 → 가격보기 배너 → 링크 줄 → 본문 순서로 만듭니다.
+            # 다른 채널은 salim_blocks=None 이라 예전 그대로입니다.
+            salim_plan, salim_blocks = None, None
+            if is_naver_tips and p == "naver" and is_shop_post:
+                try:
+                    salim_plan = salim_upload.plan_products(raw)
+                    salim_blocks = salim_upload.blocks_for(salim_plan, bool(salim_upload.ensure_banner()))
+                except Exception as e:  # noqa: BLE001 — 상품 자료를 못 읽어도 최종본은 예전 방식으로 계속 만듭니다
+                    print(f"[naver_tips] 상품 블록 준비 실패: {e}")
+                    salim_plan, salim_blocks = None, None
             build_raw = raw
             if is_wp_tips and is_shop_post:
                 build_raw = shop_formatter.SHOP_LINE_RE.sub("", raw)  # 숍글에는 {{SHOP:}} 짝 글 연결 줄을 쓰지 않음(남은 줄은 지움)
@@ -5508,7 +5572,18 @@ def generate_final(article_id):
                 strip_link_placeholders=(get_active_channel_id() == "shop_naver" or (is_naver_tips and is_shop_post)),
                 # 싼세계만: 사용자가 추가한 외부 이미지를 지정한 소제목 섹션 끝에 넣음 (없으면 None = 예전 그대로)
                 external_images=(_external_images(article) or None) if (is_wp_tips and p == "wordpress") else None,
+                salim_blocks=salim_blocks,
             )
+            if is_naver_tips and p == "naver":
+                # 사진 자리(표지·본문·상품 사진·별점·배너)를 번호 붙은 "📷 NN_이름.jpg" 한 줄로 바꾸고 naver_upload 폴더를 만듭니다.
+                try:
+                    final, salim_info = salim_upload.finalize(final, article, salim_plan or [])
+                    final = salim_upload.append_marks(final, salim_info, len(salim_plan or []))
+                    salim_ok = not salim_info.get("error")
+                except Exception as e:  # noqa: BLE001
+                    print(f"[naver_tips] 업로드 폴더 만들기 실패: {e}")
+                    final = re.sub(r"<p>\{\{SM[PSB]:\d+\}\}</p>", "", final)
+                    final += salim_upload.WARN_MARK % ("업로드 폴더 만들기 실패 " + type(e).__name__)
             article["platform_final"][p] = final
             continue
 
@@ -5558,7 +5633,7 @@ def generate_final(article_id):
             article["platform_final"][p] = built
             _LINK_REPLACED[(get_active_channel_id(), article_id, p)] = changes
 
-    if get_active_channel_id() == "naver_tips":
+    if get_active_channel_id() == "naver_tips" and not salim_ok:  # 새 업로드 폴더를 만들었으면 11/22 번호 사본은 더 만들지·지우지 않음
         try:
             _naver_write_numbered_copies(article)
         except Exception as e:  # 번호 사본을 못 만들어도 최종본 생성은 그대로 진행
@@ -7299,6 +7374,16 @@ def view_final(article_id, platform):
         radar_banner_missing = radar_screen.banner_missing_from(content)
         radar_badge_missing = radar_screen.badge_missing_from(content)
 
+    # N살림노트(naver_tips) 최종본 화면: 📷 줄 자리에 naver_upload 안 같은 사진을 보여 주고, 맨 위 정보 줄·노란 경고를 만듭니다(읽기만, 저장 안 함).
+    nt_info, nt_warns, nt_products, nt_downloads = None, [], None, None
+    if get_active_channel_id() == "naver_tips" and platform == "naver":
+        _nt_base = salim_upload.photo_dir(article)
+        if "📷" in content:
+            radar_screen_content = salim_upload.screen_html(content, _nt_base)
+            nt_downloads = salim_upload.listing(_nt_base)
+        nt_info = salim_upload.info_line(item, article)
+        nt_warns, nt_products = salim_upload.marks_from(content)
+
     # 혜택주머니(longterm_wp) 자동 입력 글: 발행 칸(API·브라우저)에 예약 시각·카테고리·태그를 미리 채웁니다. lt_plan 이 없으면 None(화면 그대로).
     lt_plan_view = _lt_plan_view(article) if (platform == "wordpress" and active_channel == "longterm_wp") else None
     # 싼세계(wp_tips): _예약표.md 의 이 글 날짜·시각을 '예약 발행' 입력칸에만 미리 채웁니다(읽기만 — 저장·발행 안 함).
@@ -7381,7 +7466,11 @@ def view_final(article_id, platform):
         nt_category=(
             (metadata_parser.parse_metadata_memo(article["platform_metadata"].get("naver") or "").get("category") or "").strip() or "메모에 없음"
         ) if (get_active_channel_id() == "naver_tips" and platform == "naver") else None,
-        body_downloads=_naver_body_downloads(article) if (get_active_channel_id() in NV75_CHANNELS and platform == "naver") else None,
+        body_downloads=(nt_downloads or _naver_body_downloads(article)) if (get_active_channel_id() in NV75_CHANNELS and platform == "naver") else None,
+        nt_info=nt_info,
+        nt_warns=nt_warns,
+        nt_products=nt_products,
+        nt_msg=request.args.get("nt_msg", ""),
         radar_sources=(article.get("radar_sources") or []) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
         radar_table_skipped=radar_screen.table_skipped_from(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,
         radar_photo_count=radar_screen.photos_count_from(content) if (get_active_channel_id() in RADAR_CHANNELS and platform == "naver") else None,

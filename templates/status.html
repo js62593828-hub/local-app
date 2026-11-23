@@ -59,6 +59,13 @@
     <span style="color:#888; font-size:12.5px; margin-left:8px;">예약 글은 공개된 뒤에 하루 한 번 누르세요 (미리보기 → 확인 후 저장)</span>
   </form>
   {% endif %}
+  {% if active_channel_id == 'naver_tips' %}
+  <form method="POST" action="/salim-url-check" style="margin-bottom:14px;">
+    <input type="hidden" name="back" value="status">
+    <button type="submit" style="background:#262626; color:#ddd; border:1px solid #3a3a3a; padding:8px 16px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:13.5px;" title="blog.naver.com/beafather 글 목록(RSS)을 읽어, 주소 칸이 빈 글(11/16 이후)에 채울 주소를 표로만 보여 줍니다. 저장은 표 아래 버튼을 눌러야만 돼요">🔎 발행 주소 확인</button>
+    <span style="color:#888; font-size:12.5px; margin-left:8px;">미리 보기만 해요. 저장은 표 아래 [채움만 저장]을 눌러야 돼요</span>
+  </form>
+  {% endif -%}
   {% if active_channel_id in ('naver_tips', 'shop_naver') %}
   <form method="POST" action="/naver-url-autofill" style="margin-bottom:14px;" onsubmit="return confirm('네이버 일반·네이버 SHOP 두 채널에서, 이미 공개된 글 중 글 주소가 없는 글의 발행 주소를 네이버 RSS에서 찾아 채웁니다. 계속할까요?');">
     <input type="hidden" name="back" value="status">

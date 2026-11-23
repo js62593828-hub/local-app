@@ -318,6 +318,11 @@
     <button class="btn secondary" type="submit" style="margin-left:0;" title="공개된 guardradar 글의 주소를 RSS 에서 찾아 보여 줍니다. 목록을 확인하고 저장 버튼을 눌러야만 저장돼요">🔗 글 주소 자동 채우기</button>
   </form>
   {% endif %}
+  {% if active_channel_id == 'naver_tips' %}
+  <form method="POST" action="/salim-url-check" style="display:inline-block; margin-left:8px;">
+    <button class="btn secondary" type="submit" style="margin-left:0;" title="blog.naver.com/beafather 글 목록(RSS)을 읽어, 주소 칸이 빈 글(11/16 이후)에 채울 주소를 표로만 보여 줍니다. 저장은 표 아래 버튼을 눌러야만 돼요">🔎 발행 주소 확인</button>
+  </form>
+  {% endif -%}
   {% if active_channel_id in ('naver_tips', 'shop_naver') %}
   <form method="POST" action="/naver-url-autofill" style="display:inline-block; margin-left:8px;" onsubmit="return confirm('네이버 일반·네이버 SHOP 두 채널에서, 이미 공개된 글 중 글 주소가 없는 글의 발행 주소를 네이버 RSS에서 찾아 채웁니다. 계속할까요?');">
     <button class="btn secondary" type="submit" style="margin-left:0;" title="예약 발행으로 블로그 첫 화면 주소가 저장된 글을, 공개된 뒤 RSS에서 실제 글 주소를 찾아 채웁니다">🔗 네이버 글 주소 자동 채우기</button>

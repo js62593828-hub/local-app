@@ -997,9 +997,11 @@ def _render_body_generic(body: str, table: list | tuple | None, platform: str) -
     return "".join(parts)
 
 
-def _product_card_html(section: dict, image_tag: str, platform: str, drop_empty_cta: bool = False) -> str:
+def _product_card_html(section: dict, image_tag: str, platform: str, drop_empty_cta: bool = False, head_html: str | None = None) -> str:
     """drop_empty_cta: 네이버 SHOP 전용. True면 "링크:" 값이 비었거나 [구매링크] 같은 자리표시자일 때(classify_link_value == "empty")
-    네이버 "→ 오늘 가격 보기" 링크를 만들지 않습니다(링크는 사용자가 에디터에서 직접 넣음). 워드프레스 카드에는 영향 없음."""
+    네이버 "→ 오늘 가격 보기" 링크를 만들지 않습니다(링크는 사용자가 에디터에서 직접 넣음). 워드프레스 카드에는 영향 없음.
+    head_html: N살림노트(naver_tips) 전용, 네이버 출력에만 적용. 주면 소제목 바로 아래에 이 HTML(대표 사진·별점 상자·배너·링크 줄)을 넣고
+    섹션 끝의 "→ 오늘 가격 보기" 링크는 만들지 않습니다. None(기본)이면 예전 그대로입니다."""
     link_href = section["link"] or "#"
 
     if platform == "naver":
@@ -1017,6 +1019,8 @@ def _product_card_html(section: dict, image_tag: str, platform: str, drop_empty_
             f'<a href="{link_href}" target="_blank" rel="nofollow sponsored noopener" '
             f'style="color:#03c75a; font-weight:700; text-decoration:underline;">{CTA_BUTTON_TEXT["naver"]}</a>'
         )
+        if head_html is not None:  # N살림노트 새 순서: 소제목 → head_html(사진·별점·배너·링크 줄) → 본문 (끝 링크 없음)
+            return heading_line + head_html + price_line + body_text + NAVER_GAP + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" + NAVER_GAP
         cta_part = "" if drop_empty_cta and classify_link_value(section["link"]) == "empty" else cta + NAVER_GAP
         return (
             f"{heading_line}"
@@ -2023,6 +2027,7 @@ def _build_shop_html(
     external_images: list | None = None,
     body_image_seed: str = "",
     split_intro: bool = False,
+    salim_blocks: list | None = None,
 ) -> str:
     """
     숍 채널용(그리고 이 레이아웃을 재사용하는 "네이버 일반"·"워드프레스 일반" 정보 글용) 최종 HTML을 만듭니다.
@@ -2099,8 +2104,9 @@ def _build_shop_html(
                 f'style="width:100%; max-width:560px; border-radius:12px; display:block; margin:0 auto 12px;">'
                 for img in images_for_this
             )
+            _head = salim_blocks[product_i] if (salim_blocks is not None and product_i < len(salim_blocks)) else None  # N살림노트 전용(기본 None)
             product_i += 1
-            body_parts.append(_product_card_html(section, image_tag, platform, drop_empty_cta=strip_link_placeholders))
+            body_parts.append(_product_card_html(section, image_tag, platform, drop_empty_cta=strip_link_placeholders, head_html=_head))
         elif slots and platform == "naver":
             body_parts.append(_plain_section_html(section, platform, {
                 s: "".join(_body_image_html_naver(body_images[k]) for k in slots[s]) for s in ("top", "after_first") if slots.get(s)
@@ -2158,6 +2164,7 @@ def build_shop_html(
     external_images: list | None = None,
     body_image_seed: str = "",
     split_intro: bool = False,
+    salim_blocks: list | None = None,
 ) -> str:
     """_build_shop_html(위 설명 참고)에 "내 숍 추천 글" 연결({{SHOP:키워드|문구}}) 처리를 더한 진입점입니다.
     shop_links: {키워드: {"title","url","rule"} 또는 None(못 찾음)} — 네이버 일반·워드프레스 일반이 넘깁니다.
@@ -2167,7 +2174,7 @@ def build_shop_html(
         bottom_images=bottom_images, related_posts=related_posts, disclosure=disclosure, body_images=body_images,
         product_link_prefix=product_link_prefix, wp_cta_banner_url=wp_cta_banner_url,
         strip_link_placeholders=strip_link_placeholders, external_images=external_images, body_image_seed=body_image_seed,
-        split_intro=split_intro,
+        split_intro=split_intro, salim_blocks=salim_blocks,
     )
     if shop_links is None:
         return _build_shop_html(**kwargs)
