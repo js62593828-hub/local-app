@@ -1,3 +1,6 @@
+## 완료 (2026-11-23 11/30 주 21편 실제 대기열 투입)
+- keyword 3개 띄어쓰기만 고침(미니가습기·노트북거치대·USB허브, 전 판 pipeline/stage_plan1130_run/20261123/_before_20261123c/) 후 push_plan --apply: content_queue_radar_naver.json 94→115, run_id kw_radar_naver_20261130_v2, 백업 backup/content_queue_radar_naver.backup_before_push_plan_20261123_092911.json, 되돌리기 python tools/push_plan.py --undo. 안 한 것: approved.json·링크 발급·글쓰기·발행.
+
 ## 완료 (2026-11-23 11/30 주 plan 2차 고침 + 대기열·제품 체크 연결 준비)
 - 결과 pipeline/stage_plan1130_run/20261123/ (plan.md·plan.json 고친 판, 전 판 _before_20261123b/, connect_test.md). 제목 10개·키워드 3개(A6 의자허리쿠션·B3 벨킨 3in1 충전기·B8 샤오미 스마트 공기청정기 4) 바꿈, B8 제품 샤오미 4 컴팩트+필립스 AC0650 둘 다 판매 중 확인, 다시 검사 전부 O. 새 스크립트 tools/plan1130_fix.py·plan1130_build.py(plan_push.json, run_id kw_radar_naver_20261130_v2, 복사본 시험: 94→115, 실제 대기열 변화 0)·plan1130_cand.py(pipeline/candidates_run/20261130_radar_naver_plan/ 49개·사진 49장, 🧾 제품 체크 화면에 뜸).
 - 안 한 것: push_plan --apply(실제 대기열), 확정 저장(approved.json), 링크 발급. 앱 대기열·장부·articles 변경 0.
