@@ -1,3 +1,6 @@
+## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 연결 --apply (11편, 대기열 191 그대로)
+- 명령: python tools/push_plan.py --products pipeline/final/products_20261130.json --update-products --apply. 백업 backup\content_queue_naver_tips.backup_before_update_products_20261123_223634.json. 옷솔·세탁망·실리콘 용기 3곳은 사용자 결정으로 그대로 사용.
+
 ## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 링크·자료 [발급+수집+연결 미리 보기까지, --apply 안 함]
 - 칸 연결표 pipeline/candidates_run/20261130_naver_tips/salim_slots.json(11편 20칸). 링크 발급 19·기존 재사용 1·실패 0(links.json, 새 폴더라 옛 파일 없어 백업 없음). 자료·사진 20/20 성공.
 - 실행 명령 전체: python tools/issue_links.py --run pipeline/candidates_run/20261130_naver_tips (미리 보기) → 같은 명령에 --execute / python -I tools/collect_research.py --run 20261130_naver_tips / python tools/push_plan.py --plan pipeline/final/plan_20261130.json --init-products pipeline/final/products_20261130.json / python tools/push_plan.py --products pipeline/final/products_20261130.json --products-txt pipeline/final/products_20261130.txt / python tools/push_plan.py --products pipeline/final/products_20261130.json --update-products (미리 보기: 바뀔 글 11편, 경고 없음)
