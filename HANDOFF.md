@@ -1,6 +1,6 @@
-## 진행 중 (2026-11-23 TK-X1E): 11/30 주 앱 넣기 — 0단계에서 멈춤, 사용자 답 대기
-- 멈춘 이유: pipeline/final/products_20261130.json 이 없음(plan·categories 는 오늘 20:05 로 있음). 계획 파일에는 제품 링크가 원래 없어(23편 모두 없음) 없는 채로 넣어도 되는지 사용자 확인 필요. categories 빈 값 4개(베란다결로·지역난방공기빼기·보일러물보충·차량김서림)는 아직 안 채움.
-- 이어갈 명령(확인 후): categories_20261130.json → categories_20261130_bak.json 복사, 빈 값 4개 채움 → python tools/push_plan.py --plan pipeline/final/plan_20261130.json --categories pipeline/final/categories_20261130.json --products pipeline/final/products_20261130.json (미리 보기, 승인 19·예비 4·경고 0·미정 0 확인 후 같은 명령에 --apply)
+## 완료 (2026-11-23 TK-X1E): 11/30 주 N살림노트 앱 넣기 (제품 링크 없이)
+- categories_20261130.json 빈 값 4개 채움(백업 categories_20261130_bak.json). 대기열 168 → 191(+23: 승인 19·예비 4). 백업 backup\content_queue_naver_tips.backup_before_push_plan_20261123_204523.json, 되돌리기 python tools/push_plan.py --undo.
+- 명령: python tools/push_plan.py --plan pipeline/final/plan_20261130.json --categories pipeline/final/categories_20261130.json (미리 보기) → 같은 명령에 --apply. products 파일 없음이 정상(제품 링크 23편 없음).
 
 ## 완료 (2026-11-23 TK-X1E): N살림노트 원고 규칙 교체(V5.2·V2.2 반영)
 - docs/살림노트 의 원고지침_네이버_AB·C·글뼈대규칙을 Claude outputs/살림노트_20261123 판으로 교체, 옛 판은 docs/archive/2026-11/N살림노트/ 에 _V5.1·_V2.1 로 보관. salim-writer.md 와 agent_salim-writer.md 30줄의 분량·소제목·굵게·인용구 숫자를 "원고지침의 분량·[읽기 쉽게]·[강조] 블록을 따른다"로 바꿈. 원고작업지시_Claude-Code.md 에는 해당 숫자가 없어 안 고침. 교체 전 커밋 있음.
