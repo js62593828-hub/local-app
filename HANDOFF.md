@@ -1,3 +1,10 @@
+## 진행 중 (2026-11-23 TK-X1E): 11/30 주 앱 넣기 — 0단계에서 멈춤, 사용자 답 대기
+- 멈춘 이유: pipeline/final/products_20261130.json 이 없음(plan·categories 는 오늘 20:05 로 있음). 계획 파일에는 제품 링크가 원래 없어(23편 모두 없음) 없는 채로 넣어도 되는지 사용자 확인 필요. categories 빈 값 4개(베란다결로·지역난방공기빼기·보일러물보충·차량김서림)는 아직 안 채움.
+- 이어갈 명령(확인 후): categories_20261130.json → categories_20261130_bak.json 복사, 빈 값 4개 채움 → python tools/push_plan.py --plan pipeline/final/plan_20261130.json --categories pipeline/final/categories_20261130.json --products pipeline/final/products_20261130.json (미리 보기, 승인 19·예비 4·경고 0·미정 0 확인 후 같은 명령에 --apply)
+
+## 완료 (2026-11-23 TK-X1E): N살림노트 원고 규칙 교체(V5.2·V2.2 반영)
+- docs/살림노트 의 원고지침_네이버_AB·C·글뼈대규칙을 Claude outputs/살림노트_20261123 판으로 교체, 옛 판은 docs/archive/2026-11/N살림노트/ 에 _V5.1·_V2.1 로 보관. salim-writer.md 와 agent_salim-writer.md 30줄의 분량·소제목·굵게·인용구 숫자를 "원고지침의 분량·[읽기 쉽게]·[강조] 블록을 따른다"로 바꿈. 원고작업지시_Claude-Code.md 에는 해당 숫자가 없어 안 고침. 교체 전 커밋 있음.
+
 ## 이어갈 것 (2026-11-23 TK-X1E): 11/30 주 3차 확정 끝 — 앱 넣기 미리 보기에서 멈춤 (--apply 금지)
 - 결과: 일정 19(목표 21, 2 부족)·예비 4. 신호 13개 재서 통과 굴보관·롱패딩세탁(+크리스마스 리스는 표시만, 카테고리 미정). 롱패딩세탁은 기존 '패딩세탁'과 중복 판정 → 굴보관 1편만 12/05에, 부족해서 보일러물보충을 예비→12/06 일정으로 올림. 세탁기동파 12/04, 미끄럼방지스티커 12/06, 한파대비·세탁기동파 제품 필요 없음, 베란다결로 5번째 소제목 교체. 카테고리 미정: 베란다결로·지역난방공기빼기·보일러물보충·차량김서림(예비).
 - 신호: pipeline/stage_w1130_run6/must_signals.md (검색광고 13·데이터랩 3, 도구 w1130_signals.py는 scratchpad라 사라짐). 기획 run6: 검색광고 14·블로그 2·Claude 4회 약 $0.08. 손질 파일 pipeline/final/edits_20261130b.json(edits_20261130 복사+추가).
