@@ -1385,6 +1385,7 @@ def main():
     rs.RUN = D
     bt.RUN = D
     bt.TODAY = TODAY
+    rs.TODAY = TODAY   # r1_signals 에 박힌 날짜(2026-11-14)가 데이터랩 요청 끝 날짜를 막던 문제
     bt.TREND_START = WEEK - timedelta(days=364)
     bt.BLOG_LIMIT, bt.TREND_LIMIT = A.blog_limit, A.trend_limit
     if A.finalize:
