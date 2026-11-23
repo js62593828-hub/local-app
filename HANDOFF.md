@@ -1,3 +1,7 @@
+## 진행 중: 날짜 고치기→11/30 주 계획 다시(stage_w1130_run2)→글별 유입경로 수집 (2026-11-23)
+- 1단계 끝(커밋 25eaeff: weekly_plan 에 rs.TODAY 한 줄). 지금 2단계: python tools/weekly_plan.py --week 2026-11-30 --seeds pipeline/final/seeds_20261130.txt --skip pipeline/final/skip_20261130.txt --theme-cap 2 --out pipeline/stage_w1130_run2 (끊기면 같은 명령으로 이어 감).
+- 3단계(유입경로, perf_inbox/2026-11-16/post_referrers.csv)는 2단계 뒤. 확정·앱 넣기·네이버 쓰기 안 함.
+
 ## 완료(조사만): 11/30 주 추세 비율 전부 빔 — 원인 찾음 (2026-11-23)
 - 원인: tools/r1_signals.py 28행 TODAY 가 2026-11-14 로 박혀 있음. weekly_plan 은 bt.TODAY 만 오늘로 바꾸고 rs.TODAY 는 안 바꿔서, 데이터랩을 '11/13 까지'만 요청 → 마지막 주 11/09. 기준 주(11/16)가 없어 비율 None. 데이터랩 응답 자체는 11/16 주까지 정상(직접 호출 3회). 캐시 재사용 아님(--cache-from 안 씀). 11/23 주 실행은 우연히 기준 주가 11/09 라 멀쩡했음.
 - 고칠 안: weekly_plan main 에 rs.TODAY = TODAY 한 줄(r1c.py 도 같은 박힘). 고친 뒤 11/30 주 새 결과 폴더로 다시 돌려야 함. 안 고침.
