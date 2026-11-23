@@ -12,7 +12,9 @@
   6 articles.json 의 그 글에 lt_plan = {scheduled_at, category, tag} (새 칸만 추가)
   7 결과 표: 순서 / 시각 / 키워드 / 단계별 성공·실패 / 최종본 주소
 이미 발행된 글(platform_post_id.wordpress 있음)은 건너뛴다.
-이미 앱에 다 들어간 글(같은 주·같은 키워드의 대기열 항목이 있고 원고·메타·최종본·예약 정보가 모두 있음)도 건너뛴다 → 다시 돌려도 중복 없음(--force 로 끄기).
+이미 앱에 다 들어간 글(같은 주·같은 키워드의 대기열 항목이 있고 원고·메타·표지·본문 이미지·최종본·예약 정보가 모두 있음)도 건너뛴다 → 다시 돌려도 중복 없음(--force 로 끄기).
+글자 쪽은 다 들어갔는데 표지·본문 이미지가 빠진 글은 건너뛰지 않고 그 글만 이미지 단계부터 다시 한다(원고·메타는 건드리지 않음).
+원고 파일을 고친 뒤 새 내용을 넣으려면 --force 가 필요하다(이미 들어간 글은 건너뛰므로).
 --apply 가 끝나면 그 주 글을 글 장부(글장부.json)에 더하고 09_기획표저장.md 를 만든다(실제 데이터일 때만).
 
 06_확정.json 형식:
@@ -141,16 +143,25 @@ def main():
                 warns.append("메타데이터에 '카테고리 제안' 이 없음")
             elif memo["category"] != p.get("category"):
                 warns.append(f"메타 카테고리 제안('{memo['category']}')과 확정표 카테고리('{p.get('category')}')가 다름")
-        already = bool(
+        text_ok = bool(
             not published and not a.force and q and q.get("week") == week and q.get("keyword") == p.get("keyword")
             and art.get("parse_ok") and (art.get("platform_raw") or {}).get("wordpress")
-            and (art.get("platform_metadata") or {}).get("wordpress") and (art.get("platform_final") or {}).get("wordpress")
-            and (art.get("lt_plan") or {}).get("scheduled_at"))
+            and (art.get("platform_metadata") or {}).get("wordpress"))
+        # 표지 1장 + 본문 이미지(필요한 장수 이상)가 다 있어야 '이미지 있음'으로 본다
+        imgs_ok = bool((art.get("covers") or {}).get("wordpress") and len(art.get("body_images") or []) >= max(1, n_body))
+        already = bool(text_ok and imgs_ok and (art.get("platform_final") or {}).get("wordpress")
+                       and (art.get("lt_plan") or {}).get("scheduled_at"))
+        # 글자 쪽은 다 들어갔는데 이미지(표지·본문)가 빠졌거나 모자란 글: 건너뛰지 않고 이미지 단계부터 다시
+        resume = bool(text_ok and not imgs_ok and not a.skip_images)
         todo = []
         if published:
             todo.append("이미 발행된 글 — 건너뜀")
         elif already:
-            todo.append("이미 앱에 다 들어간 글(같은 주·같은 키워드·원고 있음) — 건너뜀")
+            todo.append("이미 앱에 다 들어간 글(원고·메타·표지·본문 이미지·최종본·예약 정보 모두 있음) — 건너뜀. 원고 파일을 고쳤다면 --force 를 써야 새 내용이 들어갑니다")
+        elif resume:
+            todo += ["1~2 원고·메타데이터는 이미 들어 있음 — 건드리지 않음",
+                     f"3 표지·본문 이미지가 빠졌거나 모자람 → 이미지 일괄 생성부터 다시(표지 1 + 본문 {n_body}장)", "4 최종본 만들기",
+                     f"5 예약 정보 저장 lt_plan = {p.get('slot')} · {p.get('category')} · 태그 '{p.get('cluster_seed')}'"]
         else:
             if p.get("action") == "approve":
                 todo.append("1 키워드: " + ("이미 승인 — 그대로" if (q or {}).get("approved") else "승인으로 바꿈"))
@@ -158,7 +169,7 @@ def main():
                 todo.append("1 키워드: " + ("대기열에 이미 있음 — 승인만 확인" if q else "직접 추가(대표/세부 · confirm_dup=1)"))
             todo += ["2 원고 A 붙여넣기 + B 메타데이터 저장", f"3 이미지 일괄 생성(표지 1 + 본문 {n_body}장)", "4 최종본 만들기",
                      f"5 예약 정보 저장 lt_plan = {p.get('slot')} · {p.get('category')} · 태그 '{p.get('cluster_seed')}'"]
-        plan.append({"p": p, "aid": aid, "errs": errs, "warns": warns, "A": A, "B": B, "published": published, "already": already, "todo": todo, "n_body": n_body})
+        plan.append({"p": p, "aid": aid, "errs": errs, "warns": warns, "A": A, "B": B, "published": published, "already": already, "resume": resume, "todo": todo, "n_body": n_body})
 
     total_body = sum(it["n_body"] for it in plan if not it["published"] and not it["already"])
     for it in plan:
@@ -211,40 +222,46 @@ def main():
             row["steps"][step] = "실패"
             row["note"] = f"{step}: {msg}"
 
-        # 1 키워드
-        queue = C.read_json(qpath, [])
-        q = next((x for x in queue if x.get("id") == p.get("queue_id")), None) if p["action"] == "approve" else find_queue(queue, week, p["keyword"])
-        if not q:
-            r = client.post("/add-custom-keyword", data={"week": week, "keyword": p["keyword"], "cluster_seed": p["cluster_seed"],
-                                                          "role": p["role"], "confirm_dup": "1"})
+        if it["resume"]:
+            aid = it["aid"]
+            row["id"] = aid
+            for s_ in ("키워드", "붙여넣기", "메타"):
+                row["steps"][s_] = "이미"
+        else:
+            # 1 키워드
             queue = C.read_json(qpath, [])
-            q = find_queue(queue, week, p["keyword"])
+            q = next((x for x in queue if x.get("id") == p.get("queue_id")), None) if p["action"] == "approve" else find_queue(queue, week, p["keyword"])
             if not q:
-                fail("키워드", f"직접 추가 실패(응답 {r.status_code})")
+                r = client.post("/add-custom-keyword", data={"week": week, "keyword": p["keyword"], "cluster_seed": p["cluster_seed"],
+                                                              "role": p["role"], "confirm_dup": "1"})
+                queue = C.read_json(qpath, [])
+                q = find_queue(queue, week, p["keyword"])
+                if not q:
+                    fail("키워드", f"직접 추가 실패(응답 {r.status_code})")
+                    continue
+            if not q.get("approved"):
+                client.post(f"/toggle-approved/{q['id']}", headers={"X-Requested-With": "fetch"})
+                queue = C.read_json(qpath, [])
+                q = next((x for x in queue if x.get("id") == q["id"]), None)
+                if not (q and q.get("approved")):
+                    fail("키워드", "승인으로 바꾸지 못함")
+                    continue
+            aid = q["id"]
+            row["id"] = aid
+            row["steps"]["키워드"] = "성공"
+            # 2 붙여넣기 + 메타
+            r = client.post(f"/article/{aid}/paste", data={"raw_paste": it["A"]})
+            art = C.read_json(apath, {}).get(aid) or {}
+            if not art.get("parse_ok") or not (art.get("platform_raw") or {}).get("wordpress"):
+                fail("붙여넣기", f"parse_ok 아님(응답 {r.status_code}) — 본문 앞 '[플랫폼:워드프레스]' '제목:' 줄 확인")
                 continue
-        if not q.get("approved"):
-            client.post(f"/toggle-approved/{q['id']}", headers={"X-Requested-With": "fetch"})
-            queue = C.read_json(qpath, [])
-            q = next((x for x in queue if x.get("id") == q["id"]), None)
-            if not (q and q.get("approved")):
-                fail("키워드", "승인으로 바꾸지 못함")
+            row["steps"]["붙여넣기"] = "성공"
+            r = client.post(f"/article/{aid}/save-metadata/wordpress", data={"metadata_text": it["B"]})
+            art = C.read_json(apath, {}).get(aid) or {}
+            if not ((art.get("platform_metadata") or {}).get("wordpress") or "").strip():
+                fail("메타", f"메타데이터가 저장되지 않음(응답 {r.status_code})")
                 continue
-        aid = q["id"]
-        row["id"] = aid
-        row["steps"]["키워드"] = "성공"
-        # 2 붙여넣기 + 메타
-        r = client.post(f"/article/{aid}/paste", data={"raw_paste": it["A"]})
-        art = C.read_json(apath, {}).get(aid) or {}
-        if not art.get("parse_ok") or not (art.get("platform_raw") or {}).get("wordpress"):
-            fail("붙여넣기", f"parse_ok 아님(응답 {r.status_code}) — 본문 앞 '[플랫폼:워드프레스]' '제목:' 줄 확인")
-            continue
-        row["steps"]["붙여넣기"] = "성공"
-        r = client.post(f"/article/{aid}/save-metadata/wordpress", data={"metadata_text": it["B"]})
-        art = C.read_json(apath, {}).get(aid) or {}
-        if not ((art.get("platform_metadata") or {}).get("wordpress") or "").strip():
-            fail("메타", f"메타데이터가 저장되지 않음(응답 {r.status_code})")
-            continue
-        row["steps"]["메타"] = "성공"
+            row["steps"]["메타"] = "성공"
         # 3 이미지
         if a.skip_images:
             row["steps"]["이미지"] = "건너뜀"
