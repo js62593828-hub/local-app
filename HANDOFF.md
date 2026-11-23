@@ -1,3 +1,8 @@
+## 완료 (2026-11-23 TK-X1E): 제품 후보 폴더 이름을 기획 대상 주로 [도구 수정 + 폴더 이름 변경]
+- tools/product_candidates.py 에 --week YYYY-MM-DD(월요일) 추가: 주면 폴더 <그 날짜>_<채널>, 안 주면 실행 날짜(기본 그대로). --week 로 같은 이름 폴더가 있으면 덮어쓰지 않고 멈춤(주의: 수집이 끊겨 이어받을 때도 멈춤). 다른 도구는 폴더를 --run 으로 직접 받아 고칠 곳 없음.
+- 폴더 이름 변경 완료: 20261123_naver_tips → 20261130_naver_tips (121개·9331141바이트), 20261123_naver_tips_1차 → 20261130_naver_tips_1차 (72개·5206718바이트). 파일 수·크기 같음, 옛 이름 폴더 없음. 앱 제품 체크 화면에서 20261130_naver_tips 확인.
+- 아래 옛 기록의 '20261123_naver_tips' 는 지금 '20261130_naver_tips'. 대기열·앱 데이터·plan·링크 발급 안 건드림.
+
 ## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 후보 다시 수집 (고친 시트, 후보만)
 - 1차 결과 복사 보관: pipeline/candidates_run/20261123_naver_tips_1차 (approved.json 없음 확인)
 - 시트 복사: Claude outputs/살림노트_20261123/product_search_20261130b.tsv → pipeline/final/product_search_20261130b.tsv
