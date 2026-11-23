@@ -738,6 +738,20 @@ def write_summary(run: Path, data: dict) -> None:
 
 # ───────────────────────── 메인 ─────────────────────────
 
+def run_dir_for(channel: str, week: str | None = None) -> Path:
+    """결과 폴더 경로. week(월요일 YYYY-MM-DD)를 주면 그 날짜, 안 주면 실행 날짜."""
+    if week:
+        try:
+            d = datetime.strptime(week, "%Y-%m-%d")
+        except ValueError:
+            raise SystemExit(f"멈춤: --week 은 YYYY-MM-DD 형식이어야 합니다: {week}")
+        if d.weekday() != 0:
+            raise SystemExit(f"멈춤: --week 은 월요일 날짜여야 합니다: {week}")
+    else:
+        d = datetime.now()
+    return RUN_ROOT / f"{d:%Y%m%d}_{channel}"
+
+
 def main() -> int:
     try:
         return _main()
@@ -759,6 +773,7 @@ def _main() -> int:
     ap.add_argument("--pick", type=int, default=PICK, help="검색어마다 고를 개수(기본 3)")
     ap.add_argument("--sheet", help="검색어 시트(TSV). '검색어'·'고를 수' 열을 읽음. 같은 검색어가 여러 줄이면 고를 수가 큰 쪽. --keywords·--from-queue 와 같이 쓰지 않음")
     ap.add_argument("--extra", type=int, default=0, help="추천 말고 '다음 후보'를 몇 개 더 뽑을지(기본 0=안 뽑음)")
+    ap.add_argument("--week", help="기획 대상 주 월요일(YYYY-MM-DD). 주면 결과 폴더 이름이 <그 날짜>_<채널>, 안 주면 실행 날짜. 같은 이름 폴더가 이미 있으면 멈춤")
     a = ap.parse_args()
 
     if bool(a.sheet) + bool(a.keywords) + bool(a.from_queue) != 1:
@@ -783,7 +798,10 @@ def _main() -> int:
         kws = [k.strip() for k in a.keywords.split(",") if k.strip()]
     else:
         kws, skipped = keywords_from_queue(a.channel)
-    run = RUN_ROOT / f"{datetime.now():%Y%m%d}_{a.channel}"
+    run = run_dir_for(a.channel, a.week)
+    if a.week and run.exists():
+        print(f"멈춤: 같은 이름 폴더가 이미 있습니다(덮어쓰지 않음): {run}")
+        return 2
     if not kws:
         print("검색어가 없습니다. (--from-queue 는 plan 칸에 '검색어'가 있는 대기열 항목이 있어야 합니다)")
         if skipped:
