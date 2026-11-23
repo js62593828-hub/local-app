@@ -1,3 +1,7 @@
+## 완료 (2026-11-23 11/30 주 기획 마무리: B8 공기청정기·49개 확인·제목 21개·연결 조사)
+- 결과 pipeline/stage_plan1130_run/20261123/ (plan.md·plan.json·check.md·connect.md). B8 은 탁상 공기청정기로 교체(pool.md B8 구간만, 옛 표는 pool_B8_mugwarmer_old.md). 49개 모두 판매 중, 바꾼 제품 0, B5 제닉스 SB9 는 장부 '제닉스 타이탄'(손목받침대)과 다른 제품이라 유지. 새 스크립트 tools/plan1130_*.py(읽기만). 앱 데이터·대기열·장부·링크 변경 0, 검색광고 22회.
+- 할 일: 사용자가 plan.md 의 제목·키워드(특히 B8 임시, '궁금증 값 확인 필요' 5편, A6 등받이쿠션↔허리쿠션)를 보고 확정 → 확정 뒤 connect.md 방법 A+D 로 대기열·제품 체크 연결.
+
 ## 완료 (2026-11-22 11/30 주 제품 풀 21칸)
 - 결과 pipeline/stage_productpool_run/20261130/ (pool.md·pool.json·check.md). 새 스크립트 tools/productpool_1130.py(collect→select→final, 쇼핑커넥트 읽기만·에고라이트, 계정 주소는 이 스크립트 안에서만 1020008…로 교체). 앱 데이터·장부·대기열 변경 0.
 - 후보 부족: B8 머그워머(2개·대안 0), B13 미니PC(대안 1). 검색량 부족: B4·B8·B10. B본상품 중 모델 코드 없는 것은 pool.md 비고에 표시.
