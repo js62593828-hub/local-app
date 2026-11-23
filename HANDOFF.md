@@ -1,3 +1,9 @@
+## 진행 중 (2026-11-23 집 PC): 11/30 주 2차 확정(일정 17→21편) — run5 1차 결과 후보 0개로 멈춤, 씨앗 다시 고를지 사용자 답 대기
+- 씨앗 pipeline/final/seeds_20261130c.txt(화분월동·신발소금자국·전기히터청소·우산말리기·보온병냄새·겨울부츠보관). 기획 호출 이번 실행 총 3번 한도, WinError 433 나면 멈춤. --apply 금지.
+- run5: python tools/weekly_plan.py --week 2026-11-30 --seeds pipeline/final/seeds_20261130c.txt --skip pipeline/final/skip_20261130.txt --theme-cap 2 --exclude-plan pipeline/stage_w1130_run3/plan_20261130.json --exclude-plan pipeline/stage_w1130_run4/plan_20261130.json --out pipeline/stage_w1130_run5
+- run5 1차 결과: 씨앗 6개 중 5개만 검색광고에서 잡히고, 모두 월 검색량이 150 미만(화분월동 140·우산말리기 30·보온병냄새 25·신발소금자국 10·겨울부츠보관 10)이라 후보 0. 연관 키워드는 씨앗 자신뿐. 사용: 검색광고 5, 블로그·데이터랩·Claude 0. 확정·앱 넣기 안 함.
+- 다음: edits_20261130b.json(edits_20261130 복사+add_from_plan+세탁기동파 이동) → python tools/weekly_plan.py --finalize --week 2026-11-30 --edits pipeline/final/edits_20261130b.json --out pipeline/stage_w1130_run3 → python tools/push_plan.py --plan pipeline/final/plan_20261130.json --categories pipeline/final/categories_20261130.json --products pipeline/final/products_20261130.json (미리 보기만)
+
 ## 이어갈 것 (2026-11-23 집 PC): 11/30 주 확정 끝 — 앱 넣기 미리 보기에서 멈춤(--apply 안 함)
 - run4 명령(그대로): python tools/weekly_plan.py --week 2026-11-30 --seeds pipeline/final/seeds_20261130b.txt --must pipeline/final/must_20261130b.txt --skip pipeline/final/skip_20261130.txt --theme-cap 2 --out pipeline/stage_w1130_run4 (--exclude-plan 은 '후보에서 뺌' 뜻이라 안 붙임). 저장된 검색량·추세·판정은 다시 안 받고 이어서 기획 호출 2번(4편·3편)+설계 검사 2번만 새로 씀. 데이터랩·검색광고·블로그 0회.
 - 확정: python tools/weekly_plan.py --finalize --week 2026-11-30 --edits pipeline/final/edits_20261130.json --out pipeline/stage_w1130_run3 → 일정 17편·예비 5편, 경고 없음. 결과 pipeline/final/plan_20261130.json.
