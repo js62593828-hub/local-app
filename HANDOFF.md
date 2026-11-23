@@ -1,3 +1,8 @@
+## 이어갈 것 (2026-11-23 집 PC): 11/30 주 확정 끝 — 앱 넣기 미리 보기에서 멈춤(--apply 안 함)
+- run4 명령(그대로): python tools/weekly_plan.py --week 2026-11-30 --seeds pipeline/final/seeds_20261130b.txt --must pipeline/final/must_20261130b.txt --skip pipeline/final/skip_20261130.txt --theme-cap 2 --out pipeline/stage_w1130_run4 (--exclude-plan 은 '후보에서 뺌' 뜻이라 안 붙임). 저장된 검색량·추세·판정은 다시 안 받고 이어서 기획 호출 2번(4편·3편)+설계 검사 2번만 새로 씀. 데이터랩·검색광고·블로그 0회.
+- 확정: python tools/weekly_plan.py --finalize --week 2026-11-30 --edits pipeline/final/edits_20261130.json --out pipeline/stage_w1130_run3 → 일정 17편·예비 5편, 경고 없음. 결과 pipeline/final/plan_20261130.json.
+- 다음: 사용자 확인 후 push_plan --apply (제품 링크는 22편 모두 없음, products_20261130.json 은 아직 없음). 베란다결로·지역난방공기빼기·보일러물보충·차량김서림은 카테고리 미정.
+
 ## 완료 (2026-11-23): 11/30 주 계획 채우기 run3 — 확정·앱 넣기·코드 수정 안 함
 - 결과 pipeline/stage_w1130_run3 (report.md, must_signals.md). 신호 28개 재서 통과 7개(배추보관·어그부츠세탁·스노우체인·털슬리퍼세탁·울코트세탁·보일러소음·샤워기호스교체; 보일러 물보충은 같은 물건이라 뺌). must 15줄 → 13줄 들어감.
 - 11편 아님 16편(목표 21, 5 부족)·예비 0(5 부족). must 가 항상 일정 자리를 잡고 '예비' 표시는 도구에 없음. must 중 핫팩(발핫팩과 같은 물건)·부동액증류수(자동차부동액과 같은 물건)는 '주 1편' 규칙으로 빠짐. 제목 없는 글 5편(스노우체인·보일러소음·미끄럼방지스티커·샤워기호스교체·가스레인지화구).

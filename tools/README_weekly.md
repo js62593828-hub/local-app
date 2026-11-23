@@ -12,3 +12,5 @@
 - 한도: `--blog-limit`(기본 2000), `--trend-limit`(기본 300), `--searchad-limit`(기본 200). 넘으면 멈추고 알림. 일부 단계까지만: `--until fill`. Claude 없이: `--no-claude`.
 - 달라지는 값: 편수·기준은 tools/filter.json 의 r1 묶음, 같은 갈래 한도는 `--theme-cap`(기본 4), 싼세계 정보글은 작년 정점이 이번 주인 주제만 제외(`--wp-peak-exclude` 기본 0, -1이면 끔)하고 정점까지 3주 이상 남은 주제에 가점(`--wp-peak-bonus` 기본 20) — **지금은 꺼져 있음(`--with-wp` 로 켬)**.
 - 싼세계(W싼세계) 기획: **지금은 꺼져 있음** (filter.json 의 싼세계 편수 0, 예비는 네이버 5). 켜려면 `weekly_plan.py` 와 `check_plan.py` 에 `--with-wp` 를 붙임 → filter.json 의 `wp_on_values`(원래 값: 정보 10·수익 4·예비 합계 10)로 실행. 영구히 켜려면 그 값을 r1.wordpress·weekly 로 옮김. 합격 검사(check_plan.py)의 편수는 filter.json 에서 읽음.
+- 씨앗 없이 must(꼭 넣을 글감)만 기획하려면 연관어가 안 나오는 빈 낱말 씨앗 파일(예: `ㅎㅎㅎㅎㅎㅎㅎ` 한 줄)을 `--seeds` 로 쓴다.
+- `--finalize` 는 `--out` 을 안 주면 옛 결과 폴더(pipeline/stage_w날짜_run)를 바탕으로 쓴다. 바탕 폴더를 `--out` 으로 꼭 준다. (예: `--finalize --week 2026-11-30 --edits pipeline/final/edits_20261130.json --out pipeline/stage_w1130_run3`)
