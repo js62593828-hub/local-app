@@ -1,3 +1,8 @@
+## 완료 (2026-11-23 radar 링크 발급 준비)
+- 새 도구 tools/radar_issue_links.py(커밋 d588726): 계정 1020008901769280 은 스크립트 안에서만, 기본 dry-run, --execute 일 때만 발급, 최대 20개, 발급 직전 화면 채널 번호 확인, 이 채널 옛 링크만 재사용, links.json 백업 후 쓰기. issue_links.py 변경 0.
+- 시험: 49개 dry-run 전부 '새로 발급' 대상, 화면 채널 번호 읽기 성공, naver_tips 계정 997658… 그대로. 결과 pipeline/stage_radarlinks_run/20261123/test.md. 실제 발급 0건.
+- 할 일(사용자): approved.json 확정 저장 후 python tools/radar_issue_links.py --run pipeline/candidates_run/20261130_radar_naver_plan (dry-run 먼저) → 이상 없으면 --execute.
+
 ## 완료 (2026-11-23 N살림노트 가격보기 배너 교체)
 - static/salim/banner_naver_price.png 를 새 배너(2721×408, 투명)로 교체, 옛 것은 banner_naver_price_old.png 로 이름만 바꿈(static/ 은 git 에 안 올라감). 데스크피커 배너·다른 채널·앱 데이터 변경 0. 코드 수정 없음(기준점 커밋 c9e8bfc).
 - 업로드 폴더 줄인 크기 455×68, 투명 PNG 그대로 유지(검게 안 변함). 시안 pipeline/salim_upload_run/banner_test/2026-11-23_a7490ca5/naver_upload/06_배너1.png. 4개 채널 최종본 전후 해시 같음(banner_hash_before/after.json).
