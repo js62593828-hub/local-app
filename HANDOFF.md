@@ -1,3 +1,9 @@
+## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 링크·자료 [발급+수집+연결 미리 보기까지, --apply 안 함]
+- 칸 연결표 pipeline/candidates_run/20261130_naver_tips/salim_slots.json(11편 20칸). 링크 발급 19·기존 재사용 1·실패 0(links.json, 새 폴더라 옛 파일 없어 백업 없음). 자료·사진 20/20 성공.
+- 실행 명령 전체: python tools/issue_links.py --run pipeline/candidates_run/20261130_naver_tips (미리 보기) → 같은 명령에 --execute / python -I tools/collect_research.py --run 20261130_naver_tips / python tools/push_plan.py --plan pipeline/final/plan_20261130.json --init-products pipeline/final/products_20261130.json / python tools/push_plan.py --products pipeline/final/products_20261130.json --products-txt pipeline/final/products_20261130.txt / python tools/push_plan.py --products pipeline/final/products_20261130.json --update-products (미리 보기: 바뀔 글 11편, 경고 없음)
+- products_20261130.txt 는 머리 줄만 있던 파일에 20줄 채움(백업 products_20261130.backup_before_links_20261123.txt). 틀 json 백업 products_20261130.backup_before_products_txt_20261123_223027.json.
+- 다음(사용자가 "넣어"라고 하면만): python tools/push_plan.py --products pipeline/final/products_20261130.json --update-products --apply
+
 ## 완료 (2026-11-23 TK-X1E): 제품 후보 폴더 이름을 기획 대상 주로 [도구 수정 + 폴더 이름 변경]
 - tools/product_candidates.py 에 --week YYYY-MM-DD(월요일) 추가: 주면 폴더 <그 날짜>_<채널>, 안 주면 실행 날짜(기본 그대로). --week 로 같은 이름 폴더가 있으면 덮어쓰지 않고 멈춤(주의: 수집이 끊겨 이어받을 때도 멈춤). 다른 도구는 폴더를 --run 으로 직접 받아 고칠 곳 없음.
 - 폴더 이름 변경 완료: 20261123_naver_tips → 20261130_naver_tips (121개·9331141바이트), 20261123_naver_tips_1차 → 20261130_naver_tips_1차 (72개·5206718바이트). 파일 수·크기 같음, 옛 이름 폴더 없음. 앱 제품 체크 화면에서 20261130_naver_tips 확인.
