@@ -1,3 +1,9 @@
+## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 후보 다시 수집 (고친 시트, 후보만)
+- 1차 결과 복사 보관: pipeline/candidates_run/20261123_naver_tips_1차 (approved.json 없음 확인)
+- 시트 복사: Claude outputs/살림노트_20261123/product_search_20261130b.tsv → pipeline/final/product_search_20261130b.tsv
+- 실행 명령 전체: python tools/product_candidates.py --channel naver_tips --sheet pipeline/final/product_search_20261130b.tsv --extra 2 (같은 이름 폴더 20261123_naver_tips 덮어쓰기, 이번만 허용)
+- 링크 발급·대기열·plan 안 건드림.
+
 ## 완료 (2026-11-23 TK-X1E): N살림노트 11/30 주 제품 후보 수집 (후보만, 링크 발급 안 함)
 - 복사: Claude outputs/살림노트_20261123/product_search_20261130.tsv → pipeline/final/product_search_20261130.tsv (18검색어·11키워드)
 - 실행 명령 전체: python tools/product_candidates.py --channel naver_tips --sheet pipeline/final/product_search_20261130.tsv --extra 2
