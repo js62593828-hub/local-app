@@ -1,7 +1,7 @@
-## 진행 중 (2026-11-23 N살림노트 네이버 올리기 편하게: 업로드 폴더·상품 블록·주소 채우기·정보 줄)
-- 단계: 0 조사 끝 → 기준 해시(다른 채널 최종본) 만드는 중. 다음: 1~5단계 코드(salim_images.py·salim_upload.py 새 파일 + app.py·shop_formatter 한 줄 옵션).
-- 지킬 것: radar_naver·wp_tips·longterm_wp·shop_naver 출력 그대로, articles*·content_queue* 쓰기 0, 결과·시안 pipeline/salim_upload_run/.
-- 끊기면: 이 줄 읽고 '이어서 해' 하면 다음 단계부터.
+## 완료 (2026-11-23 N살림노트 네이버 올리기 편하게: 업로드 폴더·상품 블록·주소 미리 보기·정보 줄) — 코드 커밋 6703453, 앱 재시작 전
+- 새 파일 salim_images.py(별점 상자)·salim_upload.py·salim_urlfill.py·templates/salim_url_autofill.html, static/salim/banner_naver_price.png(데스크피커 배너 복사본, 원본 그대로). 고친 곳: app.py(naver_tips 가지·새 라우트 3개)·shop_formatter.py(salim_blocks 옵션 기본 꺼짐)·final_view/index/status 템플릿(naver_tips 한정). 시안·전후 해시·RSS 저장본·주소 미리 보기 표 pipeline/salim_upload_run/.
+- 안 한 것: 앱 데이터 쓰기 0(articles·대기열 해시 전후 같음), 주소 [채움만 저장] 안 누름, 쇼핑커넥트 접속 0, 네이버 접속은 RSS 1회, API·Claude 0회. 다른 채널 최종본·화면 전후 해시 같음.
+- 할 일(사용자): run.bat 재시작 → 살림노트 글마다 '플랫폼별 콘텐츠 생성' 다시 누르기(새 방식은 그때 적용) → 주소는 [🔎 발행 주소 확인] 표를 보고 [채움만 저장]. 11/22 번호 사본은 폴더 1곳(5파일)에 남아 있음(새 방식에서는 더 안 만들고 안 지움).
 
 ## 완료 (2026-11-23 11/30 주 21편 실제 대기열 투입)
 - keyword 3개 띄어쓰기만 고침(미니가습기·노트북거치대·USB허브, 전 판 pipeline/stage_plan1130_run/20261123/_before_20261123c/) 후 push_plan --apply: content_queue_radar_naver.json 94→115, run_id kw_radar_naver_20261130_v2, 백업 backup/content_queue_radar_naver.backup_before_push_plan_20261123_092911.json, 되돌리기 python tools/push_plan.py --undo. 안 한 것: approved.json·링크 발급·글쓰기·발행.
