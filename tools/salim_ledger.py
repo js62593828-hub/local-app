@@ -36,7 +36,7 @@ PLAN_GLOB = os.path.join(ROOT, "pipeline", "final", "plan_*.json")
 
 COLS = ["앱 글 키", "네이버 주소", "발행일", "키워드", "확정 제목", "발행 제목", "제목 틀", "유형 A/B/C", "카테고리", "갈래(cluster_seed)",
         "출처", "발행 때 검색량", "추세 비율", "정점까지 주", "숍글 여부", "1주째 조회수", "2주째 조회수", "3~4주째 조회수",
-        "유입 검색어 상위(어드바이저, 글당 최대 3, 있는 주만)", "상태"]
+        "유입 검색어 상위(어드바이저, 글당 최대 3, 있는 주만)", "홈판 비율(%)", "검색 비율(%)", "상태"]
 
 
 def rj(path, default=None):
@@ -137,12 +137,38 @@ def source_label(src):
     return "그 전"
 
 
+def read_referrers():
+    """{글번호: (주, 홈판 %, 검색 %)} — perf_inbox/*/post_referrers.csv 가 있는 주만, 글마다 가장 늦은 주.
+    홈판 = 경로 이름에 '홈판' 포함. 검색 = 이름에 '검색' 포함 또는 Bing·Google. 비율 = 경로별 조회수 / 그 글 경로 조회수 합계."""
+    out = {}
+    for f in sorted(glob.glob(os.path.join(PERF, "*", "post_referrers.csv"))):
+        wk = os.path.basename(os.path.dirname(f))
+        tot, home, srch = {}, {}, {}
+        with open(f, encoding="utf-8-sig", newline="") as fh:
+            for r in csv.DictReader(fh):
+                pid = post_id(r.get("주소"))
+                nm = r.get("경로 이름") or ""
+                v = num(r.get("조회수(경로별)"))
+                if not pid or v is None:
+                    continue
+                tot[pid] = tot.get(pid, 0) + v
+                if "홈판" in nm:
+                    home[pid] = home.get(pid, 0) + v
+                if "검색" in nm or nm in ("Bing", "Google"):
+                    srch[pid] = srch.get(pid, 0) + v
+        for pid, t in tot.items():
+            if t > 0:
+                out[pid] = (wk, round(home.get(pid, 0) / t * 100, 1), round(srch.get(pid, 0) / t * 100, 1))
+    return out
+
+
 def build():
     arts = rj(ARTICLES, {}) or {}
     queue = {q["id"]: q for q in (rj(QUEUE, []) or [])}
     shop_arts = rj(SHOP_ARTICLES, {}) or {}
     perf = read_posts_csv()
     advisor = read_advisor()
+    referrers = read_referrers()
     r1s, plan_titles = read_plans()
     weeks = sorted(perf)
     today = date.today()
@@ -200,6 +226,7 @@ def build():
                 break
         pid = post_id(url)
         adv = " | ".join(f"{wk}: {t}" for wk, t in advisor.get(pid, []))
+        ref = referrers.get(pid)
         status = "예약(발행일이 오늘 이후)" if pd_ and pd_ > today else "발행"
         rows.append({
             "앱 글 키": aid, "네이버 주소": url, "발행일": pub, "키워드": kw, "확정 제목": fixed, "발행 제목": pub_title,
@@ -208,7 +235,8 @@ def build():
             "발행 때 검색량": volume if volume is not None else "", "추세 비율": ratio if ratio is not None else "",
             "정점까지 주": peak if peak is not None else "", "숍글 여부": "예" if art.get("is_shop_post") else "아니오",
             "1주째 조회수": v1 if v1 is not None else "", "2주째 조회수": v2 if v2 is not None else "",
-            "3~4주째 조회수": v34 if v34 is not None else "", COLS[18]: adv, "상태": status,
+            "3~4주째 조회수": v34 if v34 is not None else "", COLS[18]: adv,
+            "홈판 비율(%)": ref[1] if ref else "", "검색 비율(%)": ref[2] if ref else "", "상태": status,
             "_주": qweek, "_계획역할": plan.get("role") or "",
         })
     rows.sort(key=lambda r: (r["발행일"], r["앱 글 키"]))
@@ -235,6 +263,7 @@ def main():
                      "발행 제목 = 앱 articles 의 네이버 제목. 제목 틀은 이 제목을 titles.pattern_of 로 판정.",
                      "추세 비율·정점까지 주: 대기열 rec_reason '검색 추세 비율 …, 정점까지 …주' → plan json r1 → serp 순. 다른 말투 rec_reason 은 비움.",
                      "유입 검색어: perf_inbox/*/advisor_posts.csv(글당 상위 3개만 들어 있음)가 있는 주만.",
+                     "홈판·검색 비율: perf_inbox/*/post_referrers.csv(글별 유입 경로)가 있는 주만, 글마다 가장 늦은 주 값.",
                      "조회수 1주째 = 발행한 달력 주(월~일). perf_inbox 가 10/12 주부터라 그 전 주는 비어 있음."]}
     with open(os.path.join(a.out_dir, "글장부.json"), "w", encoding="utf-8") as f:
         json.dump({"meta": meta, "rows": pub_rows}, f, ensure_ascii=False, indent=1)
