@@ -1,3 +1,8 @@
+## 멈춤 (2026-11-24 TK-X1E): 원고 규칙 V5.2 반영 + 11/30(월) 3편 — (0)단계까지 하고 홈판 판별 방법 때문에 멈춤
+- 한 일: 0164112 되살려 push(reset 때 push 안 된 커밋이 빠졌었음). 확정 목록 Claude outputs/weekly_final_2026-11-30.md 생성(앱 코드 수정 없이 기존 /export-weekly-final 경로를 불러 씀, 11/23 파일과 같은 형식, 승인 19편). 다른 파일은 안 고침.
+- 멈춘 이유: 홈판 실험 글(한파대비·세탁기동파)을 확정 목록·대기열·plan 어디서도 알 수 없음(홈판 표시 0건). 한파대비는 11/30(월) 20:00 N3 이고 확정 설계가 소제목 5개(홈판은 최대 4개).
+- 다음: 사용자 결정 뒤 (가) salim_check.py·원고작업지시·agent 사본 고치기 → (나) 11/30 3편. 규칙 추가: 커밋마다 바로 push, 0단계 reset 전에 git log origin/main..HEAD 확인.
+
 ## 완료 (2026-11-24 TK-X1E): salim-writer 에이전트 파일 11/30 주용으로 고침 (에이전트 파일만, 원고 안 씀)
 - 바뀐 파일: .claude/agents/salim-writer.md 만. 요청에 주 날짜(월요일)를 받아 경로를 정함(확정 목록 Claude outputs/weekly_final_<주>.md, 자료 pipeline/candidates_run/<주8>_naver_tips/research·links.json·salim_slots.json, 저장 pipeline/salim_drafts/<주>/). 확정 제목 그대로, 대안은 원고 밖 메모. 분량 등 숫자는 원고지침 V5.2·글뼈대규칙 V2.2 를 읽어 따름(대기열 target_* 안 읽음).
 - 안 고친 것(금지 범위): docs/살림노트/agent_salim-writer.md(사본, 옛 판 그대로), 원고작업지시_Claude-Code.md(11/23 주 값·제목 새로 만들기 들어 있음, 에이전트 파일에서 공통 절차만 참고하도록 막음), tools/salim_check.py(5,000~6,000자·굵게 3~5·인용구 1~2·확정 목록 경로 11/23 기준 등 V5.2 와 다름).
