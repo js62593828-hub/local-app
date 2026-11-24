@@ -165,6 +165,9 @@ def body_parts(body):
     return title, rest, greet, tag_line
 
 
+NOT_EXP_LINE = ("분량", "공백 제외", "굵게", "구매를", "자료에", "경험 문장에", "피할 표현", "실제 경험")
+
+
 def experience_sentences(text):
     """코드 블록 밖 '④-1' 구역에서 경험 문장(글머리 줄)을 뽑는다."""
     out = []
@@ -178,8 +181,14 @@ def experience_sentences(text):
             break
         if on and ln.strip().startswith(("-", "*", ">", "\"", "“")):
             t = ln.strip().lstrip("-*> ").strip()
-            if t and not any(k in t for k in skip):
-                out.append(t)
+            if not t or any(k in t for k in skip):
+                continue
+            # 점검 줄·분량 표기·작업 메모는 경험 문장이 아니다 (따옴표 안 문장만 경험 문장)
+            if any(t.startswith(k) for k in NOT_EXP_LINE):
+                continue
+            segs = [m[0] or m[1] for m in re.findall(r'"([^"]+)"|“([^”]+)”', t)]
+            segs = [x.strip() for x in segs if x.strip() and not x.strip().startswith("#")]
+            out.append(" ".join(segs) if segs else t)
     return out
 
 
