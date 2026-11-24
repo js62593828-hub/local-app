@@ -4,7 +4,8 @@
 
 사용: python tools/salim_check.py --week 2026-11-23
       python tools/salim_check.py --file pipeline/salim_drafts/2026-11-23/01_....md
-기준 문서: docs/살림노트/ (원고작업지시·원고지침_네이버_AB·글뼈대규칙·태그규칙)
+기준 문서: docs/살림노트/ (원고지침_네이버_AB·C V5.2·글뼈대규칙 V2.2·태그규칙). 기준 숫자는 아래 STD·HOME 표 한 곳.
+홈판 글인지는 원고 ⓪ 의 '홈판 글: 예/아니오' 줄을 읽는다(없으면 ✖).
 """
 import argparse
 import glob
@@ -42,7 +43,26 @@ LIMIT_PATTERNS = [
     ("에 따라 달라", r"에 따라 달라", 2),
 ]
 PRICE_PATTERNS = [r"\d[\d,]*\s*원", r"만\s*원대", r"\d+\s*%\s*할인"]
-EXP_BAN = ["전원주택", "단독주택", "시골집", "마당", "텃밭", "써 보니", "써봤"]
+# 경험 금지어: 글 전체에서 0개여야 하는 것 (원고지침 AB [운영자 경험] 6번·[금지])
+EXP_BAN = ["전원주택", "단독주택", "시골집", "마당", "텃밭", "정화조", "써 보니", "써봤"]
+EXP_BAN_PATTERNS = [("등유 보일러", r"등유\s*보일러"), ("예전에 아파트 살 때", r"예전에\s*아파트\s*살\s*때")]
+# 키워드 자체가 이 말일 수 있어(예: 제설) 경험 문장(④-1)에서만 0개
+EXP_BAN_EXPERIENCE_ONLY = ["제설"]
+
+# 요약 블록 소제목 이름 (글뼈대규칙 3장)
+SUMMARY_NAMES = ["먼저 답부터 드릴게요", "급하신 분은 이것만 보세요", "이것만 기억해 두세요", "한 줄씩 먼저 정리할게요"]
+
+# ===== 기준 숫자: 여기 한 곳에서만 고친다 =====
+# 원고지침_네이버_AB·C V5.2 + 글뼈대규칙 V2.2 (2026-11-23). 문서가 바뀌면 이 표만 맞춘다.
+STD = {  # 일반 글 (A·B·C)
+    "chars": (4000, 4600), "bold": (8, 12), "quote": (2, 3), "faq": (3, 4),
+    "heads": {"A": (5, 7), "B": (5, 7), "C": (5, 8)},
+}
+HOME = {  # 홈판 실험 글 (AB [홈판 실험 글] 블록)
+    "chars": (2500, 3200), "bold": (5, 8), "quote": (1, 2), "faq": (3, 3), "heads": (0, 4),
+}
+PARA_MAX = 80    # 문단 하나 공백 제외 글자 수 상한
+PHOTOS = 4       # 본문 사진 장수(고를 섹션이 모자라면 있는 만큼)
 
 
 def code_blocks(text):
@@ -78,6 +98,37 @@ def confirmed_links(week):
             for u in re.findall(r"https?://\S+", line):
                 out[cur].append(u.rstrip(")，,"))
     return out, path
+
+
+def home_flag(text):
+    """⓪ 구역(코드 블록 밖)의 '홈판 글: 예/아니오' 줄을 읽는다. 없으면 None."""
+    outside = re.sub(r"```[^\n]*\n.*?```", "", text, flags=re.S)
+    m = re.search(r"^\s*[-*]?\s*홈판 글:\s*(예|아니오)", outside, flags=re.M)
+    return None if not m else (m.group(1) == "예")
+
+
+def long_paragraphs(lines):
+    """문단(이어진 줄 묶음) 중 공백 제외 PARA_MAX 자를 넘는 것. 제목·표·목록·인용구·Q:·링크: 줄은 뺀다."""
+    out, cur = [], []
+
+    def flush():
+        if cur:
+            s = re.sub(r"\s+", "", re.sub(r"^A:\s*", "", "".join(x.strip() for x in cur)).replace("**", ""))
+            if len(s) > PARA_MAX:
+                out.append((len(s), s[:20]))
+        cur.clear()
+
+    for ln in lines:
+        s = ln.strip()
+        if not s:
+            flush()
+            continue
+        if re.match(r"^(#|\||>|[-*]\s|\d+\.\s|Q:|링크:|\{\{SHOP:|---)", s):
+            flush()
+            continue
+        cur.append(s)
+    flush()
+    return out
 
 
 def strip_md(line):
@@ -184,6 +235,17 @@ def check_file(path, links_by_kw, info=None):
     title, content, greet, tag_line = body_parts(body)
     heads = [l.strip() for l in content if l.startswith("## ")]
 
+    # 유형·기준 고르기: 제품 링크가 있는 글(확정 목록 링크 또는 파일 이름 C)은 C, 홈판 글은 홈판 기준
+    home = home_flag(text)
+    has_conf_link = bool(links_by_kw.get(kw))
+    if has_conf_link and typ != "C":
+        add("유형", "확정 목록에 제품 링크가 있는데 파일 이름 유형이 %s (C 로 써야 함)" % typ, False)
+    eff = "C" if (typ == "C" or has_conf_link) else typ
+    if home is None:
+        add("홈판 표시", "홈판 표시 없음 (⓪ 에 '홈판 글: 예/아니오' 줄이 없음, 일반 기준으로 검사)", False)
+    crit = HOME if home else STD
+    info["home"] = bool(home)
+
     # 1) 분량
     counted = []
     for ln in content:
@@ -192,7 +254,8 @@ def check_file(path, links_by_kw, info=None):
             continue
         counted.append(strip_md(ln))
     n = len(re.sub(r"\s+", "", "".join(counted)))
-    add("분량(공백 제외)", "%d자 (5,000~6,000)" % n, 5000 <= n <= 6000)
+    lo, hi = crit["chars"]
+    add("분량(공백 제외)", "%d자 (%s~%s)" % (n, format(lo, ","), format(hi, ",")), lo <= n <= hi)
 
     # 2) 소제목 수
     main_heads = []
@@ -206,11 +269,13 @@ def check_file(path, links_by_kw, info=None):
             if content[j].strip():
                 nxt = content[j].strip()
                 break
-        if not main_heads and nxt.startswith("- ✅"):
+        if not main_heads and (nxt.startswith("- ✅") or ln[3:].strip() in SUMMARY_NAMES):
             continue  # 요약 블록 소제목
         main_heads.append(ln.strip())
-    add("소제목 수", "본문 %d개 (요약·FAQ 제외, 전체 ## %d개) / 6~9" % (len(main_heads), len(heads)),
-        6 <= len(main_heads) <= 9)
+    hlo, hhi = crit["heads"] if home else crit["heads"].get(eff, (5, 7))
+    add("소제목 수", "본문 %d개 (요약·FAQ 제외, 전체 ## %d개) / %s" % (
+        len(main_heads), len(heads), ("최대 %d" % hhi) if home else "%d~%d" % (hlo, hhi)),
+        hlo <= len(main_heads) <= hhi)
 
     # 3) FAQ
     fi = None
@@ -227,7 +292,9 @@ def check_file(path, links_by_kw, info=None):
             faq.append(ln)
         q = sum(1 for l in faq if l.startswith("Q:"))
         a = sum(1 for l in faq if l.startswith("A:"))
-        add("FAQ", "Q %d · A %d (3~4쌍)" % (q, a), q == a and 3 <= q <= 4)
+        flo, fhi = crit["faq"]
+        add("FAQ", "Q %d · A %d (%s쌍)" % (q, a, ("%d" % flo) if flo == fhi else "%d~%d" % (flo, fhi)),
+            q == a and flo <= q <= fhi)
 
     # 4) 태그
     tags = re.findall(r"#\S+", tag_line)
@@ -255,16 +322,32 @@ def check_file(path, links_by_kw, info=None):
     add("횟수 제한 말", ("초과: " + "; ".join(over)) if over else " · ".join(cnts), not over)
 
     # 7) 인용구·굵게
+    # 제품 섹션(소제목 바로 다음 줄이 링크:)의 인용구는 개수에 넣지 않는다(C 지침)
+    product_idx = set()
+    cur_prod = False
+    for i, ln in enumerate(content):
+        if ln.startswith("## "):
+            nxt = next((content[j].strip() for j in range(i + 1, len(content)) if content[j].strip()), "")
+            cur_prod = nxt.startswith("링크:")
+        if cur_prod:
+            product_idx.add(i)
     quotes = 0
     prev = False
-    for ln in content:
-        is_q = ln.startswith("> ")
+    for i, ln in enumerate(content):
+        is_q = ln.startswith("> ") and i not in product_idx
         if is_q and not prev:
             quotes += 1
         prev = is_q
     bolds = len(re.findall(r"\*\*[^*\n]+\*\*", "\n".join(content)))
-    add("인용구", "%d개 (1~2)" % quotes, 1 <= quotes <= 2)
-    add("굵게", "%d개 (3~5)" % bolds, 3 <= bolds <= 5)
+    qlo, qhi = crit["quote"]
+    blo, bhi = crit["bold"]
+    add("인용구", "%d개 (%d~%d)" % (quotes, qlo, qhi), qlo <= quotes <= qhi)
+    add("굵게", "%d개 (%d~%d)" % (bolds, blo, bhi), blo <= bolds <= bhi)
+
+    # 문단 80자
+    longp = long_paragraphs(content + [""] + greet)
+    add("80자 넘는 문단", "%d개 (0, 상한 %d자)%s" % (len(longp), PARA_MAX,
+        (": " + "; ".join("%d자 '%s…'" % x for x in longp[:5])) if longp else ""), not longp)
 
     # 8) 본문 속 http
     https = re.findall(r"https?://\S+", "\n".join(l for l in content + greet if not l.strip().startswith("링크:")))
@@ -273,7 +356,9 @@ def check_file(path, links_by_kw, info=None):
     # 9) 링크 줄
     link_idx = [i for i, l in enumerate(content) if l.strip().startswith("링크:")]
     misplaced = [content[i].strip() for i in link_idx if not (i > 0 and content[i - 1].startswith("## "))]
-    if typ in ("A", "B"):
+    if home:
+        add("링크 줄", "홈판 글에 %d개 (0이어야 함)" % len(link_idx), not link_idx)
+    elif eff in ("A", "B"):
         add("링크 줄", "A·B 에 %d개 (0이어야 함)" % len(link_idx), not link_idx)
     else:
         add("링크 줄 위치", "%d개, 소제목 바로 다음 줄 아님 %d개" % (len(link_idx), len(misplaced)),
@@ -296,7 +381,10 @@ def check_file(path, links_by_kw, info=None):
 
     # 11) 경험 금지어
     hit = [w for w in EXP_BAN if w in allt]
-    add("경험 금지어", "0개" if not hit else "있음: " + ", ".join(hit), not hit)
+    hit += [lab for lab, pat in EXP_BAN_PATTERNS if re.search(pat, allt)]
+    exp_sents = experience_sentences(text)
+    hit += ["%s(경험 문장)" % w for w in EXP_BAN_EXPERIENCE_ONLY if any(w in s for s in exp_sents)]
+    add("경험 금지어", ("0개 (경험 문장 %d개)" % len(exp_sents)) if not hit else "있음: " + ", ".join(hit), not hit)
 
     # 12) 메타 항목 이름
     miss = [n_ for n_ in META_NAMES if (n_ + ":") not in meta]
@@ -325,9 +413,13 @@ def check_file(path, links_by_kw, info=None):
             elif ln.strip().startswith("출처 캡처:"):
                 break
         bad = [a for a in alts if a not in heads]
-        add("본문 이미지 alt", "%d줄(4), 원고 ## 와 다른 것 %d개%s" %
-            (len(alts), len(bad), (": " + "; ".join(bad)) if bad else ""),
-            len(alts) == 4 and not bad)
+        # 고를 수 있는 섹션(제품 섹션·요약·FAQ 제외)이 PHOTOS 보다 적으면 있는 만큼
+        prod_heads = {content[i].strip() for i in product_idx if content[i].startswith("## ")}
+        n_pick = len([h for h in main_heads if h not in prod_heads])
+        want = min(PHOTOS, n_pick)
+        add("본문 사진(alt 줄)", "%d장(%d), 원고 ## 와 다른 것 %d개%s" %
+            (len(alts), want, len(bad), (": " + "; ".join(bad)) if bad else ""),
+            len(alts) == want and not bad)
     info["heads"] = [h[3:].strip() for h in heads if "자주 묻는 질문" not in h]
     info["exp"] = experience_sentences(text)
     return name, typ, res
@@ -352,6 +444,15 @@ def main():
         print("검사할 원고가 없습니다.")
         return 1
     links, lpath = confirmed_links(week)
+    homes = []
+    for f in files:
+        try:
+            if home_flag(open(f, encoding="utf-8").read()):
+                mh = re.match(r"\d+_\d{4}_\d{4}_[ABC]_(.+)\.md$", os.path.basename(f))
+                homes.append(mh.group(1) if mh else os.path.basename(f))
+        except OSError:
+            pass
+    print("홈판 글 %d편%s" % (len(homes), ("(" + ", ".join(homes) + ")") if homes else ""))
     if not links:
         print("(참고) 확정 목록 링크를 읽지 못했습니다: %s" % lpath)
 
