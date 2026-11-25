@@ -33,6 +33,7 @@ import product_candidates as pc  # noqa: E402  (에고라이트 실행·쿠팡 �
 
 ROOT = Path(__file__).resolve().parent.parent
 BC_PRODUCT = "https://brandconnect.naver.com/997658497773120/affiliate/products/"
+BC_PRODUCT_RADAR = "https://brandconnect.naver.com/1020008901769280/affiliate/products/"  # radar_naver(guardradar) 채널 전용
 MAX_ISSUE = 20
 SPACE = "issue-links-run"
 PID_RE = re.compile(r"/affiliate/products/(\d+)")
@@ -214,6 +215,9 @@ def main() -> int:
         return 1
     approved = json.loads(ap_path.read_text(encoding="utf-8"))
     channel = approved.get("channel", "")
+    if channel == "radar_naver":  # 다른 채널은 옛 번호 그대로
+        global BC_PRODUCT
+        BC_PRODUCT = BC_PRODUCT_RADAR
 
     # approved.json 의 상품만 대상(상품번호 기준 중복 제거)
     items: list[dict] = []

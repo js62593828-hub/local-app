@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import radar_used_products as ru  # noqa: E402  (Desk Picker 사용 제품 장부: radar_naver 에서만 씀)
 RUN_ROOT = ROOT / "pipeline" / "candidates_run"
+BRANDCONNECT_RADAR = "https://brandconnect.naver.com/1020008901769280/affiliate/products/search"  # radar_naver(guardradar) 채널 전용
 CHANNELS = ("naver_tips", "wp_tips", "radar_naver")
 CHANNEL_LABEL = {"naver_tips": "N살림노트", "wp_tips": "W싼세계", "radar_naver": "N데스크피커"}
 BRANDCONNECT = "https://brandconnect.naver.com/997658497773120/affiliate/products/search"
@@ -775,6 +776,9 @@ def _main() -> int:
     ap.add_argument("--extra", type=int, default=0, help="추천 말고 '다음 후보'를 몇 개 더 뽑을지(기본 0=안 뽑음)")
     ap.add_argument("--week", help="기획 대상 주 월요일(YYYY-MM-DD). 주면 결과 폴더 이름이 <그 날짜>_<채널>, 안 주면 실행 날짜. 같은 이름 폴더가 이미 있으면 멈춤")
     a = ap.parse_args()
+    if a.channel == "radar_naver":  # 다른 채널은 옛 번호 그대로
+        global BRANDCONNECT
+        BRANDCONNECT = BRANDCONNECT_RADAR
 
     if bool(a.sheet) + bool(a.keywords) + bool(a.from_queue) != 1:
         ap.error("--keywords, --from-queue, --sheet 중 하나만 쓰세요")

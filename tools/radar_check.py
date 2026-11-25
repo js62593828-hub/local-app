@@ -19,7 +19,7 @@ import radar_used_products as ru  # 사용 제품 장부(원고지침 v3.4 '제�
 NOTICE = "이 포스팅은 네이버 쇼핑커넥트 활동의 일환으로, 판매 시 수수료를 제공받습니다."
 BANNED = ["최고", "무조건", "100%", "완벽", "강력 추천", "1위", "써보니", "써 보니", "직접 사용", "내돈내산", "써봤", "직접 써 보고", "직접 써보고", "바탕으로 정리했어요"]
 BANNED_RX = [r"(사용|써본|솔직|직접|체험)\s?후기"]
-RANGES = {"A": (1800, 2500, 5, 7), "B": (1300, 1800, 4, 6), "C": (1300, 1800, 4, 6)}
+RANGES = {"A": (2200, 3000, 5, 7), "B": (1600, 2200, 4, 6), "C": (1600, 2200, 4, 6), "E": (2200, 3000, 5, 7)}  # v3.6
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PHOTO_MARK = re.compile(r"^\[사진: ?\d+\]$", re.M)
 PLACEHOLDER = re.compile(r"^\[(사진|상품카드|내부링크): [^\n]*\]$", re.M)
@@ -237,8 +237,50 @@ ITEM_NAMES = {
     "h": "h 카테고리·태그", "i": "i 표지 글자 수", "j": "j 사진자리 = 본문 사진",
     "k": "k 표 칸 '없음'(→ 표시 없음)", "l": "l 못 찾았다·적혀 있지 않다 류 말투",
     "m": "m 제품 한 번만(장부·같은 폴더, v3.4)", "n": "n 틀 B 본상품 카드 2개(v3.4)", "o": "o 태그 띄어쓰기 금지(v3.4)",
+    "p": "p 전하는 말 3번 이상·~더라고요(v3.5)",
+    "q": "q 본문 금지 단어·경험 낱말(v3.6)", "r": "r 글자 수 범위(경고만, v3.6)",
 }
 NOT_FOUND_WORDS = ["찾지 못했", "적혀 있지 않", "말하기 어려워요"]
+
+
+# ── 전하는 말(원고지침 v3.5 12장): 본문 전체 합계 3번 이상이면 위반 1개, ~더라고요/~더라구요는 1번이라도 위반 ──
+_RELAY_SUBJ = r"(?:말이|평이|이야기가|이야기도|반응이|의견이|불만도)"
+_RELAY_VERB = r"(?:많았어요|많아요|있었어요|있어요|나왔어요|이어졌어요|보였어요|반복)"
+RELAY_RX = [
+    re.compile(_RELAY_SUBJ + r"\s*(?:\S+\s+){0,2}" + _RELAY_VERB),
+    re.compile(r"[다라]고\s*해요|(?<=[가-힣])(?<![기반상세시])대요"),  # 기대요·반대요·상대요·세대요·시대요 제외, '손에 대요'는 앞이 빈칸이라 안 걸림
+    re.compile(r"(?:라는|한)\s*구매자(?:도|가)\s*(?:있었어요|있어요)"),
+    re.compile(r"구매자\s*평가를\s*보면|구매자\s*후기에서"),
+]
+DEORAGO_RX = re.compile(r"더라(?:고요|구요)")
+
+
+def _sentences(plain):
+    t = PLACEHOLDER.sub("", plain).replace("**", "").replace("==", "")
+    out = []
+    for ln in t.splitlines():
+        ln = ln.strip().strip("|").strip()
+        if not ln or re.fullmatch(r"[\s:|-]+", ln):
+            continue
+        out += [x.strip() for x in re.split(r"(?<=[.?!])\s+", ln) if x.strip()]
+    return out
+
+
+def relay_sentences(plain):
+    """전하는 말로 세는 문장 목록(문장 하나는 한 번으로 센다)."""
+    return [s for s in _sentences(plain) if any(rx.search(s) for rx in RELAY_RX)]
+
+
+def relay_check(plain):
+    """돌려주는 값: (위반 글 목록, 전하는 말 횟수, 문장 목록)."""
+    sents = relay_sentences(plain)
+    viol = []
+    if len(sents) >= 3:
+        viol.append(f"전하는 말 {len(sents)}번(2번까지) · " + " / ".join(f"({i}) {x[:40]}" for i, x in enumerate(sents, 1)))
+    for s in _sentences(plain):
+        if DEORAGO_RX.search(s):
+            viol.append(f"'~더라고요/~더라구요' 는 1번도 안 돼요 · {s[:40]}")
+    return viol, len(sents), sents
 
 
 def split_draft(text):
@@ -312,6 +354,33 @@ def radar_product_names(run_arg="", text=""):
     return radar_product_scope(run_arg, text)[0]
 
 
+EXP_WORDS = ["써보니", "써 보니", "사용기", "실사용"]  # 틀 E 만 허용(○개월 사용·더라고요 포함)
+BODY_BANNED = ["후기", "내돈내산", "써보니", "써 보니", "사용기", "실사용", "직접 써본", "최고", "무조건", "100%", "완벽", "강력 추천", "1위"]
+LEN_RANGE = {"A": (2200, 3000), "B": (1600, 2200), "E": (2200, 3000)}
+
+
+def body_chars_with_space(body):
+    """v3.6 글자 수: 본문 칸만(메모 위), 공백 포함. 플랫폼·제목 줄, [사진/상품카드/내부링크] 줄, 마크다운 기호(#·**·==·표 |·---)는 뺀다. 줄바꿈은 세지 않는다."""
+    t = "\n".join(body.split("\n")[2:])
+    t = PLACEHOLDER.sub("", t)
+    t = re.sub(r"^\s*\|?[\s:|-]*-{3,}[\s:|-]*$", "", t, flags=re.M)
+    t = re.sub(r"^#{1,6}\s", "", t, flags=re.M).replace("**", "").replace("==", "").replace("|", "")
+    return len(t.replace("\n", ""))
+
+
+def body_banned_hits(plain, frame):
+    """본문(제목 줄 뺀 본문)에서 금지 단어 위반 목록. 틀 E 는 사용기·실사용·써보니·○개월 사용 허용."""
+    t = PLACEHOLDER.sub("", plain).replace("**", "").replace("==", "")
+    out = []
+    for w in BODY_BANNED:
+        if frame == "E" and w in EXP_WORDS:
+            continue
+        for m in re.finditer(re.escape(w), t):
+            a = t.rfind("\n", 0, m.start()) + 1
+            out.append(f"본문 금지 단어 '{w}' · {t[a:m.end() + 12].splitlines()[0].strip()[:40]}")
+    return out
+
+
 def _body_chars(body):
     t = "\n".join(body.split("\n")[2:])
     t = PLACEHOLDER.sub("", t)
@@ -343,7 +412,7 @@ def _queue_frame(title):
     t = re.sub(r"\s+", " ", title or "").strip()
     for x in q:
         pl = x.get("plan") or {}
-        if t and t in {re.sub(r"\s+", " ", str(v)).strip() for v in (pl.get("final_title"), pl.get("title"))} and x.get("planned_type") in ("A", "B"):
+        if t and t in {re.sub(r"\s+", " ", str(v)).strip() for v in (pl.get("final_title"), pl.get("title"))} and x.get("planned_type") in ("A", "B", "E"):
             return x["planned_type"]
     return ""
 
@@ -351,9 +420,9 @@ def _queue_frame(title):
 def frame_of(title, frame_arg="", fname=""):
     """틀 A/B: --frame 이 있으면 그것, 없으면 파일 이름의 _A_/_B_, 그것도 없으면 대기열에서 같은 제목을 찾는다. 모르면 ''."""
     f = (frame_arg or "").strip().upper()
-    if f in ("A", "B"):
+    if f in ("A", "B", "E"):
         return f
-    m = re.search(r"_([AB])_", os.path.basename(fname or ""))
+    m = re.search(r"_([ABE])_", os.path.basename(fname or ""))
     return m.group(1) if m else _queue_frame(title)
 
 
@@ -484,7 +553,10 @@ def check_draft(text, run_arg="", frame="", fname=""):
     # g. 제목
     if len(title) > 40:
         it["g"]["viol"].append(f"제목 {len(title)}자(40자 이내)")
+    fr0 = frame_of(title, frame, fname)
     for w in TITLE_BANNED:
+        if fr0 == "E" and w in EXP_WORDS:
+            continue
         if w in title:
             it["g"]["viol"].append(f"제목 금지 단어 '{w}'")
     # h. 카테고리·태그
@@ -579,7 +651,7 @@ def check_draft(text, run_arg="", frame="", fname=""):
     if fr == "B":
         it["n"]["viol"] += b_card_problems(plain)
     elif not fr:
-        it["n"]["warn"].append("틀(A/B)을 몰라서 본상품 카드 2개 검사를 못 했어요 → --frame A|B 를 주세요")
+        it["n"]["warn"].append("틀(A/B/E)을 몰라서 본상품 카드 2개 검사를 못 했어요 → --frame A|B 를 주세요")
     # o. 태그 띄어쓰기 금지(v3.4)
     if tag:
         v = tag.group(1)
@@ -589,6 +661,19 @@ def check_draft(text, run_arg="", frame="", fname=""):
             bad = [v.strip()] if re.search(r"\s", v.strip()) else []
         for t in bad:
             it["o"]["viol"].append(f"태그에 띄어쓰기 · {t[:40]}")
+    # p. 전하는 말(v3.5)
+    pv, res["relay_n"], res["relay_sents"] = relay_check(plain)
+    if fr == "E":  # 틀 E 는 ~더라고요 허용(전하는 말 횟수 검사는 그대로)
+        pv = [x for x in pv if not x.startswith("'~더라고요")]
+    it["p"]["viol"] += pv
+    # q. 본문 금지 단어(v3.6)
+    it["q"]["viol"] += body_banned_hits(plain, fr)
+    # r. 글자 수(경고만, v3.6)
+    res["chars_v36"] = body_chars_with_space(body)
+    if fr in LEN_RANGE:
+        lo2, hi2 = LEN_RANGE[fr]
+        if not (lo2 <= res["chars_v36"] <= hi2):
+            it["r"]["warn"].append(f"본문 {res['chars_v36']}자(공백 포함) · 틀 {fr} 범위 {lo2:,}~{hi2:,}자")
     res["violations"] = len(ferr) + sum(len(v["viol"]) for v in it.values())
     res["warnings"] = sum(len(v["warn"]) for v in it.values())
     return res

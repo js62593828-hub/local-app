@@ -12,6 +12,7 @@
   images.json 에 크기·글자 많음·제품 보임·확인 필요를 적는다(자동 추정 + 같은 폴더 overrides.json 으로 사람이 고친 판정 덮어쓰기).
   이미 받은 상품은 다시 받지 않는다(--refresh-images 때만). 판정만 다시 하려면 --rejudge-images(받지 않음). 뱃지(판매처 뱃지·로고)는 images.json 의 `뱃지`·`뱃지 확인 필요` 칸. 수집 뒤(기본, --no-gif 로 끔) tools/radar_gif.py 로 <상품id>.gif 도 만든다.
 - research/<상품id>.md 에 `짧은 이름:`(브랜드+모델명 14자 안, 못 만들면 비우고 '확인 필요') 칸이 있다.
+- (앞으로 만드는 파일 형식, 안내만 — 코드는 안 바뀜) research 파일 맨 위에 '## 원고용 요약'(사양 값과 출처·평점·수집일·후기 요약 주제와 정도·쓸 이미지 경로, 1,500자 이내)을 두고 긴 원문은 그 아래에 둔다. 이미 있는 파일은 고치지 않는다.
 """
 import argparse, glob, json, os, re, shutil, subprocess, sys, tempfile
 from collections import Counter, OrderedDict, deque
