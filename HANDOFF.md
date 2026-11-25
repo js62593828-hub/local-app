@@ -1,5 +1,10 @@
+## 진행 중 (2026-11-25 TK-X1E): N살림노트 앱 넣기 도구 tools/salim_import.py 신설 + 11/30 주 19편 미리 보기(복사본·가짜 이미지) — 실제 대기열·articles·이미지·API·네이버 접속 없음
+- 단계: 0단계 통과, 11/20 방법 조사(읽기), 도구 작성 끝, 미리 보기 실행 중. 실제 넣기는 사용자가 "넣어"/"이미지 넣어" 한 뒤에만.
+- 다음 명령(미리 보기): python -X utf8 tools/salim_import.py --week 2026-11-30 --stage final
+- 실제 넣기(사용자 승인 뒤): --stage text --apply → --stage images --apply → --stage final --apply (단계마다 앞서 queue·articles 백업 자동)
+
 ## 완료 (2026-11-25 TK-X1E): 11/30 주 N살림노트 19편 앱 넣기 준비 — 조사·복사본 시험 (실제 앱 데이터·이미지·네이버·이미지 API 없음, 코드 수정 없음)
-- 조사: 11/23 주는 사람이 화면에서 본문 코드 칸→붙여넣기 칸, 메타 코드 칸→메타 칸에 붙임(articles 의 raw_paste·platform_metadata 가 원고 코드 칸과 글자 그대로 같음). lt_auto_input.py 는 longterm_wp 전용(채널·플랫폼 이름 고정). naver_tips 용 넣기 도구는 없음. 예약 시각을 저장하는 칸은 앱에 없음(platform_scheduled_time 비어 있음, 시각은 파일 이름·이번주기록).
+- 조사(11/25 정정): ~~11/23 주는 사람이 화면에서 붙임~~ → 틀림. articles 의 platform_generated_at 이 11/20 20:21~20:38 에 20편(1분 간격, 붙여넣은 글자는 LF), 20:04 에 1편(CRLF=화면 붙임 흔적) → 20편은 Claude Code 가 자동으로 넣음(이미지도 1분 간격으로 실제 생성). 그때 대화 기록·스크립트는 기록에서 빠져 있었음. 본문·메타는 원고 코드 칸과 글자 그대로 같음. lt_auto_input.py 는 longterm_wp 전용(채널·플랫폼 이름 고정). naver_tips 용 넣기 도구는 없음. 예약 시각을 저장하는 칸은 앱에 없음(platform_scheduled_time 비어 있음, 시각은 파일 이름·이번주기록).
 - 시험: 임시 폴더 복사본 + 가짜 이미지로 03 한파대비·02 제설 2편 넣기 성공(붙여넣기·메타·이미지 표지1+본문4·최종본·업로드 폴더). 실제 queue·articles 해시 전후 같음, 드라이브 안 다른 파일 변경 0. 스크립트·결과 pipeline/salim_upload_run/import_trial_20261125/.
 - 실행 명령(시험): python -X utf8 pipeline/salim_upload_run/import_trial_20261125/salim_trial.py <시험폴더>. 실제 넣기는 사용자 결정 대기(화면 수동 또는 새 도구 tools/salim_import.py 신설).
 
