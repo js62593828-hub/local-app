@@ -23,7 +23,7 @@ GRAY_BLUE = (174, 185, 209)
 GRAY = (122, 134, 158)
 INK = (17, 24, 39)
 MARGIN = 72
-JPG_QUALITY = 92
+JPG_QUALITY = 85
 
 _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 _BOLD = [os.path.join(_FONT_DIR, "Pretendard-ExtraBold.otf"), "C:\\Windows\\Fonts\\malgunbd.ttf", "malgunbd.ttf"]

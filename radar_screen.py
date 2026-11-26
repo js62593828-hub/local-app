@@ -3,6 +3,7 @@
 하는 일: 원고(본문+메모)의 표시를 읽어 화면에 보여 줄 값 만들기 / 후보 사진 찾기 / 고른 사진·GIF 를 글 사진 폴더로 복사 /
 표지 만들기 / 고른 결과를 글 사진 폴더 안 photos.json 하나에 저장. 대기열·장부 json 에는 아무것도 쓰지 않는다.
 """
+import io
 import json
 import os
 import re
@@ -595,6 +596,37 @@ def set_gif_skip(pdir, name, skip):
     return True, f"'{name[:30]}' GIF 를 " + ("'안 넣음'으로 뺐어요(③ 최종본·업로드 폴더에서 빠져요)" if skip else "다시 넣기로 했어요")
 
 
+SLOT_SHRINK_BYTES = 600 * 1024  # 이보다 큰 사진만 줄여서 가져옴
+SLOT_MAX_W = 1600
+SLOT_JPG_QUALITY = 88
+
+
+def _copy_slot_photo(src, pdir, number):
+    """고른 사진을 글 사진 폴더에 저장하고 파일 이름을 돌려준다. 원본은 안 바꿈.
+    600KB 넘는 사진(움직이는 그림 제외)은 가로 1600px 이하 JPG(흰 바탕)로 줄인다. 작아지지 않거나 실패하면 그대로 복사."""
+    base = os.path.basename(src)
+    if os.path.getsize(src) > SLOT_SHRINK_BYTES:
+        try:
+            from PIL import Image, ImageOps
+            with Image.open(src) as im:
+                if not getattr(im, "is_animated", False):
+                    out = _rgb_on_white(ImageOps.exif_transpose(im))
+                    if out.width > SLOT_MAX_W:
+                        out = out.resize((SLOT_MAX_W, round(out.height * SLOT_MAX_W / out.width)), Image.LANCZOS)
+                    buf = io.BytesIO()
+                    out.save(buf, "JPEG", quality=SLOT_JPG_QUALITY, optimize=True, progressive=True)
+                    if buf.tell() < os.path.getsize(src):
+                        name = f"slot{number}_{os.path.splitext(base)[0]}.jpg"
+                        with open(os.path.join(pdir, name), "wb") as f:
+                            f.write(buf.getvalue())
+                        return name
+        except Exception as e:  # noqa: BLE001 — 줄이기에 실패해도 사진 고르기는 되어야 함
+            print("[사진 줄이기 실패, 원본 복사]", base, e)
+    name = f"slot{number}_{base}"
+    shutil.copyfile(src, os.path.join(pdir, name))
+    return name
+
+
 def choose_slot(pdir, number, src):
     """칸에 사진 하나 고르기: 글 사진 폴더로 복사(slot<번호>_<원래 이름>). src 가 빈 값이면 선택 취소.
     사진을 고르면 그 자리의 '안 넣음'은 풀린다."""
@@ -613,9 +645,8 @@ def choose_slot(pdir, number, src):
     if not is_allowed_file(src) or not os.path.realpath(src).startswith(os.path.realpath(RUNS_ROOT) + os.sep):
         return False, "고를 수 없는 파일이에요"
     base = os.path.basename(src)
-    dst_name = f"slot{number}_{base}"
     os.makedirs(pdir, exist_ok=True)
-    shutil.copyfile(src, os.path.join(pdir, dst_name))
+    dst_name = _copy_slot_photo(src, pdir, number)
     if old and old != dst_name and _exists(pdir, old):
         os.remove(os.path.join(pdir, old))
     st["slots"][key] = dst_name
@@ -1563,7 +1594,7 @@ def _contain(im, size):
 
 def fit_square_copy(src, dst, size):
     """src 그림을 size×size 로 맞춰 dst 에 저장(원본은 안 바꿈). 이미 size×size 면 그대로 복사.
-    JPEG 는 품질 90, PNG 는 PNG, GIF 는 프레임 수·장당 시간·반복 횟수를 그대로 두고 프레임마다 같은 방식으로 맞춘다."""
+    JPEG 는 품질 85, PNG 는 PNG, GIF 는 프레임 수·장당 시간·반복 횟수를 그대로 두고 프레임마다 같은 방식으로 맞춘다."""
     from PIL import Image, ImageOps, ImageSequence
     with Image.open(src) as im:
         fmt = im.format
@@ -1587,7 +1618,7 @@ def fit_square_copy(src, dst, size):
         elif fmt == "WEBP":
             out.save(dst, format="WEBP", quality=90)
         else:
-            out.save(dst, format="JPEG", quality=90, optimize=True)
+            out.save(dst, format="JPEG", quality=85, optimize=True)
 
 
 def _frame_cfg():
@@ -1636,7 +1667,7 @@ def _frame_image(im, size, cfg, lb_fill=False):
 
 
 def frame_square_copy(src, dst, size, cfg, lb_fill=False):
-    """본문 사진을 프레임(⑩) 씌워 dst 에 저장(원본은 안 바꿈). JPEG 품질 90, PNG 는 PNG. lb_fill=True 면 장면 사진은 띠 없이 칸을 채움."""
+    """본문 사진을 프레임(⑩) 씌워 dst 에 저장(원본은 안 바꿈). JPEG 품질 85, PNG 는 PNG. lb_fill=True 면 장면 사진은 띠 없이 칸을 채움."""
     from PIL import Image, ImageOps
     with Image.open(src) as im:
         fmt = im.format
@@ -1646,7 +1677,7 @@ def frame_square_copy(src, dst, size, cfg, lb_fill=False):
     elif fmt == "WEBP":
         out.save(dst, format="WEBP", quality=90)
     else:
-        out.save(dst, format="JPEG", quality=90, optimize=True)
+        out.save(dst, format="JPEG", quality=85, optimize=True)
 
 
 def notice_text_height(im):

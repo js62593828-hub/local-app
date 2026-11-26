@@ -263,12 +263,12 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # 새로 만드는 AI 이미지·표지·본문·표지 배경·상품 변형 이미지는 PNG 대신 JPG로 저장합니다(장당 약 1.3MB → 훨씬 작게).
 # 품질은 여기 한 곳만 바꾸면 됩니다. 생활레이더(RADAR_COVER_JPG_QUALITY)는 따로 이미 JPG이므로 이 값과 무관합니다.
 # 옛 글의 .png 파일은 그대로 두며, 앱은 .jpg를 먼저 찾고 없으면 .png도 찾습니다.
-GEN_JPG_QUALITY = 90
+GEN_JPG_QUALITY = 82  # 2026-11-27 90→82: 눈으로는 거의 같고 용량 약 30% 작음(워드프레스 업로드와 같은 값)
 
 
 def _save_gen_jpg(img: Image.Image, filepath: str) -> None:
-    """이미지를 RGB로 바꿔 JPG(GEN_JPG_QUALITY, optimize)로 저장합니다. filepath의 확장자는 .jpg여야 합니다."""
-    img.convert("RGB").save(filepath, "JPEG", quality=GEN_JPG_QUALITY, optimize=True)
+    """이미지를 RGB로 바꿔 JPG(GEN_JPG_QUALITY, optimize, progressive)로 저장합니다. filepath의 확장자는 .jpg여야 합니다."""
+    img.convert("RGB").save(filepath, "JPEG", quality=GEN_JPG_QUALITY, optimize=True, progressive=True)
 
 # ── 채널/글제목별 폴더링 ──────────────────────────────────────────────────
 # 기본은 예전처럼 static/generated에 전부 평평하게 저장되지만, app.py가 요청 시작할 때
@@ -3106,7 +3106,7 @@ RADAR_COVER_OUT_SIZE = 1080  # (옛 1:1 — 사용 안 함)
 RADAR_GEN_SIZE_169 = "1536x1024"  # 이미지 모델이 지원하는 가로형(1024x1024 / 1536x1024 / 1024x1536 중)
 RADAR_OUT_SIZE_169 = (1536, 864)  # 16:9 최종 크기(1536x1024에서 위아래만 잘라 냄 — 확대 없음)
 RADAR_OUT_SIZE_43 = (1440, 1080)  # (옛 4:3 사진/표지 배치용 — 새 사진은 만들지 않음)
-RADAR_COVER_JPG_QUALITY = 92
+RADAR_COVER_JPG_QUALITY = 85
 RADAR_COVER_COST_NOTE = "약 20원"  # 장당 화면 안내용 어림값(flare low 표지: 프롬프트가 길어 약 $0.0155)
 RADAR_BODY_COST_NOTE = "약 15원"  # 1장 기준 화면 안내용 어림값(flare low 본문: 약 $0.0103)
 RADAR_SQUARE_THUMB_BOX = (336, 0, 1200, 864)  # 네이버 정사각 썸네일로 잘릴 때 보이는 가운데 864x864 영역(16:9 사진 기준)
