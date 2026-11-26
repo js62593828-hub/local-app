@@ -66,7 +66,9 @@ def is_allowed_file(rel_path):
 def list_runs():
     if not os.path.isdir(RUNS_ROOT):
         return []
-    return sorted((d for d in os.listdir(RUNS_ROOT) if d.endswith("_radar_naver")), reverse=True)
+    # '_radar_naver' 와 '_radar_naver_plan' 폴더 모두. 폴더 이름 앞 날짜(YYYYMMDD)가 최신인 것부터(같은 상품은 새 폴더 값을 씀)
+    runs = (d for d in os.listdir(RUNS_ROOT) if d.endswith("_radar_naver") or d.endswith("_radar_naver_plan"))
+    return sorted(runs, key=lambda d: (d.split("_")[0], d), reverse=True)
 
 
 def _id_from_url(url):
@@ -1300,6 +1302,8 @@ def load_naver_links():
     for run in list_runs():
         links = _read_json(os.path.join(RUNS_ROOT, run, "links.json")) or {}
         for it in links.get("items") or []:
+            if (it.get("status") or "").strip() == "실패":
+                continue  # 발급 실패 항목은 건너뜀
             pid, nl = str(it.get("product_id") or ""), (it.get("naver_link") or "").strip()
             if pid and nl.startswith("https://naver.me/") and pid not in out:
                 out[pid] = nl

@@ -1,3 +1,25 @@
+## 이어갈 것 (2026-11-26): W싼세계 11/30 주 기획 2차안 — 사용자 제품 고르기 대기
+- 사용자 지시: 제품 하나 = 글 하나(다시 쓰지 않음), 지난주·기존 글과 소재 겹침 금지. tools/wp_rules.md v1.8 과 wp-writer.md 에 반영(docs 사본 있음). W싼세계 프로젝트의 지침 원본은 사용자가 바꿔야 함. wp_inbox_build 의 재사용 경고는 옛 기준(3편까지) 그대로.
+- 만든 것: pipeline/wp_plan_run/20261130/기획표.md(21편·제품 28개), pipeline/wp_inbox/2026-11-30/_주간계획.txt·_빈양식_제품표.tsv(1차안은 _1차안/). wp_inbox_build 확인: 21줄 읽힘.
+- 다음: 사용자가 제품표 채움(11/30 분 4개 먼저, 파일 이름 _제품표_수집날짜.tsv) → 7번째 칸 필수 표기정보는 _추가자료 로 옮기고 새 브랜드는 _공식사양.json → python tools/wp_inbox_build.py --week 2026-11-30 → D 7줄 키워드를 모델명으로 → wp-writer(재사용 금지 알림).
+- 안 한 것: 앱 대기열·글 데이터·코드, 구글 경쟁 확인, push. git reset 하지 말 것(origin 에 안 올라간 커밋 있음).
+
+## 이어갈 것 (2026-11-25, 지시문 ⑨ 완료): 링크 읽기 고침 + 제목 2개 + 11/30 주 21편 앱 넣기(--apply) 끝
+- radar_screen.py: list_runs 가 _radar_naver_plan 폴더도 읽음(폴더 날짜 최신 우선), load_naver_links 는 상태 '실패' 건너뜀. 11/30 주 상품카드 60개 모두 링크 있음(plan links.json 과 같음), 11/23 주 38개 전후 같음. 커밋 34ae50a.
+- 제목 바꿈: 1205_3 → '니케 헤드폰 거치대 원목, 회전 걸이형과 다른 점', 1206_1 → '탁상시계 추천, 표시 방식·전원 방식 기준으로 고른 3가지'(세 제품 research 에 모두 표시 방식·전원 방식 근거). 원고 3편 고침(니케·탁상시계·USB허브 1204_1 옵션 문장). plan.md 도 같이 고침, plan.json·plan_push.json 은 안 고침(옛 제목 남음).
+- radar_import --apply 21편 넣음(articles_radar_naver.json 89→110, 다른 항목 변화 없음, 대기열 JSON 변화 없음). 백업: *.backup_before_radar_import_apply_20261125, *.backup_before_title2_20261125, pipeline/radar_drafts/_backup/before_title2_20261125/
+- 남은 일: 앱 화면에서 21편 최종본 만들기·확인 → 사용자가 네이버 예약 발행. 링크 발급·push 는 안 함.
+
+## 완료 (2026-11-25, 지시문 ⑧): 11/30 주 21편 독립 검수 + radar_import 미리보기
+- 서브에이전트 6개로 17편 숫자 대조(값 불일치 0, 표현·근거 없는 문장 수정). radar_check 위반 0(경고 5: 사진 6장·글자 수 4편, 노르잇 1569자). 미리보기 21편 모두 대기열 짝지음.
+- 앱(radar_screen.py)은 이름이 _radar_naver 로 끝나는 폴더의 links.json 만 읽음 → 20261130_radar_naver_plan 은 안 읽힘(사용자 결정 필요). 안 한 것: apply, 링크 발급, push, 커밋.
+
+## 완료 (2026-11-25, 지시문 ⑦): 대기열 제목 3개 + 원고 4편 수정 + 원고 16편
+- 대기열 제목 3개 바꿈(11/30 B6 필립스, 12/4 A5 USB 허브, 12/4 B2 노르잇). 백업: content_queue_radar_naver.backup_before_title3_20261125.json, pipeline/stage_plan1130_run/20261123/plan.backup_before_title3_20261125.md. plan.md 표 제목·글자 수도 같이 바꿈.
+- 원고 21편(pipeline/radar_drafts/2026-11-30/) radar_check 위반 0·경고 0. 1201_2 데스커 받침대도 사용자 요청으로 11/25 작성(깊이 220mm 사용자 확인값).
+- 사용자 확정(11/25): 데스커 받침대 깊이(앞뒤 폭) 220mm, 서랍 폭과 같고 전체 옵션 공통. 1201_2 원고는 이 값으로 작성 완료(research 파일은 안 고침).
+- 안 한 것: --apply(radar_import·push_plan), 링크 발급, 블로그 글쓰기, push.
+
 ## 최신 (2026-11-25 집 PC): origin HANDOFF 합치기 — 남은 일만 (출처: docs/archive/2026-11/HANDOFF_origin_20261125.md, 1,099줄 통째로 보관)
 - N살림노트 11/30 주 19편: 앱 넣기 끝(text·images·final 오류 0). 남은 일 = 사용자가 네이버에서 예약 발행. 업로드 폴더 '예약 시각'은 원고 파일 이름에만 있음(origin 최신 커밋에 예약 시각 표 있음).
 - 최종본 경고 1건: 02 눈삽 별점 상자(평점 5.04). RSS 로 주소가 채워진 다른 글 1건(2026-11-23_abbf7757 원목 서랍장).
