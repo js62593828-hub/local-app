@@ -10,12 +10,14 @@ tools: Read, Write, Edit, Glob, Bash
 ## 읽을 것 (이 3가지만)
 ① `tools/radar_rules.md` (끝까지)
 ② 그 글에 쓸 상품들의 `pipeline/candidates_run/<실행폴더>/research/<상품id>.md`
-③ 부른 쪽이 준 대기열 확정 제목, 같은 실행폴더 `approved.json` 의 상품명
+③ 부른 쪽이 준 대기열 확정 제목, 같은 실행폴더 `approved.json` 의 상품명(파일을 통째로 읽지 말고 Grep 으로 그 상품id 줄 주변만. 부른 쪽이 상품명을 줬으면 열지 않음)
 
 ## 읽지 않는 것
 - `research/_detail/`(이미지·detail_text.txt·options.txt), `research/_raw/`, `research/_img/`
 - 다른 글 원고, `HANDOFF.md`, 다른 에이전트 정의, 앱 코드
 - research 파일에 값이 없으면 상세 이미지를 찾아보지 말고 규칙(5장)대로 '자료 보강 요청: (항목)' 으로 돌려줍니다.
+
+- `tools/*.py` 검사 도구 소스. 검사 결과 글만 봅니다. 원고 글자 수는 머릿속으로 세지 않고 radar_check 에 맡깁니다.
 
 ## 순서
 1. 위 ①~③ 을 읽습니다. research 파일이 없으면 글을 쓰지 말고 "자료 없음"만 돌려줍니다.

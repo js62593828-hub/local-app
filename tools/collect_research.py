@@ -632,6 +632,58 @@ def write_images_json(item, raw, genre, short, out_dir=None):
     return out
 
 
+# ---------- 받은 이미지 줄이기 (CLAUDE.md 이미지 용량 규칙) ----------
+IMG_MAX_W = 1600
+IMG_QUALITY = 85
+IMG_SHRINK_MIN = 300 * 1024  # 이보다 작은 파일은 그대로 둔다
+
+
+def shrink_downloaded(img_dir, images):
+    """방금 받은 상품 사진을 가로 1600px 이하 JPG 로 줄인다. GIF·투명 그림·20% 넘게 안 줄어드는 것은 그대로.
+    파일 이름이 바뀌면(png·webp → jpg) images 의 file 칸도 고친다. 반환 (줄인 장수, 줄어든 바이트)."""
+    import io
+    from PIL import Image
+    count = saved = 0
+    for r in images:
+        name = r.get("file") or ""
+        src = os.path.join(img_dir, name)
+        if not name or name.lower().endswith(".gif") or not os.path.isfile(src):
+            continue
+        size = os.path.getsize(src)
+        if size <= IMG_SHRINK_MIN:
+            continue
+        try:
+            with Image.open(src) as im:
+                if getattr(im, "is_animated", False):
+                    continue
+                rgba = im.convert("RGBA")
+            if rgba.getchannel("A").getextrema()[0] < 255:
+                continue
+            out = rgba.convert("RGB")
+            if out.width > IMG_MAX_W:
+                out = out.resize((IMG_MAX_W, max(1, round(out.height * IMG_MAX_W / out.width))), Image.LANCZOS)
+            buf = io.BytesIO()
+            out.save(buf, "JPEG", quality=IMG_QUALITY, optimize=True, progressive=True)
+        except Exception as e:  # noqa: BLE001 — 못 읽는 파일은 받은 그대로 둔다
+            print("  이미지 줄이기 못 함:", name, e)
+            continue
+        if buf.tell() >= size * 0.8:
+            continue
+        stem, ext = os.path.splitext(name)
+        new_name = name if ext.lower() in (".jpg", ".jpeg") else stem + ".jpg"
+        dst = os.path.join(img_dir, new_name)
+        if new_name != name and os.path.exists(dst):
+            continue
+        with open(dst, "wb") as f:
+            f.write(buf.getvalue())
+        if new_name != name:
+            os.remove(src)
+        r["file"], r["bytes"], r["type"] = new_name, buf.tell(), "image/jpeg"
+        count += 1
+        saved += size - buf.tell()
+    return count, saved
+
+
 # ---------- 이미지 판정만 다시 (--rejudge-images) ----------
 def rejudge_images(items, run_dir, out_dir=""):
     """이미 받은 이미지는 그대로 두고 판정(뱃지·글자 많음·제품 보임)만 다시 한다. 브라우저·네트워크 안 씀.
@@ -870,6 +922,12 @@ def main():
     for it in items:
         rp = os.path.join(raw_dir, it["product_id"] + ".json")
         raw = jload(rp) if os.path.exists(rp) else {"error": "수집 파일 없음"}
+        # 이번에 새로 받은 사진만 줄인다(--parse-only·이미 받은 상품은 건드리지 않음). 이름이 바뀌면 raw 기록도 같이 고친다
+        if raw.get("images") and not a.parse_only and not it["skip_images"]:
+            n, saved = shrink_downloaded(it["img_dir"], raw["images"])
+            if n:
+                jsave(rp, raw)
+                print(it["product_id"], "  받은 사진 %d장 줄임(-%.1fMB)" % (n, saved / 1048576))
         official = fetch_official(it["product_id"], off_urls[it["product_id"]], raw_dir, a.refetch_official) if off_urls.get(it["product_id"]) and not raw.get("error") else None
         o = build(it, raw, expect, official)
         jsave(os.path.join(rdir, it["product_id"] + ".json"), o)

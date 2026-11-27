@@ -50,5 +50,11 @@
 - 이미지를 자른 조각은 JPG 로, 읽을 것만 만들고 다 쓰면 지운다. 시험용 앱 데이터 복사본·미리보기도 시험이 끝나면 지운다.
 - 이미 발행에 쓴 그림(static/generated)은 다시 압축하지 않는다.
 
+## 토큰 아끼기 규칙 (전 채널, 2026-11-27 사용자 요청)
+- 작업 하나 = 새 대화 하나. 단계가 끝나면 HANDOFF 에 적고 사용자에게 `/clear` 를 권한다.
+- `app.py`·`tools/*.py`·긴 문서·원고·데이터 JSON 은 통째로 읽지 않는다. Grep 으로 찾아 필요한 줄만 읽고, 명령 출력은 필요한 항목만 찍는다.
+- 맡길 때는 전용 에이전트만: 사실 확인 `fact-checker`, 원고 채널별 writer, 상세 이미지 `spec-reader`, 후기 `review-summarizer`. general-purpose 에게 이 일들을 시키지 않는다. 맡기는 말은 정해진 항목만 짧게(규칙은 에이전트 파일에 있으니 되풀이하지 않는다).
+- 원고 확인은 검사 도구 결과와 `tools/draft_digest.py` 요약으로 한다. 상세 이미지는 메인 대화에서 직접 읽지 않는다.
+
 ## W싼세계 작업 경계
 - W싼세계(wp_tips)는 대시보드 프로젝트를 거치지 않는다. 싼세계 도구(tools/wp_*.py, wp_rules.md, wp_banned.json, wp_banner.json, .claude/agents/wp-writer.md)는 W싼세계 프로젝트 지시문으로 직접 고치고, 같이 쓰는 코드는 복제가 먼저, 꼭 고칠 때만 wp_tips 한정 + 다른 채널 전후 비교 + reviewer.
